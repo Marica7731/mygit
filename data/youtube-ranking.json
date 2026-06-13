@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": null,
+  "collectedAt": null,
+  "target": 300,
+  "limits": {
+    "global": 1000,
+    "live": 500,
+    "today": 500,
+    "month": 500
+  },
+  "scrollToBottomGroups": [
+    "live",
+    "today"
+  ],
+  "locale": "ja-JP",
+  "region": "JP",
+  "groups": {
+    "live": {
+      "sourceGroup": "live",
+      "label": "直播 / 预约",
+      "title": "歌枠 / 弾き語り直播与预约",
+      "description": "YouTube 搜索结果中的直播、预约和即将开始内容。",
+      "collectedAt": null,
+      "updatedAt": null,
+      "sources": [],
+      "keywords": {
+        "歌枠": [],
+        "弾き語り": []
+      },
+      "items": []
+    },
+    "today": {
+      "sourceGroup": "today",
+      "label": "今日热度",
+      "title": "今日歌枠 / 弾き語り热度排行",
+      "description": "YouTube 今日筛选结果，保留页面原始展示顺序。",
+      "collectedAt": null,
+      "updatedAt": null,
+      "sources": [],
+      "keywords": {
+        "歌枠": [],
+        "弾き語り": []
+      },
+      "items": []
+    },
+    "month": {
+      "sourceGroup": "month",
+      "label": "本月热度",
+      "title": "本月歌枠 / 弾き語り热度排行",
+      "description": "YouTube 本月筛选结果，每个来源最多保留 500 条。",
+      "collectedAt": null,
+      "updatedAt": null,
+      "sources": [],
+      "keywords": {
+        "歌枠": [],
+        "弾き語り": []
+      },
+      "items": []
+    }
+  }
+}

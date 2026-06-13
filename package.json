@@ -1,0 +1,17 @@
+{
+  "name": "youtube-ranking-pages",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GitHub Pages static ranking pages for YouTube 歌枠 / 弾き語り search results.",
+  "scripts": {
+    "check": "node --check scripts/update-youtube-ranking.js && node --check assets/youtube-ranking.js && for f in assets/youtube-ranking.chunk*.js; do node --check \"$f\"; done",
+    "update": "node scripts/update-youtube-ranking.js",
+    "serve": "python3 -m http.server 8080"
+  },
+  "dependencies": {
+    "playwright": "^1.52.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
