@@ -1,0 +1,42 @@
+.source-chip .badge.ok,
+.source-chip .badge.warn {
+  display: none !important;
+}
+
+.thumbnail {
+  aspect-ratio: 16 / 7.4;
+}
+
+@media (max-width: 760px) {
+  .filter-toolbar {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .filter-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .layout-toggle {
+    flex: 0 0 auto;
+    min-width: max-content;
+  }
+
+  .layout-toggle button {
+    flex: 0 0 auto;
+    min-width: 43px;
+  }
+
+  .active-filter-chips {
+    flex: 0 0 auto;
+  }
+
+  .thumbnail {
+    aspect-ratio: 16 / 7.2;
+  }
+
+  body[data-layout-mode="three"] .thumbnail {
+    aspect-ratio: 16 / 6.8;
+  }
+}
