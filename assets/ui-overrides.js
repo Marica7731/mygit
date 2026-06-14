@@ -222,6 +222,7 @@
   function enhanceCards() {
     prepareThumbnails();
     prepareMetricChips();
+    prepareRankMetrics();
     prepareChannelRows();
     prepareStatusPills();
     renderDefaultTitleChip();
@@ -262,6 +263,57 @@
     });
   }
 
+  function prepareRankMetrics() {
+    document.querySelectorAll(".video-card").forEach((card) => {
+      const rankLine = card.querySelector(".rank-line");
+      const item = rankingItemsByVideoId.get(getCardVideoId(card));
+      const metric = pickRankMetric(card, item);
+      if (!rankLine) return;
+
+      let promoted = rankLine.querySelector(".rank-metric");
+      if (!metric) {
+        if (promoted) promoted.remove();
+        card.classList.remove("has-rank-metric");
+        return;
+      }
+
+      if (!promoted) {
+        promoted = document.createElement("span");
+        promoted.className = "rank-metric";
+        rankLine.append(promoted);
+      }
+
+      promoted.className = "rank-metric";
+      promoted.classList.add(`metric-${metric.type}`);
+      promoted.textContent = metric.text || "";
+      metric.element?.classList.add("is-promoted-metric");
+      card.classList.add("has-rank-metric");
+    });
+  }
+
+  function pickRankMetric(card, item) {
+    const live = card.querySelector(".meta-list span.metric-live");
+    if (live) return { element: live, text: live.textContent || "", type: "live" };
+
+    const view = card.querySelector(".meta-list span.metric-view");
+    if (view) return { element: view, text: view.textContent || "", type: "view" };
+
+    if (item?.liveViewerText || item?.liveViewerCount != null) {
+      return { text: item.liveViewerText || `${formatCount(item.liveViewerCount)} 观看中`, type: "live" };
+    }
+    if (item?.subscriberText || item?.subscriberCount != null) {
+      return { text: item.subscriberText || `${formatCount(item.subscriberCount)} 订阅`, type: "subscriber" };
+    }
+    if (item?.likeText || item?.likeCount != null) {
+      return { text: item.likeText || `${formatCount(item.likeCount)} 赞`, type: "like" };
+    }
+
+    const duration = card.querySelector(".meta-list span.metric-duration");
+    if (duration) return { element: duration, text: duration.textContent || "", type: "duration" };
+
+    return null;
+  }
+
   async function loadRankingData() {
     const response = await fetch("data/youtube-ranking.json", { cache: "no-store" });
     if (!response.ok) return;
@@ -292,10 +344,10 @@
       }
 
       if (channel.parentElement !== row) row.append(channel);
-      if (meta.parentElement !== row) row.append(meta);
+      if (meta.parentElement === row) row.insertAdjacentElement("afterend", meta);
 
       const item = rankingItemsByVideoId.get(getCardVideoId(card));
-      updateChannelAvatar(avatar, item, channel.textContent || "");
+      updateChannelAvatar(row, avatar, item);
     });
   }
 
@@ -318,10 +370,8 @@
     chipBar.append(chip);
   }
 
-  function updateChannelAvatar(avatar, item, channelName) {
+  function updateChannelAvatar(row, avatar, item) {
     const avatarUrl = item?.channelAvatarUrl || "";
-    const initial = getInitial(channelName);
-    avatar.dataset.initial = initial;
 
     if (avatarUrl) {
       if (avatar.dataset.avatarSrc !== avatarUrl) {
@@ -335,19 +385,26 @@
         img.referrerPolicy = "no-referrer";
         avatar.append(img);
       }
+      avatar.hidden = false;
+      row.classList.add("has-avatar");
       return;
     }
 
     if (avatar.dataset.avatarSrc) avatar.dataset.avatarSrc = "";
-    avatar.textContent = initial;
+    avatar.innerHTML = "";
+    avatar.hidden = true;
+    row.classList.remove("has-avatar");
   }
 
   function handleAvatarError(event) {
     const img = event.target;
     const avatar = img instanceof HTMLImageElement ? img.closest(".channel-avatar") : null;
     if (!avatar) return;
+    const row = avatar.closest(".channel-metric-row");
     avatar.dataset.avatarSrc = "";
-    avatar.textContent = avatar.dataset.initial || "";
+    avatar.innerHTML = "";
+    avatar.hidden = true;
+    row?.classList.remove("has-avatar");
   }
 
   function getCardVideoId(card) {
@@ -361,11 +418,6 @@
     return (card.querySelector(".id-line span")?.textContent || "").trim();
   }
 
-  function getInitial(value) {
-    const chars = Array.from(String(value || "").trim()).filter((char) => /\S/.test(char));
-    return chars[0] || "?";
-  }
-
   function classifyMetric(value) {
     const text = String(value || "").trim();
     if (!text) return "";
@@ -375,6 +427,12 @@
     if (/(views?|回視聴|視聴回数|次观看|次觀看|조회수|회 시청)/i.test(text)) {
       return "view";
     }
+    if (/(subscribers?|登録者|订阅者|訂閱者)/i.test(text)) {
+      return "subscriber";
+    }
+    if (/(likes?|高く評価|いいね|赞|讚)/i.test(text)) {
+      return "like";
+    }
     if (/\b(\d{1,2}:)?\d{1,2}:\d{2}\b/.test(text)) {
       return "duration";
     }
@@ -382,6 +440,11 @@
       return "published";
     }
     return "";
+  }
+
+  function formatCount(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.round(number).toLocaleString("ja-JP") : "";
   }
 
   function handleThumbnailError(event) {
