@@ -20,7 +20,7 @@ permissions:
 
 concurrency:
   group: youtube-ranking-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   update-ranking:
@@ -32,7 +32,9 @@ jobs:
       YTB_RANKING_MONTH_LIMIT: "500"
       YTB_RANKING_SCROLL_TO_BOTTOM_GROUPS: "live,today"
       YTB_RANKING_ENRICH_LIVE_DETAILS: "1"
-      YTB_RANKING_LIVE_DETAIL_LIMIT: "120"
+      YTB_RANKING_LIVE_DETAIL_LIMIT: "40"
+      YTB_RANKING_LIVE_DETAIL_DELAY_MS: "800"
+      YTB_RANKING_LIVE_DETAIL_NAVIGATION_TIMEOUT_MS: "30000"
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
     steps:
       - name: Checkout
