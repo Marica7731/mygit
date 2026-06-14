@@ -66,16 +66,22 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cp data/youtube-ranking.json /tmp/youtube-ranking.json
+          git fetch origin main
+          git reset --hard origin/main
+          cp /tmp/youtube-ranking.json data/youtube-ranking.json
           git add data/youtube-ranking.json
           if git diff --cached --quiet; then
             echo "No data changes to commit."
           else
             git commit -m "chore: 更新 YouTube 排行数据"
-            git fetch origin main
-            git rebase origin/main
             git push || {
               git fetch origin main
-              git rebase origin/main
+              git reset --hard origin/main
+              cp /tmp/youtube-ranking.json data/youtube-ranking.json
+              git add data/youtube-ranking.json
+              git diff --cached --quiet && exit 0
+              git commit -m "chore: 更新 YouTube 排行数据"
               git push
             }
           fi
