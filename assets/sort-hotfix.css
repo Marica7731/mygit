@@ -7,6 +7,10 @@
   aspect-ratio: 16 / 7.4;
 }
 
+.video-card.is-thumbnail-missing {
+  display: none !important;
+}
+
 @media (max-width: 760px) {
   .filter-toolbar {
     overflow-x: auto;
