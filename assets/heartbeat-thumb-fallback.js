@@ -1,7 +1,12 @@
 (function () {
   ready(() => {
     repair();
-    [500, 1500, 3500, 7000].forEach((delay) => setTimeout(repair, delay));
+    [500, 1500, 3500, 7000, 12000].forEach((delay) => setTimeout(repair, delay));
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      repair();
+      if (Date.now() - startedAt > 30000) clearInterval(timer);
+    }, 2000);
   });
 
   function repair() {
@@ -31,6 +36,7 @@
       `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hq720.jpg`,
       `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`,
       `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/mqdefault.jpg`,
+      `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/default.jpg`,
     ];
     const current = stripQuery(img.currentSrc || img.src || "");
     let index = Number.parseInt(img.dataset.hbThumbFallbackIndex || "0", 10);
