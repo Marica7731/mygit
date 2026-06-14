@@ -6,6 +6,7 @@
   const originalFetch = window.fetch.bind(window);
   let localizeQueued = false;
   let itemByVideoId = new Map();
+  let orderByVideoId = new Map();
 
   window.fetch = async (input, init) => {
     const response = await originalFetch(input, init);
@@ -103,6 +104,10 @@
     const sorted = sortItems(items, order).map((item, index) => ({ ...item, visibleRank: index + 1 }));
     group.items = sorted;
     itemByVideoId = new Map(sorted.filter((item) => item.videoId).map((item) => [item.videoId, item]));
+    orderByVideoId = new Map();
+    sorted.forEach((item, index) => {
+      if (item.videoId && !orderByVideoId.has(item.videoId)) orderByVideoId.set(item.videoId, index);
+    });
 
     if (group.keywords) {
       for (const key of Object.keys(group.keywords)) {
@@ -195,6 +200,7 @@
 
   function localizeCards() {
     installSortOptions();
+    reorderCards();
     reconcileRankMetrics();
     document.querySelectorAll(".rank-metric, .meta-list span").forEach((node) => {
       const nextText = localizeMetric(node.textContent || "");
@@ -202,6 +208,27 @@
     });
     document.querySelectorAll(".thumbnail img").forEach((img) => {
       if (img.complete && (img.naturalWidth === 0 || isLikelyPlaceholder(img))) useNextThumbnail(img);
+    });
+  }
+
+  function reorderCards() {
+    if (!orderByVideoId.size) return;
+    document.querySelectorAll(".cards").forEach((parent) => {
+      const cards = Array.from(parent.children).filter((child) => child.classList?.contains("video-card"));
+      if (cards.length < 2) return;
+      const sorted = cards
+        .map((card, index) => ({ card, index, order: orderByVideoId.get(getCardVideoId(card)) }))
+        .sort((a, b) => {
+          if (a.order == null && b.order == null) return a.index - b.index;
+          if (a.order == null) return 1;
+          if (b.order == null) return -1;
+          return a.order - b.order || a.index - b.index;
+        })
+        .map((entry) => entry.card);
+      if (sorted.every((card, index) => card === cards[index])) return;
+      const fragment = document.createDocumentFragment();
+      sorted.forEach((card) => fragment.append(card));
+      parent.append(fragment);
     });
   }
 
