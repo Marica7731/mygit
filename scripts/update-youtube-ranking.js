@@ -82,6 +82,11 @@ const CONFIG = {
   scrollDelayMs: parseIntegerEnv("YTB_RANKING_SCROLL_DELAY_MS", 1400),
   initialDelayMs: parseIntegerEnv("YTB_RANKING_INITIAL_DELAY_MS", 2500),
   navigationTimeoutMs: parseIntegerEnv("YTB_RANKING_NAVIGATION_TIMEOUT_MS", 60000),
+  enrichLiveDetails: parseBooleanEnv("YTB_RANKING_ENRICH_LIVE_DETAILS", true),
+  liveDetailLimit: parseIntegerEnv("YTB_RANKING_LIVE_DETAIL_LIMIT", 120),
+  liveDetailDelayMs: parseIntegerEnv("YTB_RANKING_LIVE_DETAIL_DELAY_MS", 2500),
+  liveDetailNavigationTimeoutMs: parseIntegerEnv("YTB_RANKING_LIVE_DETAIL_NAVIGATION_TIMEOUT_MS", 60000),
+  youtubeApiKey: process.env.YOUTUBE_API_KEY || process.env.YTB_RANKING_YOUTUBE_API_KEY || "",
   headless: parseBooleanEnv("YTB_RANKING_HEADLESS", true),
   locale: process.env.YTB_RANKING_LOCALE || "ja-JP",
   region: process.env.YTB_RANKING_REGION || "JP",
@@ -127,6 +132,12 @@ function parseCompactCount(text) {
   }
 
   return Math.round(value * multiplier);
+}
+
+function formatCount(value, suffix) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "";
+  return `${Math.round(number).toLocaleString("ja-JP")} ${suffix}`;
 }
 
 function parseDurationSeconds(text) {
@@ -221,9 +232,12 @@ function buildSearchableText(item) {
       item.watchUrl,
       item.viewText,
       item.liveViewerText,
+      item.subscriberText,
+      item.likeText,
       item.publishedText,
       item.durationText,
       item.statusText,
+      item.channelId,
       item.group,
       item.keyword,
       item.sourceGroup,
@@ -573,6 +587,14 @@ async function scrapeSource(page, source, collectedAt) {
       viewCount,
       liveViewerText: rawItem.liveViewerText,
       liveViewerCount,
+      liveViewerSource: liveViewerCount != null ? "search" : "",
+      channelId: rawItem.channelId || "",
+      subscriberText: rawItem.subscriberText || "",
+      subscriberCount: parseCompactCount(rawItem.subscriberText),
+      subscriberSource: "",
+      likeText: rawItem.likeText || "",
+      likeCount: parseCompactCount(rawItem.likeText),
+      likeSource: "",
       publishedText: rawItem.publishedText,
       publishedTimestamp: parsePublishedTimestamp(rawItem.publishedText, nowMs),
       durationText: rawItem.durationText,
@@ -617,6 +639,260 @@ async function scrapeSource(page, source, collectedAt) {
   };
 }
 
+function uniqueLiveItems(results) {
+  const seen = new Set();
+  const items = [];
+  for (const item of results.flatMap((result) => result.items)) {
+    if (item.sourceGroup !== "live" || !item.videoId || seen.has(item.videoId)) continue;
+    seen.add(item.videoId);
+    items.push(item);
+  }
+  return items;
+}
+
+function allItemsByVideoId(results) {
+  const map = new Map();
+  for (const item of results.flatMap((result) => result.items)) {
+    if (!item.videoId) continue;
+    if (!map.has(item.videoId)) map.set(item.videoId, []);
+    map.get(item.videoId).push(item);
+  }
+  return map;
+}
+
+function chunk(values, size) {
+  const chunks = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+async function fetchYoutubeApi(pathname, params) {
+  const url = new URL(`https://www.googleapis.com/youtube/v3/${pathname}`);
+  for (const [key, value] of Object.entries(params)) {
+    if (value != null && value !== "") url.searchParams.set(key, value);
+  }
+  url.searchParams.set("key", CONFIG.youtubeApiKey);
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`YouTube Data API ${pathname} failed: ${response.status} ${body.slice(0, 240)}`);
+  }
+  return response.json();
+}
+
+function mergeLiveDetail(item, detail, source) {
+  if (!item || !detail) return false;
+  let changed = false;
+
+  if (detail.channelId && item.channelId !== detail.channelId) {
+    item.channelId = detail.channelId;
+    changed = true;
+  }
+
+  const liveViewerCount =
+    detail.liveViewerCount != null ? detail.liveViewerCount : parseCompactCount(detail.liveViewerText);
+  if (liveViewerCount != null) {
+    item.liveViewerCount = liveViewerCount;
+    item.liveViewerText = formatCount(liveViewerCount, "人が視聴中");
+    item.liveViewerSource = source;
+    changed = true;
+  }
+
+  const subscriberCount =
+    detail.subscriberCount != null ? detail.subscriberCount : parseCompactCount(detail.subscriberText);
+  if (subscriberCount != null) {
+    item.subscriberCount = subscriberCount;
+    item.subscriberText = formatCount(subscriberCount, "登録者");
+    item.subscriberSource = source;
+    changed = true;
+  }
+
+  const likeCount = detail.likeCount != null ? detail.likeCount : parseCompactCount(detail.likeText);
+  if (likeCount != null) {
+    item.likeCount = likeCount;
+    item.likeText = formatCount(likeCount, "高評価");
+    item.likeSource = source;
+    changed = true;
+  }
+
+  const viewCount = parseCompactCount(detail.viewText) ?? detail.viewCount;
+  if (viewCount != null && item.viewCount == null) {
+    item.viewCount = viewCount;
+    item.viewText = formatCount(viewCount, "回視聴");
+    changed = true;
+  }
+
+  if (changed) {
+    item.statusType = deriveStatusType(item);
+    item.searchableText = buildSearchableText(item);
+  }
+
+  return changed;
+}
+
+async function enrichLiveItemsWithYoutubeApi(results) {
+  if (!CONFIG.youtubeApiKey) {
+    console.log("[live-detail] YouTube Data API key not configured; using page fallback only.");
+    return { videoCount: 0, channelCount: 0 };
+  }
+
+  const liveItems = uniqueLiveItems(results);
+  const ids = liveItems.map((item) => item.videoId);
+  if (!ids.length) return { videoCount: 0, channelCount: 0 };
+
+  const byVideoId = allItemsByVideoId(results);
+  const channelIds = new Set();
+  let videoCount = 0;
+
+  for (const part of chunk(ids, 50)) {
+    const data = await fetchYoutubeApi("videos", {
+      part: "snippet,statistics,liveStreamingDetails",
+      id: part.join(","),
+      maxResults: "50",
+    });
+
+    for (const video of data.items || []) {
+      const detail = {
+        channelId: video.snippet?.channelId || "",
+        viewCount: video.statistics?.viewCount != null ? Number(video.statistics.viewCount) : null,
+        likeCount: video.statistics?.likeCount != null ? Number(video.statistics.likeCount) : null,
+        liveViewerCount:
+          video.liveStreamingDetails?.concurrentViewers != null
+            ? Number(video.liveStreamingDetails.concurrentViewers)
+            : null,
+      };
+      if (detail.channelId) channelIds.add(detail.channelId);
+      for (const item of byVideoId.get(video.id) || []) {
+        if (mergeLiveDetail(item, detail, "youtubeDataApi")) videoCount += 1;
+      }
+    }
+  }
+
+  const byChannelId = new Map();
+  for (const item of byVideoId.values()) {
+    for (const entry of item) {
+      if (!entry.channelId) continue;
+      if (!byChannelId.has(entry.channelId)) byChannelId.set(entry.channelId, []);
+      byChannelId.get(entry.channelId).push(entry);
+    }
+  }
+
+  let channelCount = 0;
+  for (const part of chunk(Array.from(channelIds), 50)) {
+    const data = await fetchYoutubeApi("channels", {
+      part: "statistics",
+      id: part.join(","),
+      maxResults: "50",
+    });
+
+    for (const channel of data.items || []) {
+      if (channel.statistics?.hiddenSubscriberCount) continue;
+      const subscriberCount =
+        channel.statistics?.subscriberCount != null ? Number(channel.statistics.subscriberCount) : null;
+      if (subscriberCount == null) continue;
+      for (const item of byChannelId.get(channel.id) || []) {
+        if (mergeLiveDetail(item, { subscriberCount }, "youtubeDataApi")) channelCount += 1;
+      }
+    }
+  }
+
+  console.log(`[live-detail] YouTube Data API enriched videos=${videoCount}, subscribers=${channelCount}`);
+  return { videoCount, channelCount };
+}
+
+async function extractWatchPageDetails(page) {
+  return page.evaluate(() => {
+    const normalize = (value) =>
+      String(value || "")
+        .replace(/\u00a0/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    const numberPattern = String.raw`[0-9０-９][0-9０-９,，.．]*(?:\\s*(?:億|亿|万|萬|千|K|M|B))?`;
+    const findMatch = (text, patterns) => {
+      const normalized = normalize(text);
+      for (const pattern of patterns) {
+        const match = normalized.match(pattern);
+        if (match) return normalize(match[0]);
+      }
+      return "";
+    };
+    const textFromSelectors = (selectors) =>
+      selectors
+        .flatMap((selector) => Array.from(document.querySelectorAll(selector)))
+        .map((node) => normalize(node.innerText || node.textContent || node.getAttribute("aria-label") || ""))
+        .find(Boolean) || "";
+    const buttonTexts = Array.from(document.querySelectorAll("button, yt-button-view-model"))
+      .map((node) => normalize(node.innerText || node.textContent || node.getAttribute("aria-label") || ""))
+      .filter(Boolean);
+
+    const bodyText = normalize(document.body?.innerText || document.body?.textContent || "");
+    const player = window.ytInitialPlayerResponse || {};
+    const videoDetails = player.videoDetails || {};
+
+    const liveViewerText = findMatch(bodyText, [
+      new RegExp(`${numberPattern}\\s*(?:人が視聴中|視聴中|watching now|watching)`, "i"),
+      new RegExp(`(?:視聴中|watching now|watching)\\s*${numberPattern}`, "i"),
+    ]);
+    const subscriberText =
+      textFromSelectors(["#owner-sub-count", "ytd-video-owner-renderer #owner-sub-count"]) ||
+      findMatch(bodyText, [
+        new RegExp(`${numberPattern}\\s*(?:登録者|subscribers|subscriber|订阅者|訂閱者)`, "i"),
+      ]);
+    const likeText =
+      buttonTexts.find((value) => /(高く評価|like|いいね)/i.test(value) && new RegExp(numberPattern).test(value)) ||
+      findMatch(bodyText, [new RegExp(`${numberPattern}\\s*(?:高く評価|likes?|いいね)`, "i")]);
+    const viewText = findMatch(bodyText, [
+      new RegExp(`${numberPattern}\\s*(?:回視聴|views?|次观看|次觀看)`, "i"),
+    ]);
+
+    return {
+      channelId: videoDetails.channelId || "",
+      viewCount: videoDetails.viewCount ? Number(videoDetails.viewCount) : null,
+      liveViewerText,
+      subscriberText,
+      likeText,
+      viewText,
+    };
+  });
+}
+
+async function enrichLiveItemsWithWatchPages(page, results) {
+  if (!CONFIG.enrichLiveDetails) return { checked: 0, changed: 0 };
+
+  const liveItems = uniqueLiveItems(results).slice(0, CONFIG.liveDetailLimit);
+  if (!liveItems.length) return { checked: 0, changed: 0 };
+
+  const byVideoId = allItemsByVideoId(results);
+  let checked = 0;
+  let changed = 0;
+
+  console.log(`[live-detail] watch page fallback start, limit=${CONFIG.liveDetailLimit}, items=${liveItems.length}`);
+
+  for (const item of liveItems) {
+    if (item.liveViewerCount != null && item.subscriberCount != null && item.likeCount != null) continue;
+
+    try {
+      await gotoWithRetry(page, item.watchUrl, CONFIG.liveDetailNavigationTimeoutMs);
+      await dismissConsent(page);
+      await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
+      await page.waitForTimeout(CONFIG.liveDetailDelayMs);
+      const detail = await extractWatchPageDetails(page);
+      checked += 1;
+      for (const entry of byVideoId.get(item.videoId) || []) {
+        if (mergeLiveDetail(entry, detail, "watchPage")) changed += 1;
+      }
+    } catch (error) {
+      console.warn(`[live-detail] ${item.videoId}: ${error.message}`);
+    }
+  }
+
+  console.log(`[live-detail] watch page fallback checked=${checked}, changed=${changed}`);
+  return { checked, changed };
+}
+
 async function main() {
   await fs.mkdir(path.dirname(DATA_FILE), { recursive: true });
 
@@ -654,6 +930,20 @@ async function main() {
 
     for (const source of sources) {
       results.push(await scrapeSource(page, source, collectedAt));
+    }
+
+    await enrichLiveItemsWithYoutubeApi(results).catch((error) => {
+      console.warn(`[live-detail] YouTube Data API skipped: ${error.message}`);
+    });
+
+    if (CONFIG.enrichLiveDetails) {
+      const detailPage = await context.newPage();
+      detailPage.setDefaultTimeout(30000);
+      try {
+        await enrichLiveItemsWithWatchPages(detailPage, results);
+      } finally {
+        await detailPage.close().catch(() => {});
+      }
     }
   } finally {
     await browser.close();
@@ -693,6 +983,11 @@ async function main() {
       month: sourceLimit("month"),
     },
     scrollToBottomGroups: Array.from(CONFIG.scrollToBottomGroups),
+    liveDetailEnrichment: {
+      enabled: CONFIG.enrichLiveDetails,
+      limit: CONFIG.liveDetailLimit,
+      youtubeDataApiConfigured: Boolean(CONFIG.youtubeApiKey),
+    },
     locale: CONFIG.locale,
     region: CONFIG.region,
     groups,
