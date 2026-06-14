@@ -34,8 +34,8 @@ jobs:
           const repo = process.env.GITHUB_REPOSITORY;
           const raw = execFileSync(
             'gh',
-            ['api', `repos/${repo}/actions/workflows/youtube-ranking.yml/runs`, '-f', 'per_page=20'],
-            { encoding: 'utf8' },
+            ['api', '--method', 'GET', `repos/${repo}/actions/workflows/youtube-ranking.yml/runs`, '-f', 'per_page=20'],
+            { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
           );
           const runs = JSON.parse(raw).workflow_runs || [];
           const now = Date.now();
