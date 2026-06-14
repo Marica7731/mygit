@@ -4,6 +4,8 @@
   const KOREAN_TEXT_PATTERN = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/;
   const DEFAULT_TITLE_DISABLED_PREFIX = "ytb-ranking-default-title-filter-disabled-v1:";
   const originalFetch = window.fetch.bind(window);
+  let localizeQueued = false;
+  let itemByVideoId = new Map();
 
   window.fetch = async (input, init) => {
     const response = await originalFetch(input, init);
@@ -29,10 +31,20 @@
 
   function boot() {
     installSortOptions();
-    localizeCards();
-    new MutationObserver(() => requestAnimationFrame(localizeCards)).observe(document.body, {
+    scheduleLocalizeCards();
+    const root = document.getElementById("ranking-sections") || document.body;
+    new MutationObserver(scheduleLocalizeCards).observe(root, {
       childList: true,
       subtree: true,
+    });
+  }
+
+  function scheduleLocalizeCards() {
+    if (localizeQueued) return;
+    localizeQueued = true;
+    requestAnimationFrame(() => {
+      localizeQueued = false;
+      localizeCards();
     });
   }
 
@@ -49,8 +61,8 @@
     const select = document.querySelector('select[data-state="sortOrder"]');
     if (!select || select.dataset.sortHotfix) return;
     select.innerHTML = [
-      ["liveViewersDesc", "直播人数多到少"],
-      ["liveViewersAsc", "直播人数少到多"],
+      ["liveViewersDesc", "粉丝多到少"],
+      ["liveViewersAsc", "粉丝少到多"],
       ["viewsDesc", "播放量多到少"],
       ["viewsAsc", "播放量少到多"],
       ["publishedDesc", "发布时间新到旧"],
@@ -85,6 +97,7 @@
     items = items.filter((item) => matchesSortMetric(item, order));
     const sorted = sortItems(items, order).map((item, index) => ({ ...item, visibleRank: index + 1 }));
     group.items = sorted;
+    itemByVideoId = new Map(sorted.filter((item) => item.videoId).map((item) => [item.videoId, item]));
 
     if (group.keywords) {
       for (const key of Object.keys(group.keywords)) {
@@ -126,7 +139,7 @@
       return status !== "live" && status !== "upcoming" && item?.liveViewerCount == null;
     }
     if (order === "liveViewersDesc" || order === "liveViewersAsc") {
-      return status === "live" || status === "upcoming" || item?.liveViewerCount != null;
+      return sourceGroup() === "live" ? true : status === "live" || status === "upcoming" || isTrustedLiveViewer(item);
     }
     return true;
   }
@@ -137,8 +150,12 @@
     const originalOrder = (a, b) =>
       (a.item.originalRank || a.item.rank || a.index) - (b.item.originalRank || b.item.rank || b.index) ||
       a.index - b.index;
-    const metric = (item, field) =>
-      field === "liveSortMetric" ? item.liveViewerCount ?? item.subscriberCount ?? item.likeCount ?? null : item[field];
+    const metric = (item, field) => {
+      if (field === "liveSortMetric") {
+        return item.subscriberCount ?? (isTrustedLiveViewer(item) ? item.liveViewerCount : null) ?? item.likeCount ?? null;
+      }
+      return item[field];
+    };
     const desc = (field) => (a, b) => compareMetric(metric(b.item, field), metric(a.item, field), a, b);
     const asc = (field) => (a, b) => compareMetric(metric(a.item, field), metric(b.item, field), a, b);
 
@@ -173,12 +190,60 @@
 
   function localizeCards() {
     installSortOptions();
+    reconcileRankMetrics();
     document.querySelectorAll(".rank-metric, .meta-list span").forEach((node) => {
-      node.textContent = localizeMetric(node.textContent || "");
+      const nextText = localizeMetric(node.textContent || "");
+      if (node.textContent !== nextText) node.textContent = nextText;
     });
     document.querySelectorAll(".thumbnail img").forEach((img) => {
       if (img.complete && (img.naturalWidth === 0 || isLikelyPlaceholder(img))) useNextThumbnail(img);
     });
+  }
+
+  function reconcileRankMetrics() {
+    document.querySelectorAll(".video-card").forEach((card) => {
+      const rankLine = card.querySelector(".rank-line");
+      if (!rankLine) return;
+
+      const metric = getPrimaryMetric(card);
+      let node = rankLine.querySelector(".rank-metric");
+      if (!metric) {
+        if (node) node.remove();
+        card.classList.remove("has-rank-metric", "has-primary-metric");
+        return;
+      }
+
+      if (!node) {
+        node = document.createElement("span");
+        rankLine.append(node);
+      }
+      const className = `rank-metric metric-${metric.type}`;
+      const text = localizeMetric(metric.text);
+      if (node.className !== className) node.className = className;
+      if (node.textContent !== text) node.textContent = text;
+      card.classList.add("has-rank-metric", "has-primary-metric");
+    });
+  }
+
+  function getPrimaryMetric(card) {
+    const item = itemByVideoId.get(getCardVideoId(card));
+    if (sourceGroup() === "live") {
+      if (item?.subscriberCount != null) return { type: "subscriber", text: `${formatCompactCount(item.subscriberCount)}粉丝` };
+      if (hasSubscriberMetricText(item?.subscriberText)) return { type: "subscriber", text: item.subscriberText };
+      if (isTrustedLiveViewer(item)) return { type: "live", text: `${formatCompactCount(item.liveViewerCount)} 人` };
+      if (isTrustedLiveViewerText(item?.liveViewerText, item?.liveViewerSource)) {
+        return { type: "live", text: item.liveViewerText };
+      }
+      if (item?.likeCount != null) return { type: "like", text: `${formatCompactCount(item.likeCount)}赞` };
+      return null;
+    }
+
+    if (item?.viewCount != null) return { type: "view", text: `${formatCompactCount(item.viewCount)}播放` };
+    if (hasViewMetricText(item?.viewText)) return { type: "view", text: item.viewText };
+    if (hasViewMetricText(card.querySelector(".rank-metric, .meta-list span.metric-view")?.textContent)) {
+      return { type: "view", text: card.querySelector(".rank-metric, .meta-list span.metric-view")?.textContent || "" };
+    }
+    return null;
   }
 
   function localizeMetric(text) {
@@ -195,6 +260,44 @@
       .replace(/回視聴|視聴回数|views?/gi, "播放")
       .replace(/人が視聴中|人が視聴|視聴中/gi, "人")
       .replace(/登録者|subscribers?|subscriber/gi, "粉丝");
+  }
+
+  function hasViewMetricText(text) {
+    return /[0-9０-９][0-9０-９,，.．]*\s*(?:億|亿|万|萬|千|K|M|B)?\s*(?:回視聴|視聴回数|views?|次观看|次觀看|播放)/i.test(
+      normalize(text),
+    );
+  }
+
+  function hasLiveMetricText(text) {
+    return /[0-9０-９][0-9０-９,，.．]*\s*(?:人が視聴中|人が視聴|視聴中|watching now|watching|观看中|觀看中|人)/i.test(
+      normalize(text),
+    );
+  }
+
+  function isTrustedLiveViewer(item) {
+    return item?.liveViewerCount != null && item.liveViewerSource === "youtubeDataApi";
+  }
+
+  function isTrustedLiveViewerText(text, source) {
+    return source === "youtubeDataApi" && hasLiveMetricText(text);
+  }
+
+  function hasSubscriberMetricText(text) {
+    return /[0-9０-９][0-9０-９,，.．]*\s*(?:億|亿|万|萬|千|K|M|B)?\s*(?:登録者|subscribers?|subscriber|订阅者|訂閱者|粉丝)/i.test(
+      normalize(text),
+    );
+  }
+
+  function formatCompactCount(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return "";
+    if (number >= 100000000) return `${trimDecimal(number / 100000000)}亿`;
+    if (number >= 10000) return `${trimDecimal(number / 10000)}万`;
+    return String(Math.round(number));
+  }
+
+  function trimDecimal(value) {
+    return value.toFixed(value >= 10 ? 0 : 1).replace(/\\.0$/, "");
   }
 
   function handleThumbnailError(event) {
@@ -224,6 +327,7 @@
         return;
       }
     }
+    markThumbnailMissing(img);
   }
 
   function getThumbnailCandidates(img) {
@@ -250,6 +354,16 @@
     } catch {
       return "";
     }
+  }
+
+  function getCardVideoId(card) {
+    const link = card.querySelector('a[href*="watch"], a[href*="/shorts/"], .thumbnail');
+    return getVideoId(link?.href || "");
+  }
+
+  function markThumbnailMissing(img) {
+    const card = img.closest(".video-card");
+    if (card) card.classList.add("is-thumbnail-missing");
   }
 
   function readState() {
