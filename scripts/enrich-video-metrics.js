@@ -22,6 +22,9 @@ function parseBooleanEnv(name, fallback) {
 
 const CONFIG = {
   limit: parseIntegerEnv("YTB_RANKING_METRIC_DETAIL_LIMIT", 120),
+  fetchLimit: parseIntegerEnv("YTB_RANKING_METRIC_FETCH_LIMIT", 1800),
+  fetchConcurrency: parseIntegerEnv("YTB_RANKING_METRIC_FETCH_CONCURRENCY", 6),
+  fetchTimeoutMs: parseIntegerEnv("YTB_RANKING_METRIC_FETCH_TIMEOUT_MS", 10000),
   delayMs: parseIntegerEnv("YTB_RANKING_METRIC_DETAIL_DELAY_MS", 900),
   navigationTimeoutMs: parseIntegerEnv("YTB_RANKING_METRIC_DETAIL_NAVIGATION_TIMEOUT_MS", 20000),
   youtubeApiKey: process.env.YOUTUBE_API_KEY || process.env.YTB_RANKING_YOUTUBE_API_KEY || "",
@@ -101,6 +104,62 @@ function chunk(values, size) {
   const chunks = [];
   for (let index = 0; index < values.length; index += size) chunks.push(values.slice(index, index + size));
   return chunks;
+}
+
+function jsonStringFromText(text, name) {
+  const match = text.match(new RegExp(`"${name}"\\s*:\\s*"([^"]+)"`));
+  return match ? match[1].replace(/\\u0026/g, "&") : "";
+}
+
+function numberFromText(text, name) {
+  const value = jsonStringFromText(text, name);
+  if (!value) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function absoluteYoutubeUrl(value) {
+  if (!value) return "";
+  try {
+    return new URL(value, "https://www.youtube.com").href;
+  } catch {
+    return "";
+  }
+}
+
+function extractMetricFromWatchHtml(html) {
+  const channelId = jsonStringFromText(html, "externalChannelId") || jsonStringFromText(html, "channelId");
+  const ownerProfileUrl = jsonStringFromText(html, "ownerProfileUrl");
+  const canonicalBaseUrl = jsonStringFromText(html, "canonicalBaseUrl");
+  const channelUrl =
+    absoluteYoutubeUrl(ownerProfileUrl) ||
+    absoluteYoutubeUrl(canonicalBaseUrl) ||
+    (channelId ? `https://www.youtube.com/channel/${channelId}` : "");
+
+  return {
+    channelId,
+    channelUrl,
+    viewCount: numberFromText(html, "viewCount"),
+  };
+}
+
+async function fetchWatchMetric(item) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), CONFIG.fetchTimeoutMs);
+  try {
+    const response = await fetch(canonicalWatchUrl(item), {
+      signal: controller.signal,
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "Accept-Language": "ja-JP,ja;q=0.9,en;q=0.8",
+      },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return extractMetricFromWatchHtml(await response.text());
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function fetchYoutubeApi(pathname, params) {
@@ -188,6 +247,42 @@ async function enrichWithYoutubeApi(payload) {
   return { checked, changed };
 }
 
+async function enrichWithFetchPages(payload) {
+  const targets = allTargetItems(payload).filter((item) => item.videoId).slice(0, CONFIG.fetchLimit);
+  if (!targets.length) return { checked: 0, changed: 0 };
+
+  const byVideoId = mapByVideoId(payload);
+  let nextIndex = 0;
+  let checked = 0;
+  let changed = 0;
+
+  console.log(
+    `[metric-post] fetch fallback targets=${targets.length}, limit=${CONFIG.fetchLimit}, concurrency=${CONFIG.fetchConcurrency}`,
+  );
+
+  async function worker() {
+    while (nextIndex < targets.length) {
+      const item = targets[nextIndex];
+      nextIndex += 1;
+      try {
+        const detail = await fetchWatchMetric(item);
+        checked += 1;
+        for (const entry of byVideoId.get(item.videoId) || []) {
+          if (mergeMetric(entry, detail, "watchHtmlFetch")) changed += 1;
+        }
+      } catch (error) {
+        console.warn(`[metric-post] fetch ${item.videoId}: ${error.message}`);
+      }
+    }
+  }
+
+  const workerCount = Math.min(CONFIG.fetchConcurrency, targets.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+  console.log(`[metric-post] fetch checked=${checked}, changed=${changed}`);
+  return { checked, changed };
+}
+
 async function gotoWithRetry(page, url) {
   let lastError;
   for (let attempt = 1; attempt <= 2; attempt += 1) {
@@ -239,6 +334,12 @@ async function extractWatchMetric(page) {
       const match = bodyText.match(new RegExp(`"${name}"\\s*:\\s*"([^"]+)"`));
       return match ? match[1].replace(/\\u0026/g, "&") : "";
     };
+    const fromJsonNumber = (name) => {
+      const value = fromJsonString(name);
+      if (!value) return null;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
     const ownerProfileUrl = fromJsonString("ownerProfileUrl");
     const canonicalBaseUrl = fromJsonString("canonicalBaseUrl");
     const channelId =
@@ -253,7 +354,7 @@ async function extractWatchMetric(page) {
     return {
       channelId,
       channelUrl,
-      viewCount: details.viewCount ? Number(details.viewCount) : null,
+      viewCount: details.viewCount ? Number(details.viewCount) : fromJsonNumber("viewCount"),
     };
   });
 }
@@ -311,6 +412,12 @@ async function main() {
     console.warn(`[metric-post] api skipped: ${error.message}`);
     return { checked: 0, changed: 0 };
   });
+  const fetchPages = allTargetItems(payload).length
+    ? await enrichWithFetchPages(payload).catch((error) => {
+        console.warn(`[metric-post] fetch skipped: ${error.message}`);
+        return { checked: 0, changed: 0 };
+      })
+    : { checked: 0, changed: 0 };
   const watch = allTargetItems(payload).length ? await enrichWithWatchPages(payload) : { checked: 0, changed: 0 };
   const afterMissing = allTargetItems(payload).length;
 
@@ -321,6 +428,7 @@ async function main() {
     beforeMissing,
     afterMissing,
     api,
+    fetch: fetchPages,
     watch,
   };
 
