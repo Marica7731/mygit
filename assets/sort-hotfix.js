@@ -263,6 +263,8 @@
       const text = localizeMetric(metric.text);
       if (node.className !== className) node.className = className;
       if (node.textContent !== text) node.textContent = text;
+      node.hidden = true;
+      node.setAttribute("aria-hidden", "true");
       card.classList.add("has-rank-metric", "has-primary-metric");
     });
   }
