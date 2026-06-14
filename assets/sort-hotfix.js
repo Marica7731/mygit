@@ -255,16 +255,7 @@
       hotfixMetric.className = `hotfix-rank-metric metric-${metric.type}`;
       hotfixMetric.textContent = localizeMetric(metric.text);
 
-      if (!node) {
-        node = document.createElement("span");
-        rankLine.append(node);
-      }
-      const className = `rank-metric metric-${metric.type}`;
-      const text = localizeMetric(metric.text);
-      if (node.className !== className) node.className = className;
-      if (node.textContent !== text) node.textContent = text;
-      node.hidden = true;
-      node.setAttribute("aria-hidden", "true");
+      if (node) node.remove();
       card.classList.add("has-rank-metric", "has-primary-metric");
     });
   }
