@@ -1,17 +1,25 @@
 (function () {
   const failedByImage = new WeakMap();
   let sweepQueued = false;
+  let cleanupQueued = false;
 
   document.addEventListener("DOMContentLoaded", boot);
   document.addEventListener("load", handleImageLoad, true);
   document.addEventListener("error", handleImageError, true);
 
   function boot() {
+    installStyle();
+    cleanupCards();
     sweep();
     for (let index = 1; index <= 12; index += 1) {
       setTimeout(sweep, index * 350);
+      setTimeout(cleanupCards, index * 350 + 80);
     }
     window.addEventListener("scroll", sweep, { passive: true });
+    new MutationObserver(() => {
+      scheduleCleanup();
+      sweep();
+    }).observe(document.body, { childList: true, subtree: true });
   }
 
   function handleImageLoad(event) {
@@ -35,6 +43,50 @@
         if (!isThumbnailImage(img) || !isNearViewport(img)) return;
         if (img.complete && isBadLoadedImage(img)) tryNextThumbnail(img);
       });
+    });
+  }
+
+  function scheduleCleanup() {
+    if (cleanupQueued) return;
+    cleanupQueued = true;
+    requestAnimationFrame(() => {
+      cleanupQueued = false;
+      cleanupCards();
+    });
+  }
+
+  function cleanupCards() {
+    removeDuplicateMetricChips();
+    hideDuplicateVideoCards();
+  }
+
+  function removeDuplicateMetricChips() {
+    document.querySelectorAll(".rank-line").forEach((rankLine) => {
+      const hotfixMetric = rankLine.querySelector(".hotfix-rank-metric");
+      if (!hotfixMetric) return;
+      rankLine.querySelectorAll(".rank-metric").forEach((node) => node.remove());
+    });
+  }
+
+  function hideDuplicateVideoCards() {
+    const seen = new Set();
+    document.querySelectorAll(".video-card").forEach((card) => {
+      const videoId = getVideoId(card.querySelector('a[href*="watch"], a[href*="/shorts/"], .thumbnail')?.href || "");
+      if (!videoId) {
+        card.hidden = false;
+        card.classList.remove("is-duplicate-video");
+        return;
+      }
+      if (seen.has(videoId)) {
+        card.hidden = true;
+        card.classList.add("is-duplicate-video");
+        card.setAttribute("aria-hidden", "true");
+        return;
+      }
+      seen.add(videoId);
+      card.hidden = false;
+      card.classList.remove("is-duplicate-video");
+      card.removeAttribute("aria-hidden");
     });
   }
 
@@ -103,6 +155,30 @@
   function markThumbnailMissing(img) {
     const card = img.closest(".video-card");
     if (card) card.classList.add("is-thumbnail-missing");
+  }
+
+  function installStyle() {
+    if (document.getElementById("thumbnail-hotfix-style")) return;
+    const style = document.createElement("style");
+    style.id = "thumbnail-hotfix-style";
+    style.textContent = `
+      .video-card.is-duplicate-video,
+      .video-card[hidden] {
+        display: none !important;
+      }
+      .rank-line .rank-metric {
+        display: none !important;
+      }
+      .hotfix-rank-metric {
+        flex: 0 0 auto !important;
+        max-width: none !important;
+      }
+      body[data-layout-mode="three"] .hotfix-rank-metric {
+        padding-inline: 5px !important;
+        font-size: 10.5px !important;
+      }
+    `;
+    document.head.append(style);
   }
 
   function absoluteUrl(value) {
