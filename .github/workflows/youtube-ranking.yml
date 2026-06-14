@@ -42,6 +42,9 @@ jobs:
       YTB_RANKING_DURATION_PLAYWRIGHT_LIMIT: "160"
       YTB_RANKING_DURATION_PLAYWRIGHT_DELAY_MS: "600"
       YTB_RANKING_DURATION_PLAYWRIGHT_NAVIGATION_TIMEOUT_MS: "15000"
+      YTB_RANKING_LIVE_ELAPSED_LIMIT: "120"
+      YTB_RANKING_LIVE_ELAPSED_DELAY_MS: "600"
+      YTB_RANKING_LIVE_ELAPSED_NAVIGATION_TIMEOUT_MS: "15000"
       YTB_RANKING_MIN_VIEW_COVERAGE: "0.8"
       YTB_RANKING_MIN_KEYWORD_VIEW_COVERAGE: "0.75"
       YTB_RANKING_MIN_DURATION_COVERAGE: "0.85"
@@ -73,6 +76,9 @@ jobs:
 
       - name: Fill missing durations
         run: node scripts/fill-duration-details.js
+
+      - name: Fill live elapsed durations
+        run: node scripts/fill-live-elapsed-duration.js
 
       - name: Validate ranking data
         run: node scripts/validate-youtube-ranking.js
