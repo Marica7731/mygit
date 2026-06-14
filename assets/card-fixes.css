@@ -1,0 +1,109 @@
+.cards {
+  align-items: stretch;
+}
+
+.video-card {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100%;
+  min-height: 342px;
+}
+
+.card-body {
+  display: grid;
+  grid-template-rows: auto auto auto 24px auto;
+}
+
+.rank-line .original-rank {
+  display: none !important;
+}
+
+.video-card h3 {
+  display: block;
+  height: 52.5px;
+  min-height: 52.5px;
+  max-height: 52.5px;
+  margin: 0;
+  overflow: hidden;
+  line-break: strict;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+  word-break: normal;
+}
+
+.video-card h3 a {
+  display: -webkit-box;
+  max-height: inherit;
+  overflow: hidden;
+  line-break: strict;
+  overflow-wrap: break-word;
+  text-decoration: none;
+  word-break: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.meta-list {
+  display: flex;
+  align-items: center;
+  min-height: 22px;
+  overflow: hidden;
+}
+
+.meta-list span {
+  display: none;
+}
+
+.meta-list span.metric-view,
+.meta-list span.metric-live,
+.meta-list span.metric-duration,
+.meta-list span.metric-subscriber,
+.meta-list span.metric-like {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta-list span.is-promoted-metric {
+  display: none !important;
+}
+
+.id-line {
+  min-height: 14px;
+  align-self: end;
+  justify-content: flex-end;
+}
+
+.id-line span {
+  display: none !important;
+}
+
+@media (max-width: 760px) {
+  .video-card {
+    min-height: 0;
+  }
+
+  .card-body {
+    grid-template-rows: auto auto auto auto;
+  }
+
+  .video-card h3 {
+    height: 43.92px;
+    min-height: 43.92px;
+    max-height: 43.92px;
+  }
+
+  body[data-layout-mode="three"] .video-card h3 {
+    height: 37.95px;
+    min-height: 37.95px;
+    max-height: 37.95px;
+  }
+
+  .meta-list,
+  .id-line {
+    display: none;
+  }
+}
