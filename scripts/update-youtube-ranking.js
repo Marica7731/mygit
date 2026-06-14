@@ -312,6 +312,24 @@ async function extractSearchItems(page) {
       return "";
     };
 
+    const imageUrl = (img) => {
+      if (!img) return "";
+      const direct =
+        img.currentSrc ||
+        img.src ||
+        img.getAttribute("data-thumb") ||
+        img.getAttribute("data-src") ||
+        "";
+      if (direct && !direct.startsWith("data:")) return direct;
+
+      const srcset = img.getAttribute("srcset") || "";
+      const firstSrcsetUrl = srcset
+        .split(",")
+        .map((part) => part.trim().split(/\s+/)[0])
+        .find(Boolean);
+      return firstSrcsetUrl && !firstSrcsetUrl.startsWith("data:") ? firstSrcsetUrl : "";
+    };
+
     const renderers = Array.from(
       document.querySelectorAll(
         [
@@ -352,12 +370,21 @@ async function extractSearchItems(page) {
         const imageNodes = Array.from(renderer.querySelectorAll("img"));
         const thumbnailUrl =
           imageNodes
-            .map((img) => img.currentSrc || img.src || img.getAttribute("data-thumb") || "")
+            .map(imageUrl)
             .find((src) => src && !src.startsWith("data:") && /ytimg|googleusercontent|ggpht/.test(src)) ||
-          imageNodes
-            .map((img) => img.currentSrc || img.src || img.getAttribute("data-thumb") || "")
-            .find((src) => src && !src.startsWith("data:")) ||
+          imageNodes.map(imageUrl).find((src) => src && !src.startsWith("data:")) ||
           "";
+
+        const channelAvatarNode =
+          renderer.querySelector("a#avatar-link img") ||
+          renderer.querySelector("#avatar img") ||
+          renderer.querySelector("#channel-thumbnail img") ||
+          renderer.querySelector("yt-img-shadow#avatar img") ||
+          renderer.querySelector('img[src*="yt3.ggpht.com"]') ||
+          renderer.querySelector('img[src*="yt3.googleusercontent.com"]') ||
+          renderer.querySelector('img[src*="ggpht.com/ytc"]') ||
+          renderer.querySelector('img[src*="googleusercontent.com/ytc"]');
+        const channelAvatarUrl = imageUrl(channelAvatarNode);
 
         const metadataNodes = Array.from(
           renderer.querySelectorAll(
@@ -406,6 +433,7 @@ async function extractSearchItems(page) {
         return {
           title,
           channelName: text(channelNode),
+          channelAvatarUrl,
           videoId,
           watchUrl: rawWatchUrl,
           thumbnailUrl,
@@ -535,6 +563,7 @@ async function scrapeSource(page, source, collectedAt) {
       visibleRank: index + 1,
       title: rawItem.title,
       channelName: rawItem.channelName,
+      channelAvatarUrl: rawItem.channelAvatarUrl,
       videoId: rawItem.videoId,
       watchUrl,
       thumbnailUrl:
