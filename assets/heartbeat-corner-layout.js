@@ -16,7 +16,17 @@
       .catch(() => {});
     refresh();
     [250, 800, 1600, 3200, 6500, 11000].forEach((delay) => setTimeout(refresh, delay));
+    document.addEventListener("click", scheduleRefresh, true);
+    document.addEventListener("change", scheduleRefresh, true);
+    document.addEventListener("input", scheduleRefresh, true);
   });
+
+  let refreshTimer = 0;
+  function scheduleRefresh() {
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(refresh, 180);
+    setTimeout(refresh, 700);
+  }
 
   function refresh() {
     const cards = visibleCards();
@@ -193,50 +203,63 @@
         display: none !important;
       }
       .corner-badge {
-        position: absolute;
-        z-index: 5;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        max-width: calc(50% - 10px);
-        min-height: 18px;
-        padding: 2px 6px;
-        border-radius: 6px;
-        background: rgba(15, 23, 42, 0.74);
-        color: #fff;
-        font-size: 11px;
-        font-weight: 900;
-        line-height: 1.1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        pointer-events: none;
-        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
+        position: absolute !important;
+        z-index: 5 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        grid-area: auto !important;
+        place-self: auto !important;
+        width: auto !important;
+        height: auto !important;
+        max-width: calc(56% - 10px) !important;
+        min-width: 0 !important;
+        min-height: 18px !important;
+        padding: 2px 6px !important;
+        border-radius: 6px !important;
+        background: rgba(15, 23, 42, 0.74) !important;
+        color: #fff !important;
+        font-size: 11px !important;
+        font-weight: 900 !important;
+        line-height: 1.1 !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+        pointer-events: none !important;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18) !important;
       }
       .corner-rank {
-        top: 5px;
-        left: 5px;
-        min-width: 30px;
-        background: rgba(248, 250, 252, 0.94);
-        color: #0f172a;
+        top: 5px !important;
+        right: auto !important;
+        bottom: auto !important;
+        left: 5px !important;
+        min-width: 30px !important;
+        background: rgba(248, 250, 252, 0.94) !important;
+        color: #0f172a !important;
       }
       .corner-metric {
-        top: 5px;
-        right: 5px;
-        background: rgba(255, 241, 242, 0.94);
-        color: #9f2f2f;
+        top: 5px !important;
+        right: 5px !important;
+        bottom: auto !important;
+        left: auto !important;
+        background: rgba(255, 241, 242, 0.94) !important;
+        color: #9f2f2f !important;
       }
       body[data-source-group="live"] .corner-metric {
-        background: rgba(239, 246, 255, 0.94);
-        color: #254479;
+        background: rgba(239, 246, 255, 0.94) !important;
+        color: #254479 !important;
       }
       .corner-keyword {
-        bottom: 5px;
-        left: 5px;
+        top: auto !important;
+        right: auto !important;
+        bottom: 5px !important;
+        left: 5px !important;
       }
       .corner-time {
-        bottom: 5px;
-        right: 5px;
+        top: auto !important;
+        right: 5px !important;
+        bottom: 5px !important;
+        left: auto !important;
       }
       .video-card h3 {
         margin-top: 0 !important;
@@ -247,13 +270,13 @@
       }
       @media (max-width: 520px) {
         .corner-badge {
-          min-height: 16px;
-          padding: 2px 5px;
-          border-radius: 5px;
-          font-size: 10px;
+          min-height: 16px !important;
+          padding: 2px 5px !important;
+          border-radius: 5px !important;
+          font-size: 10px !important;
         }
         .corner-rank {
-          min-width: 26px;
+          min-width: 26px !important;
         }
       }
     `;
