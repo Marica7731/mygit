@@ -54,18 +54,18 @@ function parseCompactCount(text) {
   if (/[億亿]/.test(normalized)) multiplier = 100000000;
   else if (/[万萬]/.test(normalized)) multiplier = 10000;
   else if (/千/.test(normalized)) multiplier = 1000;
-  else if (/\bK\b/i.test(normalized)) multiplier = 1000;
-  else if (/\bM\b/i.test(normalized)) multiplier = 1000000;
-  else if (/\bB\b/i.test(normalized)) multiplier = 1000000000;
+  else if (/[0-9]\s*K/i.test(normalized)) multiplier = 1000;
+  else if (/[0-9]\s*M/i.test(normalized)) multiplier = 1000000;
+  else if (/[0-9]\s*B/i.test(normalized)) multiplier = 1000000000;
 
   return Math.round(value * multiplier);
 }
 
 function hasSubscriberText(text) {
   const normalized = normalizeDigits(normalizeWhitespace(text));
-  return /[0-9][0-9,.\s]*(?:億|亿|万|萬|千|K|M|B)?\s*(?:登録者|subscribers?|subscriber|订阅者|訂閱者|粉丝)/i.test(
-    normalized,
-  );
+  const countPattern = String.raw`[0-9][0-9,.\s]*(?:億|亿|万|萬|千|K|M|B)?`;
+  const labelPattern = String.raw`(?:チャンネル登録者数|登録者数|登録者|subscribers?|subscriber|订阅者|訂閱者|粉丝)`;
+  return new RegExp(labelPattern, "i").test(normalized) && new RegExp(countPattern, "i").test(normalized);
 }
 
 function formatCount(value, suffix) {
@@ -292,6 +292,7 @@ async function extractChannelDetails(page) {
         .replace(/\s+/g, " ")
         .trim();
     const numberPattern = String.raw`[0-9０-９][0-9０-９,，.．]*(?:\s*(?:億|亿|万|萬|千|K|M|B))?`;
+    const subscriberLabel = String.raw`(?:チャンネル登録者数|登録者数|登録者|subscribers?|subscriber|订阅者|訂閱者|粉丝)`;
     const bodyText = normalize(document.body?.innerText || document.body?.textContent || "");
     const selectorText =
       [
@@ -302,8 +303,10 @@ async function extractChannelDetails(page) {
       ]
         .flatMap((selector) => Array.from(document.querySelectorAll(selector)))
         .map((node) => normalize(node.innerText || node.textContent || node.getAttribute("aria-label") || ""))
-        .find((value) => /(登録者|subscribers?|订阅者|訂閱者)/i.test(value)) || "";
-    const match = bodyText.match(new RegExp(`${numberPattern}\\s*(?:登録者|subscribers?|subscriber|订阅者|訂閱者)`, "i"));
+        .find((value) => new RegExp(subscriberLabel, "i").test(value)) || "";
+    const match =
+      bodyText.match(new RegExp(`${numberPattern}\\s*${subscriberLabel}`, "i")) ||
+      bodyText.match(new RegExp(`${subscriberLabel}\\s*${numberPattern}`, "i"));
     return { subscriberText: selectorText || normalize(match?.[0] || "") };
   });
 }
