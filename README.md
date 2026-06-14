@@ -84,7 +84,7 @@ python3 -m http.server 8080
 每条视频至少包含：
 
 ```text
-rank, originalRank, visibleRank, title, channelName, videoId,
+rank, originalRank, visibleRank, title, channelName, channelAvatarUrl, videoId,
 watchUrl, thumbnailUrl, viewText, viewCount, liveViewerText,
 liveViewerCount, publishedText, durationText, durationSeconds,
 statusText, statusType, group, keyword, sourceGroup, sourceUrl,
