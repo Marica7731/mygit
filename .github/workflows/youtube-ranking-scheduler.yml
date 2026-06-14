@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - ".github/workflows/youtube-ranking-scheduler.yml"
+  schedule:
+    - cron: "5-55/10 * * * *"
   workflow_dispatch:
   repository_dispatch:
     types:
