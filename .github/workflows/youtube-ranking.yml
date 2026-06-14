@@ -8,6 +8,7 @@ on:
     paths:
       - ".github/workflows/youtube-ranking.yml"
       - "scripts/update-youtube-ranking.js"
+      - "scripts/enrich-live-details.js"
       - "assets/**"
       - "*.html"
       - "package.json"
@@ -31,10 +32,14 @@ jobs:
       YTB_RANKING_TODAY_LIMIT: "500"
       YTB_RANKING_MONTH_LIMIT: "500"
       YTB_RANKING_SCROLL_TO_BOTTOM_GROUPS: "live,today"
-      YTB_RANKING_ENRICH_LIVE_DETAILS: "1"
+      YTB_RANKING_ENRICH_LIVE_DETAILS: "0"
       YTB_RANKING_LIVE_DETAIL_LIMIT: "5"
       YTB_RANKING_LIVE_DETAIL_DELAY_MS: "500"
       YTB_RANKING_LIVE_DETAIL_NAVIGATION_TIMEOUT_MS: "15000"
+      YTB_RANKING_LIVE_POST_DETAIL_LIMIT: "120"
+      YTB_RANKING_LIVE_POST_CHANNEL_LIMIT: "120"
+      YTB_RANKING_LIVE_POST_DELAY_MS: "550"
+      YTB_RANKING_LIVE_POST_NAVIGATION_TIMEOUT_MS: "12000"
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
     steps:
       - name: Checkout
@@ -53,6 +58,9 @@ jobs:
 
       - name: Update ranking data
         run: node scripts/update-youtube-ranking.js
+
+      - name: Enrich live channel metrics
+        run: node scripts/enrich-live-details.js
 
       - name: Commit updated data
         run: |
