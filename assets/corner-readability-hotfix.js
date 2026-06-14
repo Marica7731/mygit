@@ -20,24 +20,30 @@
         box-shadow: none !important;
         color: #fff !important;
         font-weight: 950 !important;
+        font-variant-numeric: tabular-nums !important;
         letter-spacing: 0 !important;
         line-height: 1.06 !important;
+        opacity: 0.98 !important;
+        padding: 0 2px !important;
+        white-space: nowrap !important;
         filter:
-          drop-shadow(0 1px 1px rgba(0, 0, 0, 0.98))
-          drop-shadow(0 0 3px rgba(0, 0, 0, 0.95)) !important;
+          drop-shadow(0 1px 1px rgba(0, 0, 0, 1))
+          drop-shadow(0 0 2px rgba(0, 0, 0, 1))
+          drop-shadow(0 0 5px rgba(0, 0, 0, 0.95)) !important;
         text-shadow:
           0 0 1px rgba(0, 0, 0, 1),
+          0 0 2px rgba(0, 0, 0, 1),
           1px 1px 1px rgba(0, 0, 0, 1),
           -1px 1px 1px rgba(0, 0, 0, 1),
-          1px -1px 1px rgba(0, 0, 0, 0.98),
-          -1px -1px 1px rgba(0, 0, 0, 0.98),
+          1px -1px 1px rgba(0, 0, 0, 1),
+          -1px -1px 1px rgba(0, 0, 0, 1),
           0 1px 2px rgba(0, 0, 0, 1),
-          0 0 6px rgba(0, 0, 0, 1),
-          1px 0 1px rgba(0, 0, 0, 0.98),
-          -1px 0 1px rgba(0, 0, 0, 0.98),
-          0 1px 1px rgba(0, 0, 0, 0.98),
-          0 -1px 1px rgba(0, 0, 0, 0.95) !important;
-        -webkit-text-stroke: 0.55px rgba(3, 7, 18, 0.98) !important;
+          0 0 7px rgba(0, 0, 0, 1),
+          1px 0 1px rgba(0, 0, 0, 1),
+          -1px 0 1px rgba(0, 0, 0, 1),
+          0 1px 1px rgba(0, 0, 0, 1),
+          0 -1px 1px rgba(0, 0, 0, 1) !important;
+        -webkit-text-stroke: 0.8px rgba(3, 7, 18, 0.98) !important;
       }
 
       .thumbnail.corner-layout-ready .corner-rank,
@@ -55,6 +61,14 @@
 
       body[data-source-group="live"] .thumbnail.corner-layout-ready .corner-metric {
         color: #f8fbff !important;
+      }
+
+      @media (max-width: 640px) {
+        body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-time,
+        body[data-layout-mode="three"] .thumbnail.corner-transparent-three .corner-time {
+          max-width: calc(100% - 8px) !important;
+          font-size: 9.5px !important;
+        }
       }
 
       .video-card {
