@@ -238,12 +238,21 @@
       if (!rankLine) return;
 
       const metric = getPrimaryMetric(card);
+      let hotfixMetric = rankLine.querySelector(".hotfix-rank-metric");
       let node = rankLine.querySelector(".rank-metric");
       if (!metric) {
+        if (hotfixMetric) hotfixMetric.remove();
         if (node) node.remove();
         card.classList.remove("has-rank-metric", "has-primary-metric");
         return;
       }
+
+      if (!hotfixMetric) {
+        hotfixMetric = document.createElement("span");
+        rankLine.append(hotfixMetric);
+      }
+      hotfixMetric.className = `hotfix-rank-metric metric-${metric.type}`;
+      hotfixMetric.textContent = localizeMetric(metric.text);
 
       if (!node) {
         node = document.createElement("span");
