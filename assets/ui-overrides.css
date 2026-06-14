@@ -1,0 +1,303 @@
+:root {
+  --ui-card-min: 260px;
+}
+
+main {
+  width: min(1560px, 100%);
+  padding: 10px clamp(10px, 2.4vw, 34px) 52px;
+}
+
+.filter-toolbar {
+  top: 54px;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 7px;
+}
+
+#toggle-filters {
+  min-height: 36px;
+  padding: 7px 11px;
+  border-radius: 8px;
+}
+
+.layout-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  align-items: center;
+  padding: 3px;
+  border: 1px solid rgba(216, 224, 234, 0.92);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.layout-toggle button {
+  min-height: 30px;
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #536174;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.layout-toggle button[aria-pressed="true"] {
+  background: #172033;
+  color: #ffffff;
+}
+
+.active-filter-chips {
+  gap: 6px;
+}
+
+.filter-chip {
+  min-height: 30px;
+  padding: 4px 9px;
+  font-size: 12px;
+}
+
+.controls {
+  display: none !important;
+  margin-bottom: 12px;
+}
+
+.controls.is-open {
+  display: block !important;
+}
+
+.source-chip-bar {
+  top: 104px;
+  margin-bottom: 9px;
+}
+
+.cards {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--ui-card-min)), 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+body[data-layout-mode="two"] .cards {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body[data-layout-mode="three"] .cards {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.video-card {
+  grid-template-columns: minmax(0, 1fr);
+  border-radius: 10px;
+  box-shadow: 0 8px 18px rgba(26, 36, 54, 0.06);
+}
+
+.thumbnail {
+  min-height: 0;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(15, 118, 110, 0.12), rgba(23, 32, 51, 0.08)),
+    #e2e8f0;
+}
+
+.thumbnail img {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: cover;
+  transition: transform 180ms ease;
+}
+
+.video-card:hover .thumbnail img {
+  transform: scale(1.025);
+}
+
+.thumbnail-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.thumbnail-placeholder[hidden] {
+  display: none !important;
+}
+
+.thumbnail.is-thumbnail-broken {
+  background:
+    linear-gradient(135deg, rgba(210, 75, 75, 0.1), rgba(15, 118, 110, 0.1)),
+    #eef2f7;
+}
+
+.card-body {
+  gap: 6px;
+  padding: 10px;
+}
+
+.rank-line {
+  gap: 5px;
+  font-size: 11px;
+}
+
+.rank-line strong {
+  font-size: 16px;
+}
+
+.keyword-pill,
+.status-pill,
+.badge {
+  min-height: 22px;
+  padding: 2px 7px;
+  font-size: 11px;
+}
+
+.video-card h3 {
+  min-height: 3.75em;
+  font-size: 14px;
+  line-height: 1.25;
+  -webkit-line-clamp: 3;
+}
+
+.channel,
+.id-line,
+.meta-list {
+  font-size: 12px;
+}
+
+.meta-list {
+  gap: 5px;
+}
+
+.meta-list span {
+  padding: 2px 6px;
+}
+
+.id-line {
+  font-size: 11px;
+}
+
+@media (min-width: 761px) {
+  body[data-layout-mode="auto"] .cards {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--ui-card-min)), 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  main {
+    padding: 6px 8px 40px;
+  }
+
+  .site-header {
+    padding: 7px 8px;
+  }
+
+  .filter-toolbar {
+    top: 7px;
+    gap: 6px;
+    margin-inline: 0;
+    padding: 6px;
+  }
+
+  #toggle-filters {
+    min-height: 34px;
+    padding-inline: 9px;
+  }
+
+  .layout-toggle button {
+    min-height: 28px;
+    padding-inline: 7px;
+  }
+
+  .active-filter-chips {
+    min-width: 110px;
+  }
+
+  .filter-chip {
+    max-width: 58vw;
+    min-height: 28px;
+  }
+
+  .source-chip-bar {
+    top: 58px;
+    margin-inline: 0;
+  }
+
+  .cards,
+  body[data-layout-mode="auto"] .cards,
+  body[data-layout-mode="two"] .cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  body[data-layout-mode="three"] .cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .card-body {
+    padding: 8px;
+  }
+
+  .rank-line {
+    gap: 4px;
+  }
+
+  .rank-line strong {
+    font-size: 15px;
+  }
+
+  .rank-line > span:first-of-type {
+    display: none;
+  }
+
+  .keyword-pill,
+  .status-pill {
+    min-height: 20px;
+    padding: 1px 6px;
+    font-size: 10px;
+  }
+
+  .video-card h3 {
+    min-height: 3.6em;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .channel {
+    font-size: 11px;
+  }
+
+  .meta-list,
+  .id-line {
+    display: none;
+  }
+
+  body[data-layout-mode="three"] .card-body {
+    gap: 5px;
+    padding: 6px;
+  }
+
+  body[data-layout-mode="three"] .video-card h3 {
+    min-height: 3.45em;
+    font-size: 11px;
+    line-height: 1.15;
+  }
+
+  body[data-layout-mode="three"] .channel,
+  body[data-layout-mode="three"] .keyword-pill {
+    display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .layout-toggle button {
+    padding-inline: 6px;
+  }
+
+  .filter-chip.sort {
+    display: none;
+  }
+}
