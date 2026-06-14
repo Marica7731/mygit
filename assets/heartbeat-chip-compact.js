@@ -16,6 +16,8 @@
 
   function applyUiFixes() {
     compactToolbarLabels();
+    scrubCardNoise();
+    normalizeMetaRows();
     hideEmptyAvatars();
   }
 
@@ -50,6 +52,38 @@
       avatar.hidden = !hasRealImage;
       avatar.classList.toggle("is-empty-avatar", !hasRealImage);
     });
+  }
+
+  function scrubCardNoise() {
+    document
+      .querySelectorAll(".original-rank,.rank-line .rank-metric,.hotfix-rank-metric,.meta-list,.id-line,.status-pill.video")
+      .forEach((node) => node.remove());
+  }
+
+  function normalizeMetaRows() {
+    document.querySelectorAll(".video-card").forEach((card) => {
+      const meta = card.querySelector(".hb-meta");
+      if (!meta) return;
+      const title = card.querySelector("h3");
+      const channel = card.querySelector(".channel");
+      if (title && meta.previousElementSibling !== title) title.insertAdjacentElement("afterend", meta);
+      const text = localizeTimeText(meta.textContent);
+      if (text && meta.textContent !== text) meta.textContent = text;
+      meta.hidden = !text;
+      if (channel) channel.classList.add("hb-channel");
+    });
+  }
+
+  function localizeTimeText(value) {
+    return clean(value)
+      .replace(/(\d+(?:\.\d+)?)\s*時間前(?:\s*に配信済み)?/g, "$1小时前")
+      .replace(/(\d+(?:\.\d+)?)\s*分前(?:\s*に配信済み)?/g, "$1分钟前")
+      .replace(/(\d+(?:\.\d+)?)\s*日前(?:\s*に配信済み)?/g, "$1天前")
+      .replace(/(\d+(?:\.\d+)?)\s*週間前(?:\s*に配信済み)?/g, "$1周前")
+      .replace(/(\d+(?:\.\d+)?)\s*(?:か月|ヶ月)前(?:\s*に配信済み)?/g, "$1个月前")
+      .replace(/(\d+(?:\.\d+)?)\s*年前(?:\s*に配信済み)?/g, "$1年前")
+      .replace(/\s*に配信済み/g, "")
+      .replace(/\s*·\s*/g, " · ");
   }
 
   function parseUpdateDate(text) {
@@ -142,9 +176,43 @@
         grid-template-columns: 23px minmax(0, 1fr) !important;
       }
       .hb-meta {
+        display: block !important;
+        flex: 0 0 100% !important;
+        grid-column: 1 / -1 !important;
         width: 100% !important;
         max-width: 100% !important;
+        min-width: 8em !important;
+        min-height: 15px !important;
+        margin: -1px 0 0 !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+        color: #64748b !important;
+        font-size: 11.5px !important;
+        font-weight: 750 !important;
+        line-height: 1.2 !important;
+      }
+      .video-card .hb-channel,
+      .video-card .channel {
         min-width: 0 !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+      }
+      .video-card .card-body {
+        min-width: 0 !important;
+      }
+      body[data-layout-mode="two"] .hb-meta,
+      body[data-layout-mode="three"] .hb-meta {
+        min-width: 0 !important;
+        font-size: 11px !important;
+      }
+      @media (max-width: 520px) {
+        .hb-meta {
+          font-size: 11px !important;
+          min-height: 14px !important;
+        }
       }
     `;
   }

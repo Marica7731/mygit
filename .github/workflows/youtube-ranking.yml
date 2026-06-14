@@ -57,6 +57,9 @@ jobs:
       - name: Enrich video view metrics
         run: node scripts/enrich-video-metrics.js
 
+      - name: Validate ranking data
+        run: node scripts/validate-youtube-ranking.js
+
       - name: Commit updated data
         run: |
           git config user.name "github-actions[bot]"

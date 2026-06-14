@@ -96,7 +96,7 @@
     if (!node) {
       node = document.createElement("div");
       node.className = "hb-meta";
-      (card.querySelector(".channel") || card.querySelector("h3"))?.insertAdjacentElement("afterend", node);
+      (card.querySelector("h3") || card.querySelector(".channel"))?.insertAdjacentElement("afterend", node);
     }
     const value = values.join(" · ");
     if (node.textContent !== value) node.textContent = value;
