@@ -2,23 +2,23 @@
   ready(() => {
     installStyle();
     refresh();
-    [250, 800, 1600, 3200, 6500, 11000, 16000].forEach((delay) => setTimeout(refresh, delay));
+    [250, 900, 1800, 3600, 7000].forEach((delay) => setTimeout(refresh, delay));
     document.addEventListener("click", scheduleRefresh, true);
     document.addEventListener("change", scheduleRefresh, true);
     document.addEventListener("input", scheduleRefresh, true);
     window.addEventListener("resize", scheduleRefresh, { passive: true });
     const observer = new MutationObserver(scheduleRefresh);
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    observer.observe(document.body, { childList: true, subtree: true });
     observer.observe(document.body, { attributes: true, attributeFilter: ["data-layout-mode"] });
   });
 
   let timer = 0;
+  let trailingTimer = 0;
   function scheduleRefresh() {
     clearTimeout(timer);
-    timer = setTimeout(refresh, 120);
-    setTimeout(refresh, 450);
-    setTimeout(refresh, 1000);
-    setTimeout(refresh, 2200);
+    clearTimeout(trailingTimer);
+    timer = setTimeout(refresh, 100);
+    trailingTimer = setTimeout(refresh, 700);
   }
 
   function refresh() {
@@ -34,7 +34,8 @@
     const rank = clean(thumb.querySelector(".corner-rank")?.textContent);
     const metric = shortMetric(thumb.querySelector(".corner-metric")?.textContent);
     const time = clean(thumb.querySelector(".corner-time")?.textContent).replace(/(?:^|\s)#\d+.*$/, "");
-    const line = [time, rank, metric].filter(Boolean).join(" ");
+    const suffix = [rank, metric].filter(Boolean).join(" ");
+    const line = [time, suffix].filter(Boolean).join(" ");
     let timeNode = thumb.querySelector(".corner-time");
     if (!timeNode && line) {
       timeNode = document.createElement("span");
@@ -92,6 +93,10 @@
           -1px 0 1px rgba(0, 0, 0, 0.75) !important;
         -webkit-text-stroke: 0.2px rgba(15, 23, 42, 0.7) !important;
       }
+      .thumbnail.corner-layout-ready .corner-time {
+        justify-content: flex-end !important;
+        text-align: right !important;
+      }
       .thumbnail.corner-layout-ready .corner-metric {
         color: #fff4f4 !important;
       }
@@ -99,6 +104,12 @@
         color: #eff6ff !important;
       }
       @media (max-width: 640px) {
+        body:not([data-layout-mode="three"]) .thumbnail.corner-layout-ready .corner-time {
+          max-width: 72% !important;
+        }
+        body:not([data-layout-mode="three"]) .thumbnail.corner-layout-ready .corner-keyword {
+          max-width: 42% !important;
+        }
         body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-rank,
         body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-metric,
         body[data-layout-mode="three"] .thumbnail.corner-transparent-three .corner-rank,
@@ -109,14 +120,17 @@
         body[data-layout-mode="three"] .thumbnail.corner-transparent-three .corner-time {
           right: 4px !important;
           bottom: 4px !important;
-          max-width: calc(100% - 8px) !important;
+          left: auto !important;
+          max-width: 68% !important;
           font-size: 9px !important;
+          justify-content: flex-end !important;
+          text-align: right !important;
         }
         body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-keyword,
         body[data-layout-mode="three"] .thumbnail.corner-transparent-three .corner-keyword {
           left: 4px !important;
           bottom: 4px !important;
-          max-width: 42% !important;
+          max-width: 28% !important;
           font-size: 9px !important;
         }
       }
