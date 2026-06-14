@@ -221,6 +221,7 @@
 
   function enhanceCards() {
     prepareThumbnails();
+    prepareTitleRuns();
     prepareMetricChips();
     prepareRankMetrics();
     prepareChannelRows();
@@ -231,8 +232,18 @@
   function prepareThumbnails() {
     document.querySelectorAll(".thumbnail img").forEach((img, index) => {
       const candidates = getThumbnailCandidates(img);
-      img.dataset.thumbnailFallbacks = JSON.stringify(candidates);
-      img.dataset.thumbnailIndex = "0";
+      const serializedCandidates = JSON.stringify(candidates);
+      if (img.dataset.thumbnailFallbacks !== serializedCandidates) {
+        img.dataset.thumbnailFallbacks = serializedCandidates;
+      }
+      if (!img.dataset.thumbnailPrepared) {
+        img.dataset.thumbnailIndex = "0";
+        img.dataset.thumbnailPrepared = "1";
+        const preferred = candidates[0] || "";
+        if (preferred && absoluteUrl(img.currentSrc || img.src) !== absoluteUrl(preferred)) {
+          img.src = preferred;
+        }
+      }
       img.referrerPolicy = "no-referrer";
       img.decoding = "async";
       img.loading = index < 12 ? "eager" : "lazy";
@@ -244,6 +255,26 @@
       if (img.complete && img.naturalWidth === 0) {
         useNextThumbnail(img);
       }
+    });
+  }
+
+  function prepareTitleRuns() {
+    document.querySelectorAll(".video-card h3 a").forEach((link) => {
+      if (link.dataset.titleRunsPrepared) return;
+      const title = link.textContent || "";
+      const match = title.match(/^(【[^】]{1,10}】)(\S)([\s\S]*)$/u);
+      if (!match) {
+        link.dataset.titleRunsPrepared = "1";
+        return;
+      }
+
+      const locked = document.createElement("span");
+      locked.className = "title-head-lock";
+      locked.textContent = `${match[1]}${match[2]}`;
+
+      link.textContent = "";
+      link.append(locked, document.createTextNode(match[3] || ""));
+      link.dataset.titleRunsPrepared = "1";
     });
   }
 
@@ -485,7 +516,8 @@
   function getThumbnailCandidates(img) {
     const thumbnail = img.closest(".thumbnail");
     const videoId = getVideoId(thumbnail?.href || img.src || "");
-    const candidates = [img.getAttribute("src"), img.currentSrc, img.src].filter(Boolean);
+    const rawCandidates = [img.getAttribute("src"), img.currentSrc, img.src].filter(Boolean);
+    const candidates = [];
 
     if (videoId) {
       candidates.push(
@@ -498,6 +530,7 @@
       );
     }
 
+    candidates.push(...rawCandidates);
     return uniqueUrls(candidates);
   }
 
