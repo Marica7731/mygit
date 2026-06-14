@@ -36,8 +36,16 @@ YTB_RANKING_LIVE_LIMIT=500
 YTB_RANKING_TODAY_LIMIT=500
 YTB_RANKING_MONTH_LIMIT=500
 YTB_RANKING_SCROLL_TO_BOTTOM_GROUPS=live,today
+YTB_RANKING_ENRICH_LIVE_DETAILS=1
+YTB_RANKING_LIVE_DETAIL_LIMIT=120
+YOUTUBE_API_KEY=
 YTB_RANKING_CHROME_EXECUTABLE=
 ```
+
+直播量化字段有两条来源：
+
+- 如果 GitHub Secrets 配置了 `YOUTUBE_API_KEY`，脚本会通过 YouTube Data API 批量补充直播观看人数、点赞数和频道订阅数。
+- 如果没有配置 API key，GitHub Actions 会尽力打开直播视频页补采公开展示的观看人数、订阅数和点赞数；该方式依赖 YouTube 页面结构，稳定性不如 API。
 
 ## 使用方法
 
@@ -72,6 +80,8 @@ python3 -m http.server 8080
 - `assets/youtube-ranking.js`：前端脚本 loader。
 - `assets/youtube-ranking.chunk*.js`：前端搜索、筛选、排序、状态持久化和导出逻辑的拆分脚本块。
 - `assets/styles.css`：页面布局和移动端样式。
+- `assets/ui-overrides.css`：移动端紧凑布局、卡片信息密度和覆盖层样式。
+- `assets/ui-overrides.js`：默认标题过滤、黑白名单 chip、直播指标展示和头像兜底逻辑。
 - `package.json`：Node.js 依赖和本地检查、抓取、预览命令。
 - `.github/workflows/youtube-ranking.yml`：定时抓取并提交数据的 GitHub Actions workflow。
 - `CNAME`：GitHub Pages 自定义域名，内容为 `ytb.culua.com`。
@@ -84,9 +94,11 @@ python3 -m http.server 8080
 每条视频至少包含：
 
 ```text
-rank, originalRank, visibleRank, title, channelName, channelAvatarUrl, videoId,
-watchUrl, thumbnailUrl, viewText, viewCount, liveViewerText,
-liveViewerCount, publishedText, durationText, durationSeconds,
+rank, originalRank, visibleRank, title, channelName, channelAvatarUrl, channelId,
+videoId, watchUrl, thumbnailUrl, viewText, viewCount, liveViewerText,
+liveViewerCount, liveViewerSource, subscriberText, subscriberCount,
+subscriberSource, likeText, likeCount, likeSource, publishedText,
+durationText, durationSeconds,
 statusText, statusType, group, keyword, sourceGroup, sourceUrl,
 reachedBottom, truncatedByLimit, searchableText, collectedAt
 ```
@@ -102,6 +114,8 @@ reachedBottom, truncatedByLimit, searchableText, collectedAt
 - `workflow_dispatch`：手动触发。
 - `concurrency`：同一分支只保留一个运行中的抓取任务，避免 10 分钟定时任务互相堆叠。
 - `permissions: contents: write`：使用 GitHub Actions 自带 `GITHUB_TOKEN` 提交更新后的 `data/youtube-ranking.json`。
+
+如需更稳定的直播量化指标，在仓库 Settings -> Secrets and variables -> Actions 中新增 `YOUTUBE_API_KEY`。该值只在 GitHub Actions 运行时注入，不要写入仓库文件。
 
 ## 注意事项
 
