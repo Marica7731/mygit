@@ -9,11 +9,12 @@ on:
       - ".github/workflows/youtube-ranking.yml"
       - "scripts/update-youtube-ranking.js"
       - "scripts/enrich-live-details.js"
+      - "scripts/enrich-video-metrics.js"
       - "assets/**"
       - "*.html"
       - "package.json"
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "7,17,27,37,47,57 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -36,6 +37,9 @@ jobs:
       YTB_RANKING_LIVE_DETAIL_LIMIT: "5"
       YTB_RANKING_LIVE_DETAIL_DELAY_MS: "500"
       YTB_RANKING_LIVE_DETAIL_NAVIGATION_TIMEOUT_MS: "15000"
+      YTB_RANKING_METRIC_DETAIL_LIMIT: "120"
+      YTB_RANKING_METRIC_DETAIL_DELAY_MS: "900"
+      YTB_RANKING_METRIC_DETAIL_NAVIGATION_TIMEOUT_MS: "20000"
       YTB_RANKING_LIVE_POST_DETAIL_LIMIT: "120"
       YTB_RANKING_LIVE_POST_CHANNEL_LIMIT: "120"
       YTB_RANKING_LIVE_POST_DELAY_MS: "550"
@@ -61,6 +65,9 @@ jobs:
 
       - name: Enrich live channel metrics
         run: node scripts/enrich-live-details.js
+
+      - name: Enrich video view metrics
+        run: node scripts/enrich-video-metrics.js
 
       - name: Commit updated data
         run: |
