@@ -42,15 +42,15 @@ jobs:
           const activeStatuses = new Set(['queued', 'in_progress', 'waiting', 'requested', 'pending']);
           const recentMs = 9 * 60 * 1000;
           const blocking = runs.find((run) => {
-            const createdAt = Date.parse(run.created_at || '');
-            return activeStatuses.has(run.status) || (Number.isFinite(createdAt) && now - createdAt < recentMs);
+            const activityAt = Date.parse(run.updated_at || run.run_started_at || run.created_at || '');
+            return activeStatuses.has(run.status) || (Number.isFinite(activityAt) && now - activityAt < recentMs);
           });
 
           const skip = Boolean(blocking);
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `skip=${skip}\n`);
           if (blocking) {
             console.log(
-              `Skip dispatch: recent or active update run #${blocking.run_number} ${blocking.event} ${blocking.status} ${blocking.created_at}`,
+              `Skip dispatch: recent or active update run #${blocking.run_number} ${blocking.event} ${blocking.status} ${blocking.updated_at}`,
             );
           } else {
             console.log('No recent or active update run. Dispatching is allowed.');
