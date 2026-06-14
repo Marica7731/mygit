@@ -21,7 +21,7 @@ permissions:
 
 concurrency:
   group: youtube-ranking-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   update-ranking:
