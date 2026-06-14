@@ -2,6 +2,7 @@
 
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const { chromium } = require("playwright");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const DATA_FILE = path.join(ROOT_DIR, "data", "youtube-ranking.json");
@@ -11,12 +12,23 @@ const CONFIG = {
   liveLimit: intEnv("YTB_RANKING_LIVE_DURATION_DETAIL_LIMIT", 120),
   fetchConcurrency: intEnv("YTB_RANKING_DURATION_FETCH_CONCURRENCY", 4),
   fetchTimeoutMs: intEnv("YTB_RANKING_DURATION_FETCH_TIMEOUT_MS", 10000),
+  playwrightLimit: intEnv("YTB_RANKING_DURATION_PLAYWRIGHT_LIMIT", 160),
+  delayMs: intEnv("YTB_RANKING_DURATION_PLAYWRIGHT_DELAY_MS", 600),
+  navigationTimeoutMs: intEnv("YTB_RANKING_DURATION_PLAYWRIGHT_NAVIGATION_TIMEOUT_MS", 15000),
+  headless: booleanEnv("YTB_RANKING_HEADLESS", true),
+  chromeExecutable: process.env.YTB_RANKING_CHROME_EXECUTABLE || "",
   youtubeApiKey: process.env.YOUTUBE_API_KEY || process.env.YTB_RANKING_YOUTUBE_API_KEY || "",
 };
 
 function intEnv(name, fallback) {
   const value = Number.parseInt(process.env[name] || "", 10);
   return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function booleanEnv(name, fallback) {
+  const raw = process.env[name];
+  if (raw == null || raw === "") return fallback;
+  return !["0", "false", "no", "off"].includes(raw.toLowerCase());
 }
 
 function durationMissing(item) {
@@ -50,7 +62,7 @@ function formatDuration(seconds) {
 }
 
 function parseIsoDuration(value) {
-  const match = String(value || "").match(/^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  const match = String(value || "").match(/^P(?!$)(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
   if (!match) return null;
   const [, days = "0", hours = "0", minutes = "0", seconds = "0"] = match;
   const total = Number(days) * 86400 + Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
@@ -264,6 +276,128 @@ async function enrichWithFetch(payload, targets) {
   return { checked, changed, failed };
 }
 
+async function gotoWithRetry(page, url) {
+  let lastError;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: CONFIG.navigationTimeoutMs });
+      return;
+    } catch (error) {
+      lastError = error;
+      await page.waitForTimeout(1000 * attempt);
+    }
+  }
+  throw lastError;
+}
+
+async function dismissConsent(page) {
+  for (const selector of [
+    'button:has-text("Accept all")',
+    'button:has-text("I agree")',
+    'button:has-text("Agree")',
+    'button:has-text("同意する")',
+    'button:has-text("すべて承諾")',
+    'button:has-text("全部接受")',
+    'button:has-text("接受全部")',
+  ]) {
+    try {
+      const button = page.locator(selector).first();
+      if (await button.isVisible({ timeout: 700 })) {
+        await button.click({ timeout: 2000 });
+        await page.waitForTimeout(700);
+        return;
+      }
+    } catch {
+      // Consent UI is regional and often absent.
+    }
+  }
+}
+
+async function extractDurationFromPage(page) {
+  return page.evaluate(() => {
+    const html = document.documentElement.innerHTML || "";
+    const player = window.ytInitialPlayerResponse || {};
+    const details = player.videoDetails || {};
+
+    const jsonString = (name) => {
+      const match = html.match(new RegExp(`"${name}"\\s*:\\s*"([^"]+)"`));
+      return match ? match[1] : "";
+    };
+    const jsonNumber = (name) => {
+      const stringValue = jsonString(name);
+      const rawValue = stringValue || html.match(new RegExp(`"${name}"\\s*:\\s*(\\d+)`))?.[1] || "";
+      const parsed = Number(rawValue);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    };
+    const isoToSeconds = (value) => {
+      const match = String(value || "").match(/^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+      if (!match) return null;
+      const [, days = "0", hours = "0", minutes = "0", seconds = "0"] = match;
+      const total = Number(days) * 86400 + Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
+      return Number.isFinite(total) && total > 0 ? total : null;
+    };
+
+    const lengthSeconds = Number(details.lengthSeconds) || jsonNumber("lengthSeconds");
+    if (lengthSeconds) return lengthSeconds;
+
+    const approxDurationMs = jsonNumber("approxDurationMs");
+    if (approxDurationMs) return Math.round(approxDurationMs / 1000);
+
+    return isoToSeconds(
+      jsonString("duration") ||
+        document.querySelector('meta[itemprop="duration"]')?.getAttribute("content") ||
+        "",
+    );
+  });
+}
+
+async function enrichWithPlaywright(payload, targets) {
+  const uniqueTargets = uniqueByVideoId(targets).slice(0, CONFIG.playwrightLimit);
+  if (!uniqueTargets.length) return { checked: 0, changed: 0, failed: 0 };
+
+  const byVideoId = mapByVideoId(payload);
+  let checked = 0;
+  let changed = 0;
+  let failed = 0;
+
+  const browser = await chromium.launch({
+    headless: CONFIG.headless,
+    executablePath: CONFIG.chromeExecutable || undefined,
+    args: ["--disable-dev-shm-usage", "--no-sandbox"],
+  });
+
+  try {
+    const page = await browser.newPage({
+      locale: "ja-JP",
+      viewport: { width: 1280, height: 900 },
+      userAgent:
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    });
+    page.setDefaultTimeout(12000);
+
+    for (const item of uniqueTargets) {
+      try {
+        await gotoWithRetry(page, canonicalWatchUrl(item));
+        await dismissConsent(page);
+        await page.waitForTimeout(CONFIG.delayMs);
+        const seconds = await extractDurationFromPage(page);
+        checked += 1;
+        if (!seconds) continue;
+        for (const entry of byVideoId.get(item.videoId) || []) {
+          if (mergeDuration(entry, seconds, "watchPageDuration")) changed += 1;
+        }
+      } catch (error) {
+        failed += 1;
+        console.warn(`[duration-post] playwright ${item.videoId}: ${error.message}`);
+      }
+    }
+  } finally {
+    await browser.close();
+  }
+
+  return { checked, changed, failed };
+}
+
 async function main() {
   const payload = JSON.parse(await fs.readFile(DATA_FILE, "utf8"));
   const beforeVideoMissing = targetVideoItems(payload).length;
@@ -277,6 +411,10 @@ async function main() {
   const videoTargets = targetVideoItems(payload).slice(0, CONFIG.limit);
   const liveTargets = targetLiveItems(payload).slice(0, CONFIG.liveLimit);
   const fetchResult = await enrichWithFetch(payload, [...videoTargets, ...liveTargets]);
+  const playwrightResult = await enrichWithPlaywright(payload, [
+    ...targetVideoItems(payload).slice(0, CONFIG.limit),
+    ...targetLiveItems(payload).slice(0, CONFIG.liveLimit),
+  ]);
 
   const afterVideoMissing = targetVideoItems(payload).length;
   const afterLiveMissing = targetLiveItems(payload).length;
@@ -292,6 +430,7 @@ async function main() {
     youtubeDataApiConfigured: Boolean(CONFIG.youtubeApiKey),
     api,
     fetch: fetchResult,
+    playwright: playwrightResult,
   };
 
   await fs.writeFile(DATA_FILE, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
