@@ -862,7 +862,9 @@ async function extractWatchPageDetails(page) {
 async function enrichLiveItemsWithWatchPages(page, results) {
   if (!CONFIG.enrichLiveDetails) return { checked: 0, changed: 0 };
 
-  const liveItems = uniqueLiveItems(results).slice(0, CONFIG.liveDetailLimit);
+  const liveItems = uniqueLiveItems(results)
+    .filter((item) => item.statusType === "live")
+    .slice(0, CONFIG.liveDetailLimit);
   if (!liveItems.length) return { checked: 0, changed: 0 };
 
   const byVideoId = allItemsByVideoId(results);
