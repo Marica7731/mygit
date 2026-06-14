@@ -35,6 +35,14 @@ jobs:
       YTB_RANKING_LIVE_POST_CHANNEL_LIMIT: "120"
       YTB_RANKING_LIVE_POST_DELAY_MS: "550"
       YTB_RANKING_LIVE_POST_NAVIGATION_TIMEOUT_MS: "12000"
+      YTB_RANKING_DURATION_DETAIL_LIMIT: "500"
+      YTB_RANKING_LIVE_DURATION_DETAIL_LIMIT: "120"
+      YTB_RANKING_DURATION_FETCH_CONCURRENCY: "4"
+      YTB_RANKING_DURATION_FETCH_TIMEOUT_MS: "10000"
+      YTB_RANKING_MIN_VIEW_COVERAGE: "0.8"
+      YTB_RANKING_MIN_KEYWORD_VIEW_COVERAGE: "0.75"
+      YTB_RANKING_MIN_DURATION_COVERAGE: "0.85"
+      YTB_RANKING_MIN_KEYWORD_DURATION_COVERAGE: "0.8"
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
     steps:
       - name: Checkout
@@ -60,8 +68,14 @@ jobs:
       - name: Enrich video view metrics
         run: node scripts/enrich-video-metrics.js
 
+      - name: Fill missing durations
+        run: node scripts/fill-duration-details.js
+
       - name: Validate ranking data
         run: node scripts/validate-youtube-ranking.js
+
+      - name: Validate duration data
+        run: node scripts/validate-duration-quality.js
 
       - name: Commit updated data
         run: |
