@@ -32,8 +32,13 @@
   function boot() {
     installSortOptions();
     scheduleLocalizeCards();
+    for (let index = 1; index <= 12; index += 1) {
+      setTimeout(scheduleLocalizeCards, index * 300);
+    }
     const root = document.getElementById("ranking-sections") || document.body;
     new MutationObserver(scheduleLocalizeCards).observe(root, {
+      attributes: true,
+      characterData: true,
       childList: true,
       subtree: true,
     });
@@ -156,8 +161,8 @@
       }
       return item[field];
     };
-    const desc = (field) => (a, b) => compareMetric(metric(b.item, field), metric(a.item, field), a, b);
-    const asc = (field) => (a, b) => compareMetric(metric(a.item, field), metric(b.item, field), a, b);
+    const desc = (field) => (a, b) => compareMetric(metric(a.item, field), metric(b.item, field), a, b, -1);
+    const asc = (field) => (a, b) => compareMetric(metric(a.item, field), metric(b.item, field), a, b, 1);
 
     entries.sort((a, b) => {
       if (order === "viewsDesc") return desc("viewCount")(a, b);
@@ -180,11 +185,11 @@
     });
     return entries.map((entry) => entry.item);
 
-    function compareMetric(aValue, bValue, a, b) {
+    function compareMetric(aValue, bValue, a, b, direction) {
       if (aValue == null && bValue == null) return originalOrder(a, b);
       if (aValue == null) return 1;
       if (bValue == null) return -1;
-      return aValue - bValue || originalOrder(a, b);
+      return (aValue - bValue) * direction || originalOrder(a, b);
     }
   }
 
