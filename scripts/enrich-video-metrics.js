@@ -41,7 +41,25 @@ function canonicalWatchUrl(item) {
 }
 
 function buildSearchableText(item) {
-  return [item.title, item.channelName, item.videoId, item.watchUrl, item.viewText, item.liveViewerText, item.subscriberText, item.likeText, item.publishedText, item.durationText, item.statusText, item.channelId, item.channelUrl, item.group, item.keyword, item.sourceGroup, item.sourceUrl]
+  return [
+    item.title,
+    item.channelName,
+    item.videoId,
+    item.watchUrl,
+    item.viewText,
+    item.liveViewerText,
+    item.subscriberText,
+    item.likeText,
+    item.publishedText,
+    item.durationText,
+    item.statusText,
+    item.channelId,
+    item.channelUrl,
+    item.group,
+    item.keyword,
+    item.sourceGroup,
+    item.sourceUrl,
+  ]
     .filter(Boolean)
     .join(" ")
     .replace(/\s+/g, " ")
@@ -54,7 +72,9 @@ function allTargetItems(payload) {
     for (const item of payload.groups?.[group]?.items || []) {
       if (!item.videoId) continue;
       if (item.statusType === "live" || item.statusType === "upcoming") continue;
-      if (item.viewCount != null && item.viewCount > 0) continue;
+      const needsViewMetric = item.viewCount == null || item.viewCount <= 0;
+      const needsChannelLink = !item.channelId && !item.channelUrl;
+      if (!needsViewMetric && !needsChannelLink) continue;
       items.push(item);
     }
   }
@@ -73,6 +93,10 @@ function mapByVideoId(payload) {
   return map;
 }
 
+function uniqueVideoIds(items) {
+  return Array.from(new Set(items.map((item) => item.videoId).filter(Boolean)));
+}
+
 function chunk(values, size) {
   const chunks = [];
   for (let index = 0; index < values.length; index += size) chunks.push(values.slice(index, index + size));
@@ -81,32 +105,42 @@ function chunk(values, size) {
 
 async function fetchYoutubeApi(pathname, params) {
   const url = new URL(`https://www.googleapis.com/youtube/v3/${pathname}`);
-  for (const [key, value] of Object.entries(params)) if (value != null && value !== "") url.searchParams.set(key, value);
+  for (const [key, value] of Object.entries(params)) {
+    if (value != null && value !== "") url.searchParams.set(key, value);
+  }
   url.searchParams.set("key", CONFIG.youtubeApiKey);
+
   const response = await fetch(url);
-  if (!response.ok) throw new Error(`YouTube Data API ${pathname} failed: ${response.status} ${(await response.text()).slice(0, 240)}`);
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`YouTube Data API ${pathname} failed: ${response.status} ${body.slice(0, 240)}`);
+  }
   return response.json();
 }
 
 function mergeMetric(item, detail, source) {
   if (!item || !detail) return false;
   let changed = false;
+
   if (detail.channelId && item.channelId !== detail.channelId) {
     item.channelId = detail.channelId;
     changed = true;
   }
+
   if (detail.viewCount != null && detail.viewCount > 0) {
     item.viewCount = detail.viewCount;
     item.viewText = formatCount(detail.viewCount, "回視聴");
     item.viewSource = source;
     changed = true;
   }
+
   if (detail.likeCount != null && detail.likeCount > 0) {
     item.likeCount = detail.likeCount;
     item.likeText = formatCount(detail.likeCount, "高評価");
     item.likeSource = source;
     changed = true;
   }
+
   if (changed) {
     item.statusType = item.statusType || "video";
     item.searchableText = buildSearchableText(item);
@@ -119,18 +153,32 @@ async function enrichWithYoutubeApi(payload) {
     console.log("[metric-post] YouTube Data API key not configured");
     return { checked: 0, changed: 0 };
   }
+
   const byVideoId = mapByVideoId(payload);
-  const ids = Array.from(new Set(allTargetItems(payload).map((item) => item.videoId).filter(Boolean)));
+  const ids = uniqueVideoIds(allTargetItems(payload));
   let checked = 0;
   let changed = 0;
+
   for (const part of chunk(ids, 50)) {
-    const data = await fetchYoutubeApi("videos", { part: "snippet,statistics", id: part.join(","), maxResults: "50" });
+    const data = await fetchYoutubeApi("videos", {
+      part: "snippet,statistics",
+      id: part.join(","),
+      maxResults: "50",
+    });
+
     for (const video of data.items || []) {
       checked += 1;
-      const detail = { channelId: video.snippet?.channelId || "", viewCount: video.statistics?.viewCount != null ? Number(video.statistics.viewCount) : null, likeCount: video.statistics?.likeCount != null ? Number(video.statistics.likeCount) : null };
-      for (const item of byVideoId.get(video.id) || []) if (mergeMetric(item, detail, "youtubeDataApi")) changed += 1;
+      const detail = {
+        channelId: video.snippet?.channelId || "",
+        viewCount: video.statistics?.viewCount != null ? Number(video.statistics.viewCount) : null,
+        likeCount: video.statistics?.likeCount != null ? Number(video.statistics.likeCount) : null,
+      };
+      for (const item of byVideoId.get(video.id) || []) {
+        if (mergeMetric(item, detail, "youtubeDataApi")) changed += 1;
+      }
     }
   }
+
   console.log(`[metric-post] api checked=${checked}, changed=${changed}`);
   return { checked, changed };
 }
@@ -150,7 +198,12 @@ async function gotoWithRetry(page, url) {
 }
 
 async function dismissConsent(page) {
-  for (const selector of ['button:has-text("Accept all")', 'button:has-text("I agree")', 'button:has-text("同意する")', 'button:has-text("すべて承諾")']) {
+  for (const selector of [
+    'button:has-text("Accept all")',
+    'button:has-text("I agree")',
+    'button:has-text("同意する")',
+    'button:has-text("すべて承諾")',
+  ]) {
     try {
       const button = page.locator(selector).first();
       if (await button.isVisible({ timeout: 700 })) {
@@ -158,29 +211,57 @@ async function dismissConsent(page) {
         await page.waitForTimeout(700);
         return;
       }
-    } catch {}
+    } catch {
+      // Consent UI is regional and often absent.
+    }
   }
+}
+
+async function extractWatchMetric(page) {
+  return page.evaluate(() => {
+    const player = window.ytInitialPlayerResponse || {};
+    const details = player.videoDetails || {};
+    return {
+      channelId: details.channelId || "",
+      viewCount: details.viewCount ? Number(details.viewCount) : null,
+    };
+  });
 }
 
 async function enrichWithWatchPages(payload) {
   const targets = allTargetItems(payload).filter((item) => item.videoId).slice(0, CONFIG.limit);
   if (!targets.length) return { checked: 0, changed: 0 };
+
   const byVideoId = mapByVideoId(payload);
   let checked = 0;
   let changed = 0;
-  const browser = await chromium.launch({ headless: CONFIG.headless, executablePath: CONFIG.chromeExecutable || undefined, args: ["--disable-dev-shm-usage", "--no-sandbox"] });
+
+  const browser = await chromium.launch({
+    headless: CONFIG.headless,
+    executablePath: CONFIG.chromeExecutable || undefined,
+    args: ["--disable-dev-shm-usage", "--no-sandbox"],
+  });
+
   try {
-    const page = await browser.newPage({ locale: "ja-JP", viewport: { width: 1280, height: 900 }, userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36" });
+    const page = await browser.newPage({
+      locale: "ja-JP",
+      viewport: { width: 1280, height: 900 },
+      userAgent:
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    });
     page.setDefaultTimeout(12000);
+
     console.log(`[metric-post] watch fallback targets=${targets.length}, limit=${CONFIG.limit}`);
     for (const item of targets) {
       try {
         await gotoWithRetry(page, canonicalWatchUrl(item));
         await dismissConsent(page);
         await page.waitForTimeout(CONFIG.delayMs);
-        const detail = await page.evaluate(() => ({ channelId: window.ytInitialPlayerResponse?.videoDetails?.channelId || "", viewCount: window.ytInitialPlayerResponse?.videoDetails?.viewCount ? Number(window.ytInitialPlayerResponse.videoDetails.viewCount) : null }));
+        const detail = await extractWatchMetric(page);
         checked += 1;
-        for (const entry of byVideoId.get(item.videoId) || []) if (mergeMetric(entry, detail, "watchPageMetric")) changed += 1;
+        for (const entry of byVideoId.get(item.videoId) || []) {
+          if (mergeMetric(entry, detail, "watchPageMetric")) changed += 1;
+        }
       } catch (error) {
         console.warn(`[metric-post] watch ${item.videoId}: ${error.message}`);
       }
@@ -188,6 +269,7 @@ async function enrichWithWatchPages(payload) {
   } finally {
     await browser.close();
   }
+
   console.log(`[metric-post] watch checked=${checked}, changed=${changed}`);
   return { checked, changed };
 }
@@ -201,7 +283,17 @@ async function main() {
   });
   const watch = allTargetItems(payload).length ? await enrichWithWatchPages(payload) : { checked: 0, changed: 0 };
   const afterMissing = allTargetItems(payload).length;
-  payload.metricDetailPostProcess = { generatedAt: new Date().toISOString(), limit: CONFIG.limit, youtubeDataApiConfigured: Boolean(CONFIG.youtubeApiKey), beforeMissing, afterMissing, api, watch };
+
+  payload.metricDetailPostProcess = {
+    generatedAt: new Date().toISOString(),
+    limit: CONFIG.limit,
+    youtubeDataApiConfigured: Boolean(CONFIG.youtubeApiKey),
+    beforeMissing,
+    afterMissing,
+    api,
+    watch,
+  };
+
   await fs.writeFile(DATA_FILE, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
   console.log(`[metric-post] missing ${beforeMissing} -> ${afterMissing}`);
 }
