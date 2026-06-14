@@ -1,6 +1,9 @@
 (function () {
   ready(() => {
     installStyle();
+    tuneImages();
+    setTimeout(tuneImages, 1000);
+    setTimeout(tuneImages, 3000);
   });
 
   function installStyle() {
@@ -32,6 +35,11 @@
         color: #fff !important;
       }
 
+      .video-card {
+        content-visibility: auto !important;
+        contain-intrinsic-size: 280px 340px !important;
+      }
+
       @media (min-width: 900px) {
         .cards,
         body[data-layout-mode="auto"] .cards,
@@ -53,6 +61,19 @@
       }
     `;
     document.head.append(style);
+  }
+
+  function tuneImages() {
+    document.querySelectorAll(".video-card img").forEach((img, index) => {
+      img.decoding = "async";
+      if (index < 12) {
+        img.loading = "eager";
+        img.fetchPriority = "auto";
+      } else {
+        img.loading = "lazy";
+        img.fetchPriority = "low";
+      }
+    });
   }
 
   function ready(fn) {
