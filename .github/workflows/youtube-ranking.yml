@@ -2,7 +2,12 @@ name: Update YouTube ranking
 
 on:
   schedule:
-    - cron: "7,17,27,37,47,57 * * * *"
+    - cron: "7 * * * *"
+    - cron: "17 * * * *"
+    - cron: "27 * * * *"
+    - cron: "37 * * * *"
+    - cron: "47 * * * *"
+    - cron: "57 * * * *"
   workflow_dispatch:
 
 permissions:
