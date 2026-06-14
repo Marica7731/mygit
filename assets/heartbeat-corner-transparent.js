@@ -7,17 +7,21 @@
     document.addEventListener("change", scheduleRefresh, true);
     document.addEventListener("input", scheduleRefresh, true);
     window.addEventListener("resize", scheduleRefresh, { passive: true });
-    new MutationObserver(scheduleRefresh).observe(document.body, { childList: true, subtree: true });
+    const observer = new MutationObserver(scheduleRefresh);
+    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, { attributes: true, attributeFilter: ["data-layout-mode"] });
   });
 
   let timer = 0;
   function scheduleRefresh() {
     clearTimeout(timer);
     timer = setTimeout(refresh, 120);
+    setTimeout(refresh, 450);
+    setTimeout(refresh, 1000);
   }
 
   function refresh() {
-    document.querySelectorAll(".thumbnail.corner-layout-ready").forEach((thumb) => {
+    document.querySelectorAll(".thumbnail").forEach((thumb) => {
       removeLegacyLayers(thumb);
       const three = isMobileThreeColumn();
       thumb.classList.toggle("corner-transparent-three", three);
@@ -30,7 +34,12 @@
     const metric = shortMetric(thumb.querySelector(".corner-metric")?.textContent);
     const time = clean(thumb.querySelector(".corner-time")?.textContent).replace(/\s+#\d+.*$/, "");
     const line = [time, rank, metric].filter(Boolean).join(" ");
-    const timeNode = thumb.querySelector(".corner-time");
+    let timeNode = thumb.querySelector(".corner-time");
+    if (!timeNode && line) {
+      timeNode = document.createElement("span");
+      timeNode.className = "corner-badge corner-time";
+      thumb.append(timeNode);
+    }
     if (timeNode && line && timeNode.textContent !== line) timeNode.textContent = line;
   }
 
@@ -89,16 +98,20 @@
         color: #eff6ff !important;
       }
       @media (max-width: 640px) {
+        body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-rank,
+        body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-metric,
         body[data-layout-mode="three"] .thumbnail.corner-transparent-three .corner-rank,
         body[data-layout-mode="three"] .thumbnail.corner-transparent-three .corner-metric {
           display: none !important;
         }
+        body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-time,
         body[data-layout-mode="three"] .thumbnail.corner-transparent-three .corner-time {
           right: 4px !important;
           bottom: 4px !important;
           max-width: calc(100% - 8px) !important;
           font-size: 9px !important;
         }
+        body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-keyword,
         body[data-layout-mode="three"] .thumbnail.corner-transparent-three .corner-keyword {
           left: 4px !important;
           bottom: 4px !important;
