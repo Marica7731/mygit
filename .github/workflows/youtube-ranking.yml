@@ -1,6 +1,11 @@
 name: Update YouTube ranking
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/youtube-ranking.yml"
   schedule:
     - cron: "7 * * * *"
     - cron: "17 * * * *"
