@@ -1,0 +1,64 @@
+name: Dispatch YouTube ranking update
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/youtube-ranking-scheduler.yml"
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: youtube-ranking-scheduler
+  cancel-in-progress: true
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check recent update runs
+        id: recent
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process');
+          const fs = require('node:fs');
+
+          const repo = process.env.GITHUB_REPOSITORY;
+          const raw = execFileSync(
+            'gh',
+            ['api', `repos/${repo}/actions/workflows/youtube-ranking.yml/runs`, '-f', 'per_page=20'],
+            { encoding: 'utf8' },
+          );
+          const runs = JSON.parse(raw).workflow_runs || [];
+          const now = Date.now();
+          const activeStatuses = new Set(['queued', 'in_progress', 'waiting', 'requested', 'pending']);
+          const recentMs = 9 * 60 * 1000;
+          const blocking = runs.find((run) => {
+            const createdAt = Date.parse(run.created_at || '');
+            return activeStatuses.has(run.status) || (Number.isFinite(createdAt) && now - createdAt < recentMs);
+          });
+
+          const skip = Boolean(blocking);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `skip=${skip}\n`);
+          if (blocking) {
+            console.log(
+              `Skip dispatch: recent or active update run #${blocking.run_number} ${blocking.event} ${blocking.status} ${blocking.created_at}`,
+            );
+          } else {
+            console.log('No recent or active update run. Dispatching is allowed.');
+          }
+          NODE
+
+      - name: Dispatch update workflow
+        if: steps.recent.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run youtube-ranking.yml --ref main
