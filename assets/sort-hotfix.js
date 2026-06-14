@@ -8,6 +8,8 @@
   let itemByVideoId = new Map();
   let orderByVideoId = new Map();
   const thumbnailCheckCache = new Map();
+  const thumbnailScanSrc = new WeakMap();
+  let thumbnailSweepQueued = false;
 
   window.fetch = async (input, init) => {
     const response = await originalFetch(input, init);
@@ -34,13 +36,14 @@
   function boot() {
     installSortOptions();
     scheduleLocalizeCards();
+    scheduleThumbnailSweep();
     for (let index = 1; index <= 12; index += 1) {
       setTimeout(scheduleLocalizeCards, index * 300);
+      setTimeout(scheduleThumbnailSweep, index * 300 + 120);
     }
+    window.addEventListener("scroll", scheduleThumbnailSweep, { passive: true });
     const root = document.getElementById("ranking-sections") || document.body;
     new MutationObserver(scheduleLocalizeCards).observe(root, {
-      attributes: true,
-      characterData: true,
       childList: true,
       subtree: true,
     });
@@ -207,10 +210,6 @@
       const nextText = localizeMetric(node.textContent || "");
       if (node.textContent !== nextText) node.textContent = nextText;
     });
-    document.querySelectorAll(".thumbnail img").forEach((img) => {
-      if (img.complete && img.naturalWidth === 0) useNextThumbnail(img);
-      else if (img.complete) scheduleThumbnailPlaceholderCheck(img);
-    });
   }
 
   function reorderCards() {
@@ -353,6 +352,28 @@
     if (img instanceof HTMLImageElement && img.closest(".thumbnail")) scheduleThumbnailPlaceholderCheck(img);
   }
 
+  function scheduleThumbnailSweep() {
+    if (thumbnailSweepQueued) return;
+    thumbnailSweepQueued = true;
+    requestAnimationFrame(() => {
+      thumbnailSweepQueued = false;
+      document.querySelectorAll(".thumbnail img").forEach((img) => {
+        if (!(img instanceof HTMLImageElement) || !isNearViewport(img)) return;
+        const src = absoluteUrl(img.currentSrc || img.src);
+        if (!src || thumbnailScanSrc.get(img) === src) return;
+        thumbnailScanSrc.set(img, src);
+        if (img.complete && img.naturalWidth === 0) useNextThumbnail(img);
+        else if (img.complete) scheduleThumbnailPlaceholderCheck(img);
+      });
+    });
+  }
+
+  function isNearViewport(element) {
+    const rect = element.getBoundingClientRect();
+    const margin = Math.max(700, window.innerHeight || 800);
+    return rect.bottom >= -margin && rect.top <= (window.innerHeight || 800) + margin;
+  }
+
   function isWeakThumbnail(img) {
     const src = absoluteUrl(img.currentSrc || img.src);
     if (!src || img.hidden || !img.complete || img.naturalWidth === 0) return false;
@@ -362,7 +383,7 @@
   }
 
   function scheduleThumbnailPlaceholderCheck(img) {
-    if (!(img instanceof HTMLImageElement) || !img.closest(".thumbnail") || !isWeakThumbnail(img)) return;
+    if (!(img instanceof HTMLImageElement) || !img.closest(".thumbnail") || !isNearViewport(img) || !isWeakThumbnail(img)) return;
     const src = absoluteUrl(img.currentSrc || img.src);
     if (!src) return;
 
