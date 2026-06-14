@@ -33,7 +33,7 @@
   function mergeThreeColumnLine(thumb) {
     const rank = clean(thumb.querySelector(".corner-rank")?.textContent);
     const metric = shortMetric(thumb.querySelector(".corner-metric")?.textContent);
-    const time = clean(thumb.querySelector(".corner-time")?.textContent).replace(/\s+#\d+.*$/, "");
+    const time = clean(thumb.querySelector(".corner-time")?.textContent).replace(/(?:^|\s)#\d+.*$/, "");
     const line = [time, rank, metric].filter(Boolean).join(" ");
     let timeNode = thumb.querySelector(".corner-time");
     if (!timeNode && line) {
