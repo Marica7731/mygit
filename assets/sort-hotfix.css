@@ -17,6 +17,39 @@ body[data-source-group="month"] .rank-metric.metric-duration {
   display: none !important;
 }
 
+.hotfix-rank-metric {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  min-width: 0;
+  max-width: 112px;
+  min-height: 21px;
+  margin-left: auto;
+  padding: 2px 7px;
+  overflow: hidden;
+  border: 1px solid rgba(62, 91, 160, 0.18);
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #254479;
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hotfix-rank-metric.metric-view {
+  border-color: rgba(210, 75, 75, 0.16);
+  background: #fff1ed;
+  color: #9f2f2f;
+}
+
+.hotfix-rank-metric.metric-like {
+  border-color: rgba(190, 118, 26, 0.18);
+  background: #fff6dc;
+  color: #8a5312;
+}
+
 @media (max-width: 760px) {
   .filter-toolbar {
     overflow-x: auto;
