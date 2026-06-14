@@ -1,5 +1,8 @@
 (function () {
   const STORAGE_PREFIX = "ytb-ranking-state-v1:";
+  const DEFAULT_TITLE_TERMS = ["歌枠", "弾き語り"];
+  const KOREAN_TEXT_PATTERN = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/;
+  const DEFAULT_TITLE_DISABLED_PREFIX = "ytb-ranking-default-title-filter-disabled-v1:";
   const VALID_LAYOUTS = new Set(["auto", "two", "three"]);
   const LAYOUT_LABELS = {
     auto: "自动",
@@ -7,13 +10,17 @@
     three: "3列",
   };
 
+  const nativeFetch = window.fetch.bind(window);
   let filterPanelOpen = false;
   let cardObserver = null;
+  let rankingItemsByVideoId = new Map();
 
   setBodyLayout(getLayoutMode());
 
+  patchRankingFetch();
   document.addEventListener("click", handleEarlyClick, true);
   document.addEventListener("error", handleThumbnailError, true);
+  document.addEventListener("error", handleAvatarError, true);
   document.addEventListener("DOMContentLoaded", boot);
   window.addEventListener("resize", () => {
     window.requestAnimationFrame(() => {
@@ -25,7 +32,8 @@
   function boot() {
     installControls();
     setFilterPanel(false);
-    prepareThumbnails();
+    loadRankingData().then(enhanceCards).catch(() => {});
+    enhanceCards();
     observeCards();
   }
 
@@ -51,6 +59,15 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       setFilterPanel(false);
+      return;
+    }
+
+    const defaultTitleChip = event.target.closest(".default-title-chip");
+    if (defaultTitleChip) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      localStorage.setItem(`${DEFAULT_TITLE_DISABLED_PREFIX}${getSourceGroup()}`, "1");
+      window.location.reload();
     }
   }
 
@@ -146,6 +163,50 @@
     return document.body.dataset.sourceGroup || "live";
   }
 
+  function patchRankingFetch() {
+    window.fetch = async (input, init) => {
+      const response = await nativeFetch(input, init);
+      const url = typeof input === "string" ? input : input?.url || "";
+      if (!isDefaultTitleFilterActive() || !url.includes("data/youtube-ranking.json")) {
+        return response;
+      }
+
+      try {
+        const data = await response.clone().json();
+        const filtered = filterRankingDataByTitle(data);
+        return new Response(JSON.stringify(filtered), {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        });
+      } catch {
+        return response;
+      }
+    };
+  }
+
+  function isDefaultTitleFilterActive() {
+    return localStorage.getItem(`${DEFAULT_TITLE_DISABLED_PREFIX}${getSourceGroup()}`) !== "1";
+  }
+
+  function filterRankingDataByTitle(data) {
+    if (!data?.groups?.[getSourceGroup()]) return data;
+    const cloned = JSON.parse(JSON.stringify(data));
+    const group = cloned.groups[getSourceGroup()];
+    const matchesTitle = (item) => {
+      const title = String(item.title || "");
+      return DEFAULT_TITLE_TERMS.some((term) => title.includes(term)) && !KOREAN_TEXT_PATTERN.test(title);
+    };
+
+    group.items = (group.items || []).filter(matchesTitle);
+    if (group.keywords) {
+      for (const key of Object.keys(group.keywords)) {
+        group.keywords[key] = (group.keywords[key] || []).filter(matchesTitle);
+      }
+    }
+    return cloned;
+  }
+
   function observeCards() {
     const root = document.getElementById("ranking-sections");
     if (!root) {
@@ -154,8 +215,16 @@
     }
 
     if (cardObserver) cardObserver.disconnect();
-    cardObserver = new MutationObserver(() => window.requestAnimationFrame(prepareThumbnails));
+    cardObserver = new MutationObserver(() => window.requestAnimationFrame(enhanceCards));
     cardObserver.observe(root, { childList: true, subtree: true });
+  }
+
+  function enhanceCards() {
+    prepareThumbnails();
+    prepareMetricChips();
+    prepareChannelRows();
+    prepareStatusPills();
+    renderDefaultTitleChip();
   }
 
   function prepareThumbnails() {
@@ -175,6 +244,144 @@
         useNextThumbnail(img);
       }
     });
+  }
+
+  function prepareMetricChips() {
+    document.querySelectorAll(".video-card").forEach((card) => {
+      const spans = Array.from(card.querySelectorAll(".meta-list span"));
+      let hasPrimaryMetric = false;
+      for (const span of spans) {
+        const type = classifyMetric(span.textContent || "");
+        if (type === "view" || type === "live") hasPrimaryMetric = true;
+        span.classList.toggle("metric-view", type === "view");
+        span.classList.toggle("metric-live", type === "live");
+        span.classList.toggle("metric-duration", type === "duration");
+        span.classList.toggle("metric-published", type === "published");
+      }
+      card.classList.toggle("has-primary-metric", hasPrimaryMetric);
+    });
+  }
+
+  async function loadRankingData() {
+    const response = await fetch("data/youtube-ranking.json", { cache: "no-store" });
+    if (!response.ok) return;
+    const data = await response.json();
+    const items = data?.groups?.[getSourceGroup()]?.items || [];
+    rankingItemsByVideoId = new Map(items.filter((item) => item.videoId).map((item) => [item.videoId, item]));
+  }
+
+  function prepareChannelRows() {
+    document.querySelectorAll(".video-card").forEach((card) => {
+      const body = card.querySelector(".card-body");
+      const channel = card.querySelector(".channel");
+      const meta = card.querySelector(".meta-list");
+      if (!body || !channel || !meta) return;
+
+      let row = card.querySelector(".channel-metric-row");
+      if (!row) {
+        row = document.createElement("div");
+        row.className = "channel-metric-row";
+        channel.insertAdjacentElement("beforebegin", row);
+      }
+
+      let avatar = row.querySelector(".channel-avatar");
+      if (!avatar) {
+        avatar = document.createElement("span");
+        avatar.className = "channel-avatar";
+        row.append(avatar);
+      }
+
+      if (channel.parentElement !== row) row.append(channel);
+      if (meta.parentElement !== row) row.append(meta);
+
+      const item = rankingItemsByVideoId.get(getCardVideoId(card));
+      updateChannelAvatar(avatar, item, channel.textContent || "");
+    });
+  }
+
+  function prepareStatusPills() {
+    document.querySelectorAll(".status-pill.live").forEach((pill) => {
+      pill.textContent = "LIVE";
+    });
+  }
+
+  function renderDefaultTitleChip() {
+    const chipBar = document.getElementById("active-filter-chips");
+    if (!chipBar || !isDefaultTitleFilterActive()) return;
+    if (chipBar.querySelector(".default-title-chip")) return;
+
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "filter-chip allow default-title-chip";
+    chip.textContent = `标题: ${DEFAULT_TITLE_TERMS.join(" / ")}，排除韩文 ×`;
+    chip.title = "点击移除默认标题规则";
+    chipBar.append(chip);
+  }
+
+  function updateChannelAvatar(avatar, item, channelName) {
+    const avatarUrl = item?.channelAvatarUrl || "";
+    const initial = getInitial(channelName);
+    avatar.dataset.initial = initial;
+
+    if (avatarUrl) {
+      if (avatar.dataset.avatarSrc !== avatarUrl) {
+        avatar.dataset.avatarSrc = avatarUrl;
+        avatar.innerHTML = "";
+        const img = document.createElement("img");
+        img.src = avatarUrl;
+        img.alt = "";
+        img.loading = "lazy";
+        img.decoding = "async";
+        img.referrerPolicy = "no-referrer";
+        avatar.append(img);
+      }
+      return;
+    }
+
+    if (avatar.dataset.avatarSrc) avatar.dataset.avatarSrc = "";
+    avatar.textContent = initial;
+  }
+
+  function handleAvatarError(event) {
+    const img = event.target;
+    const avatar = img instanceof HTMLImageElement ? img.closest(".channel-avatar") : null;
+    if (!avatar) return;
+    avatar.dataset.avatarSrc = "";
+    avatar.textContent = avatar.dataset.initial || "";
+  }
+
+  function getCardVideoId(card) {
+    const href =
+      card.querySelector(".thumbnail")?.href ||
+      card.querySelector('a[href*="/watch?v="]')?.href ||
+      card.querySelector('a[href*="/shorts/"]')?.href ||
+      "";
+    const fromUrl = getVideoId(href);
+    if (fromUrl) return fromUrl;
+    return (card.querySelector(".id-line span")?.textContent || "").trim();
+  }
+
+  function getInitial(value) {
+    const chars = Array.from(String(value || "").trim()).filter((char) => /\S/.test(char));
+    return chars[0] || "?";
+  }
+
+  function classifyMetric(value) {
+    const text = String(value || "").trim();
+    if (!text) return "";
+    if (/(watching|視聴中|人が視聴|观看中|觀看中|直播中|正在观看|正在觀看|시청 중|명 시청)/i.test(text)) {
+      return "live";
+    }
+    if (/(views?|回視聴|視聴回数|次观看|次觀看|조회수|회 시청)/i.test(text)) {
+      return "view";
+    }
+    if (/\b(\d{1,2}:)?\d{1,2}:\d{2}\b/.test(text)) {
+      return "duration";
+    }
+    if (/(ago|前|昨日|streamed|配信済み|premiere|秒|分|時間|日|週間|か月|ヶ月|年|小时前|天前|周前|月前|年前)/i.test(text)) {
+      return "published";
+    }
+    return "";
   }
 
   function handleThumbnailError(event) {
