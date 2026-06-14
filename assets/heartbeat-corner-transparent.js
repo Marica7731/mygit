@@ -2,13 +2,13 @@
   ready(() => {
     installStyle();
     refresh();
-    [250, 800, 1600, 3200, 6500].forEach((delay) => setTimeout(refresh, delay));
+    [250, 800, 1600, 3200, 6500, 11000, 16000].forEach((delay) => setTimeout(refresh, delay));
     document.addEventListener("click", scheduleRefresh, true);
     document.addEventListener("change", scheduleRefresh, true);
     document.addEventListener("input", scheduleRefresh, true);
     window.addEventListener("resize", scheduleRefresh, { passive: true });
     const observer = new MutationObserver(scheduleRefresh);
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     observer.observe(document.body, { attributes: true, attributeFilter: ["data-layout-mode"] });
   });
 
@@ -18,6 +18,7 @@
     timer = setTimeout(refresh, 120);
     setTimeout(refresh, 450);
     setTimeout(refresh, 1000);
+    setTimeout(refresh, 2200);
   }
 
   function refresh() {
