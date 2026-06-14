@@ -20,19 +20,41 @@
         box-shadow: none !important;
         color: #fff !important;
         font-weight: 950 !important;
+        letter-spacing: 0 !important;
+        line-height: 1.06 !important;
+        filter:
+          drop-shadow(0 1px 1px rgba(0, 0, 0, 0.98))
+          drop-shadow(0 0 3px rgba(0, 0, 0, 0.95)) !important;
         text-shadow:
+          0 0 1px rgba(0, 0, 0, 1),
+          1px 1px 1px rgba(0, 0, 0, 1),
+          -1px 1px 1px rgba(0, 0, 0, 1),
+          1px -1px 1px rgba(0, 0, 0, 0.98),
+          -1px -1px 1px rgba(0, 0, 0, 0.98),
           0 1px 2px rgba(0, 0, 0, 1),
-          0 0 5px rgba(0, 0, 0, 1),
+          0 0 6px rgba(0, 0, 0, 1),
           1px 0 1px rgba(0, 0, 0, 0.98),
           -1px 0 1px rgba(0, 0, 0, 0.98),
           0 1px 1px rgba(0, 0, 0, 0.98),
           0 -1px 1px rgba(0, 0, 0, 0.95) !important;
-        -webkit-text-stroke: 0.35px rgba(5, 10, 20, 0.95) !important;
+        -webkit-text-stroke: 0.55px rgba(3, 7, 18, 0.98) !important;
       }
 
-      .thumbnail.corner-layout-ready .corner-metric,
-      body[data-source-group="live"] .thumbnail.corner-layout-ready .corner-metric {
+      .thumbnail.corner-layout-ready .corner-rank,
+      .thumbnail.corner-layout-ready .corner-time {
         color: #fff !important;
+      }
+
+      .thumbnail.corner-layout-ready .corner-keyword {
+        color: #ecfeff !important;
+      }
+
+      .thumbnail.corner-layout-ready .corner-metric {
+        color: #fff7f7 !important;
+      }
+
+      body[data-source-group="live"] .thumbnail.corner-layout-ready .corner-metric {
+        color: #f8fbff !important;
       }
 
       .video-card {
