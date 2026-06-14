@@ -22,8 +22,8 @@ function parseBooleanEnv(name, fallback) {
 
 const CONFIG = {
   limit: parseIntegerEnv("YTB_RANKING_METRIC_DETAIL_LIMIT", 120),
-  fetchLimit: parseIntegerEnv("YTB_RANKING_METRIC_FETCH_LIMIT", 1800),
-  fetchConcurrency: parseIntegerEnv("YTB_RANKING_METRIC_FETCH_CONCURRENCY", 6),
+  fetchLimit: parseIntegerEnv("YTB_RANKING_METRIC_FETCH_LIMIT", 700),
+  fetchConcurrency: parseIntegerEnv("YTB_RANKING_METRIC_FETCH_CONCURRENCY", 4),
   fetchTimeoutMs: parseIntegerEnv("YTB_RANKING_METRIC_FETCH_TIMEOUT_MS", 10000),
   delayMs: parseIntegerEnv("YTB_RANKING_METRIC_DETAIL_DELAY_MS", 900),
   navigationTimeoutMs: parseIntegerEnv("YTB_RANKING_METRIC_DETAIL_NAVIGATION_TIMEOUT_MS", 20000),
@@ -82,6 +82,10 @@ function allTargetItems(payload) {
     }
   }
   return items;
+}
+
+function itemsMissingViewMetric(payload) {
+  return allTargetItems(payload).filter((item) => item.viewCount == null || item.viewCount <= 0);
 }
 
 function mapByVideoId(payload) {
@@ -360,7 +364,7 @@ async function extractWatchMetric(page) {
 }
 
 async function enrichWithWatchPages(payload) {
-  const targets = allTargetItems(payload).filter((item) => item.videoId).slice(0, CONFIG.limit);
+  const targets = itemsMissingViewMetric(payload).filter((item) => item.videoId).slice(0, CONFIG.limit);
   if (!targets.length) return { checked: 0, changed: 0 };
 
   const byVideoId = mapByVideoId(payload);
@@ -418,7 +422,9 @@ async function main() {
         return { checked: 0, changed: 0 };
       })
     : { checked: 0, changed: 0 };
-  const watch = allTargetItems(payload).length ? await enrichWithWatchPages(payload) : { checked: 0, changed: 0 };
+  const watch = itemsMissingViewMetric(payload).length
+    ? await enrichWithWatchPages(payload)
+    : { checked: 0, changed: 0 };
   const afterMissing = allTargetItems(payload).length;
 
   payload.metricDetailPostProcess = {
