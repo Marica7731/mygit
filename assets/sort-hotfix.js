@@ -7,6 +7,7 @@
   let localizeQueued = false;
   let itemByVideoId = new Map();
   let orderByVideoId = new Map();
+  const thumbnailCheckCache = new Map();
 
   window.fetch = async (input, init) => {
     const response = await originalFetch(input, init);
@@ -207,7 +208,8 @@
       if (node.textContent !== nextText) node.textContent = nextText;
     });
     document.querySelectorAll(".thumbnail img").forEach((img) => {
-      if (img.complete && (img.naturalWidth === 0 || isLikelyPlaceholder(img))) useNextThumbnail(img);
+      if (img.complete && img.naturalWidth === 0) useNextThumbnail(img);
+      else if (img.complete) scheduleThumbnailPlaceholderCheck(img);
     });
   }
 
@@ -348,14 +350,105 @@
 
   function handleThumbnailLoad(event) {
     const img = event.target;
-    if (img instanceof HTMLImageElement && img.closest(".thumbnail") && isLikelyPlaceholder(img)) useNextThumbnail(img);
+    if (img instanceof HTMLImageElement && img.closest(".thumbnail")) scheduleThumbnailPlaceholderCheck(img);
   }
 
-  function isLikelyPlaceholder(img) {
+  function isWeakThumbnail(img) {
     const src = absoluteUrl(img.currentSrc || img.src);
     if (!src || img.hidden || !img.complete || img.naturalWidth === 0) return false;
-    if (img.naturalWidth > 160 || img.naturalHeight > 120) return false;
-    return /\/(?:hq720|maxresdefault|sddefault|hqdefault)\.jpg(?:[?#]|$)/.test(src);
+    return /\/vi(?:_webp)?\/[^/]+\/(?:default|mqdefault|hqdefault|sddefault|hq720|maxresdefault|hqdefault_live)\.(?:jpg|webp)(?:[?#]|$)/i.test(
+      src,
+    );
+  }
+
+  function scheduleThumbnailPlaceholderCheck(img) {
+    if (!(img instanceof HTMLImageElement) || !img.closest(".thumbnail") || !isWeakThumbnail(img)) return;
+    const src = absoluteUrl(img.currentSrc || img.src);
+    if (!src) return;
+
+    const cached = thumbnailCheckCache.get(src);
+    if (cached === "missing") {
+      useNextThumbnail(img);
+      return;
+    }
+    if (cached === "ok") return;
+    if (cached && typeof cached.then === "function") {
+      cached.then((isPlaceholder) => {
+        if (isPlaceholder && absoluteUrl(img.currentSrc || img.src) === src) useNextThumbnail(img);
+      });
+      return;
+    }
+    if (img.dataset.placeholderCheckedSrc === src) return;
+    img.dataset.placeholderCheckedSrc = src;
+
+    let checkPromise;
+    const run = () => {
+      checkPromise = inspectThumbnailPixels(src);
+      thumbnailCheckCache.set(src, checkPromise);
+      checkPromise.then((isPlaceholder) => {
+        thumbnailCheckCache.set(src, isPlaceholder ? "missing" : "ok");
+        if (isPlaceholder && absoluteUrl(img.currentSrc || img.src) === src) useNextThumbnail(img);
+      });
+    };
+    if ("requestIdleCallback" in window) window.requestIdleCallback(run, { timeout: 900 });
+    else setTimeout(run, 80);
+  }
+
+  function inspectThumbnailPixels(src) {
+    return new Promise((resolve) => {
+      const probe = new Image();
+      probe.crossOrigin = "anonymous";
+      probe.decoding = "async";
+      probe.onload = () => {
+        try {
+          const width = 32;
+          const height = 18;
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext("2d", { willReadFrequently: true });
+          context.drawImage(probe, 0, 0, width, height);
+          resolve(isFlatGrayPlaceholder(context.getImageData(0, 0, width, height).data));
+        } catch {
+          resolve(false);
+        }
+      };
+      probe.onerror = () => resolve(true);
+      probe.src = src;
+    });
+  }
+
+  function isFlatGrayPlaceholder(data) {
+    let grayish = 0;
+    let saturated = 0;
+    let total = 0;
+    let sum = 0;
+    let sumSquared = 0;
+
+    for (let index = 0; index < data.length; index += 4) {
+      const alpha = data[index + 3];
+      if (alpha < 16) continue;
+      const red = data[index];
+      const green = data[index + 1];
+      const blue = data[index + 2];
+      const max = Math.max(red, green, blue);
+      const min = Math.min(red, green, blue);
+      const spread = max - min;
+      const brightness = (red + green + blue) / 3;
+      if (spread <= 12) grayish += 1;
+      if (spread > 36) saturated += 1;
+      total += 1;
+      sum += brightness;
+      sumSquared += brightness * brightness;
+    }
+
+    if (!total) return true;
+    const mean = sum / total;
+    const variance = sumSquared / total - mean * mean;
+    const grayRatio = grayish / total;
+    const saturatedRatio = saturated / total;
+
+    return grayRatio > 0.93 && saturatedRatio < 0.015 && variance < 1400 && mean > 70 && mean < 230;
   }
 
   function useNextThumbnail(img) {
