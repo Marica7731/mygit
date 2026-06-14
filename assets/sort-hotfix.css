@@ -11,6 +11,12 @@
   display: none !important;
 }
 
+body[data-source-group="live"] .rank-metric.metric-live,
+body[data-source-group="today"] .rank-metric.metric-duration,
+body[data-source-group="month"] .rank-metric.metric-duration {
+  display: none !important;
+}
+
 @media (max-width: 760px) {
   .filter-toolbar {
     overflow-x: auto;
