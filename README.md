@@ -46,7 +46,7 @@ YTB_RANKING_CHROME_EXECUTABLE=
 
 - 如果 GitHub Secrets 配置了 `YOUTUBE_API_KEY`，脚本会通过 YouTube Data API 批量补充直播观看人数、点赞数和频道订阅数。
 - 如果没有配置 API key，GitHub Actions 会尽力打开正在直播的视频页补采公开展示的观看人数、订阅数和点赞数；该方式依赖 YouTube 页面结构，稳定性不如 API。
-- 为了配合 10 分钟定时任务，workflow 中页面 fallback 的实际上限设置为 40 条，并把详情页等待时间缩短到 800ms；脚本默认值仍可通过环境变量覆盖。
+- 为了配合 10 分钟定时任务，workflow 中页面 fallback 的实际上限设置为 5 条，并把详情页等待时间缩短到 500ms；脚本默认值仍可通过环境变量覆盖。
 
 ## 使用方法
 
