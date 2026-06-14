@@ -127,6 +127,11 @@ function mergeMetric(item, detail, source) {
     changed = true;
   }
 
+  if (detail.channelUrl && item.channelUrl !== detail.channelUrl) {
+    item.channelUrl = detail.channelUrl;
+    changed = true;
+  }
+
   if (detail.viewCount != null && detail.viewCount > 0) {
     item.viewCount = detail.viewCount;
     item.viewText = formatCount(detail.viewCount, "回視聴");
@@ -221,8 +226,33 @@ async function extractWatchMetric(page) {
   return page.evaluate(() => {
     const player = window.ytInitialPlayerResponse || {};
     const details = player.videoDetails || {};
+    const absoluteUrl = (value) => {
+      if (!value) return "";
+      try {
+        return new URL(value, location.origin).href;
+      } catch {
+        return "";
+      }
+    };
+    const bodyText = document.documentElement.innerHTML || "";
+    const fromJsonString = (name) => {
+      const match = bodyText.match(new RegExp(`"${name}"\\s*:\\s*"([^"]+)"`));
+      return match ? match[1].replace(/\\u0026/g, "&") : "";
+    };
+    const ownerProfileUrl = fromJsonString("ownerProfileUrl");
+    const canonicalBaseUrl = fromJsonString("canonicalBaseUrl");
+    const channelId =
+      details.channelId ||
+      fromJsonString("externalChannelId") ||
+      fromJsonString("channelId") ||
+      "";
+    const channelUrl =
+      absoluteUrl(ownerProfileUrl) ||
+      absoluteUrl(canonicalBaseUrl) ||
+      (channelId ? `https://www.youtube.com/channel/${channelId}` : "");
     return {
-      channelId: details.channelId || "",
+      channelId,
+      channelUrl,
       viewCount: details.viewCount ? Number(details.viewCount) : null,
     };
   });
