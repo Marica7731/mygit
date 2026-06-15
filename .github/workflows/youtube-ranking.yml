@@ -147,6 +147,8 @@ jobs:
           force_failure=""
           if [ -f /tmp/youtube-ranking-run-failed ]; then
             force_failure="previous ranking step"
+            git fetch origin main
+            git show origin/main:data/youtube-ranking.json > data/youtube-ranking.json || true
           fi
           YTB_RANKING_FORCE_FAILURE="$force_failure" node scripts/update-ranking-status.js
           cp data/youtube-ranking-status.json /tmp/youtube-ranking-status.json
