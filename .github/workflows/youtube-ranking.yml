@@ -27,7 +27,7 @@ permissions:
 
 concurrency:
   group: youtube-ranking-main
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   update-ranking:
