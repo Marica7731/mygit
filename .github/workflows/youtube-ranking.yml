@@ -11,6 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
 
 concurrency:
@@ -133,3 +134,41 @@ jobs:
               git push
             }
           fi
+
+      - name: Queue next update fallback
+        if: ${{ always() && !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          PREVIOUS_STEPS_FAILED: ${{ failure() }}
+        run: |
+          if [ "$PREVIOUS_STEPS_FAILED" = "true" ]; then
+            delay=600
+          else
+            delay=60
+          fi
+          echo "Waiting ${delay}s before fallback dispatch check..."
+          sleep "$delay"
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process');
+
+          const repo = process.env.GITHUB_REPOSITORY;
+          const currentRunId = String(process.env.CURRENT_RUN_ID || '');
+          const activeStatuses = new Set(['queued', 'in_progress', 'waiting', 'requested', 'pending']);
+          const raw = execFileSync(
+            'gh',
+            ['api', '--method', 'GET', `repos/${repo}/actions/workflows/youtube-ranking.yml/runs`, '-f', 'per_page=20'],
+            { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
+          );
+          const runs = JSON.parse(raw).workflow_runs || [];
+          const activeOther = runs.find((run) => String(run.id) !== currentRunId && activeStatuses.has(run.status));
+          if (activeOther) {
+            console.log(
+              `Skip fallback dispatch: update run #${activeOther.run_number} ${activeOther.event} is ${activeOther.status}.`,
+            );
+            process.exit(0);
+          }
+
+          console.log('No other active update run. Dispatching next update workflow.');
+          execFileSync('gh', ['workflow', 'run', 'youtube-ranking.yml', '--ref', 'main', '--repo', repo], { stdio: 'inherit' });
+          NODE
