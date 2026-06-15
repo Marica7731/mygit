@@ -30,7 +30,9 @@
     document.querySelectorAll(".thumbnail.corner-layout-ready .corner-time").forEach((node) => {
       const current = clean(node.textContent);
       const stored = node.dataset.fullCornerText || "";
-      if (!stored || (!isThree && current && current !== shortenThreeColumnText(stored))) {
+      const hasRank = /#[0-9]+/.test(current);
+      const storedHasRank = /#[0-9]+/.test(stored);
+      if (!stored || (isThree && hasRank && !storedHasRank) || (!isThree && current && current !== shortenThreeColumnText(stored))) {
         node.dataset.fullCornerText = current;
       }
       const fullText = node.dataset.fullCornerText || current;
