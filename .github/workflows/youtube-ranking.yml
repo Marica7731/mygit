@@ -82,12 +82,12 @@ jobs:
       - name: Update ranking data
         run: node scripts/update-youtube-ranking.js
 
-      - name: Validate initial view signal
+      - name: Check initial view signal
         run: |
           node <<'NODE'
           const fs = require('node:fs');
           const payload = JSON.parse(fs.readFileSync('data/youtube-ranking.json', 'utf8'));
-          const errors = [];
+          const warnings = [];
           const hasViewSignal = (item) => Number(item.viewCount) > 0 || /[0-9０-９][0-9０-９,，.．]*\s*(?:億|亿|万|萬|千|K|M|B)?\s*(?:回視聴|視聴回数|views?|次观看|次觀看|播放)/i.test(String(item.viewText || ''));
           for (const group of ['today', 'month']) {
             const videos = (payload.groups?.[group]?.items || []).filter((item) => item.statusType !== 'live' && item.statusType !== 'upcoming');
@@ -95,12 +95,11 @@ jobs:
             const withViews = videos.filter(hasViewSignal).length;
             const ratio = withViews / videos.length;
             console.log(`[initial-view] ${group}: ${withViews}/${videos.length} (${Math.round(ratio * 1000) / 10}%)`);
-            if (ratio < 0.1) errors.push(`${group}: initial view signal ${withViews}/${videos.length} below 10%`);
+            if (ratio < 0.1) warnings.push(`${group}: initial view signal ${withViews}/${videos.length} below 10%`);
           }
-          if (errors.length) {
-            console.error('[initial-view] data quality check failed:');
-            for (const error of errors) console.error(`- ${error}`);
-            process.exit(1);
+          if (warnings.length) {
+            console.warn('[initial-view] low initial view signal; continuing to detail enrichment and final validation.');
+            for (const warning of warnings) console.warn(`- ${warning}`);
           }
           NODE
 
