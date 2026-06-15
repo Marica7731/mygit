@@ -1,21 +1,10 @@
 (function () {
   ready(() => {
     installStyle();
-    reconcileView();
-    [250, 900, 1800, 3600].forEach((delay) => setTimeout(reconcileView, delay));
-    new MutationObserver(reconcileView).observe(document.body, {
-      attributes: true,
-      attributeFilter: ["data-layout-mode"],
-      characterData: true,
-      childList: true,
-      subtree: true,
-    });
-  });
-
-  function reconcileView() {
     scrubBodyDuration();
-    compactThreeColumnCornerText();
-  }
+    [250, 900, 1800, 3600].forEach((delay) => setTimeout(scrubBodyDuration, delay));
+    new MutationObserver(scrubBodyDuration).observe(document.body, { childList: true, subtree: true });
+  });
 
   function scrubBodyDuration() {
     document.querySelectorAll(".compact-meta,.hb-meta").forEach((node) => {
@@ -25,30 +14,6 @@
     });
   }
 
-  function compactThreeColumnCornerText() {
-    const isThree = document.body.dataset.layoutMode === "three";
-    document.querySelectorAll(".thumbnail.corner-layout-ready .corner-time").forEach((node) => {
-      const current = clean(node.textContent);
-      const stored = node.dataset.fullCornerText || "";
-      const hasRank = /#[0-9]+/.test(current);
-      const storedHasRank = /#[0-9]+/.test(stored);
-      if (!stored || (isThree && hasRank && !storedHasRank) || (!isThree && current && current !== shortenThreeColumnText(stored))) {
-        node.dataset.fullCornerText = current;
-      }
-      const fullText = node.dataset.fullCornerText || current;
-      const nextText = isThree ? shortenThreeColumnText(fullText) : fullText;
-      if (nextText && current !== nextText) node.textContent = nextText;
-    });
-  }
-
-  function shortenThreeColumnText(value) {
-    return clean(value)
-      .replace(/(#[0-9]+)\s+(.+?)播放$/, "$1 $2")
-      .replace(/(#[0-9]+)\s+(.+?)粉丝$/, "$1 $2粉")
-      .replace(/(#[0-9]+)\s+(.+?)订阅者$/, "$1 $2订")
-      .replace(/(#[0-9]+)\s+(.+?)人$/, "$1 $2人");
-  }
-
   function installStyle() {
     if (document.getElementById("corner-contrast-hotfix-style")) return;
     const style = document.createElement("style");
@@ -56,25 +21,25 @@
     style.textContent = `
       .thumbnail.corner-layout-ready .corner-badge {
         color: #fff !important;
-        background: rgba(3, 7, 18, 0.56) !important;
-        border-color: rgba(255, 255, 255, 0.44) !important;
+        background: rgba(3, 7, 18, 0.28) !important;
+        border-color: rgba(255, 255, 255, 0.22) !important;
         box-shadow:
-          0 0 0 1px rgba(2, 6, 23, 0.44),
-          0 1px 5px rgba(0, 0, 0, 0.5) !important;
+          0 0 0 1px rgba(3, 7, 18, 0.2),
+          0 1px 3px rgba(0, 0, 0, 0.28) !important;
         text-shadow:
-          0 1px 2px rgba(0, 0, 0, 0.86),
-          0 0 4px rgba(0, 0, 0, 0.58) !important;
-        -webkit-text-stroke: 0.12px rgba(0, 0, 0, 0.55);
+          0 1px 2px rgba(0, 0, 0, 0.98),
+          0 0 4px rgba(0, 0, 0, 0.86) !important;
+        -webkit-text-stroke: 0.2px rgba(7, 10, 18, 0.72);
         pointer-events: none !important;
       }
       .thumbnail.corner-layout-ready .corner-keyword {
-        background: rgba(6, 78, 59, 0.62) !important;
+        background: rgba(6, 78, 59, 0.32) !important;
       }
       .thumbnail.corner-layout-ready .corner-metric {
-        background: rgba(127, 29, 29, 0.64) !important;
+        background: rgba(127, 29, 29, 0.34) !important;
       }
       body[data-source-group="live"] .thumbnail.corner-layout-ready .corner-metric {
-        background: rgba(30, 58, 138, 0.62) !important;
+        background: rgba(30, 58, 138, 0.32) !important;
       }
       .thumbnail.corner-layout-ready .corner-rank {
         top: 4px !important;
@@ -100,18 +65,29 @@
         bottom: 4px !important;
         left: auto !important;
       }
-      body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-rank,
-      body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-metric {
-        display: none !important;
-      }
       body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-badge {
         font-size: 10px !important;
         line-height: 1 !important;
         min-height: 12px !important;
         padding: 1px 3px !important;
       }
+      body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-rank,
+      body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-metric,
+      body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-keyword,
       body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-time {
-        max-width: calc(100% - 42px) !important;
+        display: inline-flex !important;
+      }
+      body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-rank {
+        max-width: 28% !important;
+      }
+      body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-metric {
+        max-width: 52% !important;
+      }
+      body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-keyword {
+        max-width: 38% !important;
+      }
+      body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-time {
+        max-width: 52% !important;
         white-space: nowrap !important;
       }
     `;
