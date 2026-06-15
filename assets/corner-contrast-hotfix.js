@@ -1,10 +1,21 @@
 (function () {
   ready(() => {
     installStyle();
-    scrubBodyDuration();
-    [250, 900, 1800, 3600].forEach((delay) => setTimeout(scrubBodyDuration, delay));
-    new MutationObserver(scrubBodyDuration).observe(document.body, { childList: true, subtree: true });
+    reconcileView();
+    [250, 900, 1800, 3600].forEach((delay) => setTimeout(reconcileView, delay));
+    new MutationObserver(reconcileView).observe(document.body, {
+      attributes: true,
+      attributeFilter: ["data-layout-mode"],
+      characterData: true,
+      childList: true,
+      subtree: true,
+    });
   });
+
+  function reconcileView() {
+    scrubBodyDuration();
+    compactThreeColumnCornerText();
+  }
 
   function scrubBodyDuration() {
     document.querySelectorAll(".compact-meta,.hb-meta").forEach((node) => {
@@ -12,6 +23,28 @@
       if (nextText && node.textContent !== nextText) node.textContent = nextText;
       node.hidden = !nextText;
     });
+  }
+
+  function compactThreeColumnCornerText() {
+    const isThree = document.body.dataset.layoutMode === "three";
+    document.querySelectorAll(".thumbnail.corner-layout-ready .corner-time").forEach((node) => {
+      const current = clean(node.textContent);
+      const stored = node.dataset.fullCornerText || "";
+      if (!stored || (!isThree && current && current !== shortenThreeColumnText(stored))) {
+        node.dataset.fullCornerText = current;
+      }
+      const fullText = node.dataset.fullCornerText || current;
+      const nextText = isThree ? shortenThreeColumnText(fullText) : fullText;
+      if (nextText && current !== nextText) node.textContent = nextText;
+    });
+  }
+
+  function shortenThreeColumnText(value) {
+    return clean(value)
+      .replace(/(#[0-9]+)\s+(.+?)播放$/, "$1 $2")
+      .replace(/(#[0-9]+)\s+(.+?)粉丝$/, "$1 $2粉")
+      .replace(/(#[0-9]+)\s+(.+?)订阅者$/, "$1 $2订")
+      .replace(/(#[0-9]+)\s+(.+?)人$/, "$1 $2人");
   }
 
   function installStyle() {
