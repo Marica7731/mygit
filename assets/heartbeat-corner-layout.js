@@ -29,6 +29,7 @@
   }
 
   function refresh() {
+    dedupeCards();
     const cards = visibleCards();
     cards.forEach((card, index) => {
       const item = findItem(card);
@@ -36,6 +37,32 @@
       scrubRepeatedBody(card);
       writeCorners(card, item, index + 1);
       writeBodyMeta(card, item);
+    });
+  }
+
+  function dedupeCards() {
+    const seen = new Set();
+    document.querySelectorAll(".video-card").forEach((card) => {
+      if (card.dataset.cornerDuplicate === "1") {
+        card.hidden = false;
+        card.classList.remove("is-duplicate-video");
+        card.removeAttribute("aria-hidden");
+        delete card.dataset.cornerDuplicate;
+      }
+
+      if (card.hidden) return;
+      const identity = cardIdentity(card);
+      if (!identity) return;
+
+      if (seen.has(identity)) {
+        card.dataset.cornerDuplicate = "1";
+        card.classList.add("is-duplicate-video");
+        card.hidden = true;
+        card.setAttribute("aria-hidden", "true");
+        return;
+      }
+
+      seen.add(identity);
     });
   }
 
@@ -126,6 +153,14 @@
   function findItem(card) {
     const id = videoId(card.querySelector('a[href*="watch"],a[href*="/shorts/"],.thumbnail')?.href || "");
     return (id && byId.get(id)) || byText.get(key(text(card, "h3"), text(card, ".channel"))) || null;
+  }
+
+  function cardIdentity(card) {
+    const id = videoId(card.querySelector('a[href*="watch"],a[href*="/shorts/"],.thumbnail')?.href || "");
+    if (id) return `id:${id}`;
+    const title = text(card, "h3");
+    if (!title) return "";
+    return `text:${key(title, text(card, ".channel"))}`;
   }
 
   function fallbackKeyword(card) {
