@@ -135,6 +135,36 @@ jobs:
             }
           fi
 
+      - name: Update run status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/update-ranking-status.js
+          cp data/youtube-ranking-status.json /tmp/youtube-ranking-status.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p data
+          cp /tmp/youtube-ranking-status.json data/youtube-ranking-status.json
+          git add data/youtube-ranking-status.json
+          if git diff --cached --quiet; then
+            echo "No status changes to commit."
+          else
+            git commit -m "chore: 更新 YouTube 抓取状态"
+            git push || {
+              git fetch origin main
+              git reset --hard origin/main
+              mkdir -p data
+              cp /tmp/youtube-ranking-status.json data/youtube-ranking-status.json
+              git add data/youtube-ranking-status.json
+              git diff --cached --quiet && exit 0
+              git commit -m "chore: 更新 YouTube 抓取状态"
+              git push
+            }
+          fi
+
       - name: Queue next update fallback
         if: always()
         env:
