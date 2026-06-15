@@ -179,6 +179,7 @@
   function shortTime(value) {
     const match = clean(value).match(/(\d+(?:\.\d+)?)\s*(秒|分|時間|日|週間|か月|ヶ月|年)/);
     if (!match) return "";
+    if (match[2] === "年" && Number(match[1]) > 20) return "";
     return `${match[1]}${
       {
         秒: "秒前",
