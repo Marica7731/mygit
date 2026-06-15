@@ -83,6 +83,7 @@
         border-radius: 0 !important;
         background: transparent !important;
         box-shadow: none !important;
+        filter: none !important;
         color: #fff !important;
         font-weight: 950 !important;
         line-height: 1.08 !important;
