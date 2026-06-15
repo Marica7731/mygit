@@ -2,15 +2,19 @@
   ready(() => {
     repair();
     [500, 1500, 3500, 7000, 12000].forEach((delay) => setTimeout(repair, delay));
-    const startedAt = Date.now();
-    const timer = setInterval(() => {
-      repair();
-      if (Date.now() - startedAt > 30000) clearInterval(timer);
-    }, 2000);
+    window.addEventListener("scroll", scheduleRepair, { passive: true });
+    window.addEventListener("resize", scheduleRepair, { passive: true });
   });
+
+  let timer = 0;
+  function scheduleRepair() {
+    clearTimeout(timer);
+    timer = setTimeout(repair, 120);
+  }
 
   function repair() {
     document.querySelectorAll(".thumbnail img").forEach((img) => {
+      if (!isNearViewport(img)) return;
       if (!img.dataset.hbThumbFallbackReady) {
         img.dataset.hbThumbFallbackReady = "1";
         img.addEventListener("error", () => fallback(img));
@@ -33,9 +37,9 @@
     }
 
     const candidates = [
-      `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hq720.jpg`,
-      `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`,
       `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/mqdefault.jpg`,
+      `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`,
+      `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/sddefault.jpg`,
       `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/default.jpg`,
     ];
     const current = stripQuery(img.currentSrc || img.src || "");
@@ -67,6 +71,12 @@
     } catch {
       return img.src.match(/\/vi(?:_webp)?\/([^/]+)\//)?.[1] || "";
     }
+  }
+
+  function isNearViewport(element) {
+    const rect = element.getBoundingClientRect();
+    const margin = Math.max(900, window.innerHeight || 800);
+    return rect.bottom >= -margin && rect.top <= (window.innerHeight || 800) + margin;
   }
 
   function stripQuery(value) {
