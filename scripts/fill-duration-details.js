@@ -69,6 +69,20 @@ function parseIsoDuration(value) {
   return Number.isFinite(total) && total > 0 ? total : null;
 }
 
+function elapsedFromTimestamp(value, now = Date.now()) {
+  const timestamp = Date.parse(String(value || ""));
+  if (!Number.isFinite(timestamp)) return null;
+  const elapsed = Math.floor((now - timestamp) / 1000);
+  return elapsed > 0 ? elapsed : null;
+}
+
+function durationFromTimestampRange(startValue, endValue) {
+  const start = Date.parse(String(startValue || ""));
+  const end = Date.parse(String(endValue || ""));
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+  return Math.floor((end - start) / 1000);
+}
+
 function jsonStringFromText(text, name) {
   const match = text.match(new RegExp(`"${name}"\\s*:\\s*"([^"]+)"`));
   return match ? match[1].replace(/\\u0026/g, "&") : "";
@@ -92,7 +106,12 @@ function durationFromWatchHtml(html) {
     jsonStringFromText(html, "duration") ||
     html.match(/itemprop=["']duration["'][^>]+content=["']([^"']+)["']/i)?.[1] ||
     "";
-  return parseIsoDuration(isoDuration);
+  const parsedIsoDuration = parseIsoDuration(isoDuration);
+  if (parsedIsoDuration) return parsedIsoDuration;
+
+  const startTimestamp = jsonStringFromText(html, "startTimestamp") || jsonStringFromText(html, "actualStartTime");
+  const endTimestamp = jsonStringFromText(html, "endTimestamp") || jsonStringFromText(html, "actualEndTime");
+  return durationFromTimestampRange(startTimestamp, endTimestamp) || elapsedFromTimestamp(startTimestamp);
 }
 
 function allItems(payload) {
