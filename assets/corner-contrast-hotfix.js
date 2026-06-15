@@ -2,12 +2,25 @@
   ready(() => {
     installStyle();
     scrubBodyDuration();
-    [250, 900, 1800, 3600].forEach((delay) => setTimeout(scrubBodyDuration, delay));
-    new MutationObserver(scrubBodyDuration).observe(document.body, { childList: true, subtree: true });
+    [250, 900, 1800, 3600, 7000].forEach((delay) => setTimeout(scrubBodyDuration, delay));
+    document.addEventListener("click", scheduleScrub, true);
+    document.addEventListener("change", scheduleScrub, true);
+    document.addEventListener("input", scheduleScrub, true);
   });
+
+  let timer = 0;
+  function scheduleScrub() {
+    clearTimeout(timer);
+    timer = setTimeout(scrubBodyDuration, 160);
+  }
 
   function scrubBodyDuration() {
     document.querySelectorAll(".compact-meta,.hb-meta").forEach((node) => {
+      if (node.classList.contains("compact-meta")) {
+        node.hidden = true;
+        node.setAttribute("aria-hidden", "true");
+        return;
+      }
       const nextText = clean(node.textContent).replace(/\s*·\s*(?:\d{1,2}:)?\d{1,2}:\d{2}\s*$/, "");
       if (nextText && node.textContent !== nextText) node.textContent = nextText;
       node.hidden = !nextText;
@@ -19,6 +32,9 @@
     const style = document.createElement("style");
     style.id = "corner-contrast-hotfix-style";
     style.textContent = `
+      .video-card .compact-meta {
+        display: none !important;
+      }
       .thumbnail.corner-layout-ready .corner-badge {
         color: #fff !important;
         background: transparent !important;
