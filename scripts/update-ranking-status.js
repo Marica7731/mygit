@@ -6,7 +6,8 @@ const repo = process.env.GITHUB_REPOSITORY || "";
 const runId = process.env.GITHUB_RUN_ID || "";
 const statusPath = path.join("data", "youtube-ranking-status.json");
 
-const failure = getFailureInfo();
+const forcedFailureMessage = process.env.YTB_RANKING_FORCE_FAILURE || "";
+const failure = getFailureInfo() || (forcedFailureMessage ? { name: forcedFailureMessage } : null);
 const ranking = readJson(path.join("data", "youtube-ranking.json")) || {};
 const status = {
   status: failure ? "failed" : "success",
