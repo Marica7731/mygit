@@ -139,8 +139,8 @@ jobs:
       - name: Fill live Innertube durations
         run: node scripts/fill-live-innertube-duration.js
 
-      - name: Fill live relative durations
-        run: node scripts/fill-live-relative-duration.js
+      - name: Skip live relative durations
+        run: echo "Skip watch-page live duration fallback on GitHub runners; Innertube duration fill runs in the previous step."
 
       - name: Normalize duration fields
         run: node scripts/normalize-duration-fields.js
