@@ -13,6 +13,8 @@
       .catch(() => {});
     refresh();
     [250, 900, 1800, 3600, 7000, 12000].forEach((delay) => setTimeout(refresh, delay));
+    const observer = new MutationObserver(scheduleRefresh);
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     document.addEventListener("click", scheduleRefresh, true);
     document.addEventListener("change", scheduleRefresh, true);
     document.addEventListener("input", scheduleRefresh, true);
@@ -55,7 +57,7 @@
 
     const meta = card.querySelector(".hb-meta");
     if (meta) {
-      const text = clean(meta.textContent).replace(/\s*·\s*(?:\d{1,2}:)?\d{1,2}:\d{2}\s*$/, "");
+      const text = stripDuplicateDuration(meta.textContent);
       meta.textContent = text;
       meta.hidden = !text || /^20\d{2}年前$/.test(text);
     }
@@ -112,6 +114,14 @@
     const remainSeconds = total % 60;
     if (hours > 0) return `${hours}:${String(minutes).padStart(2, "0")}:${String(remainSeconds).padStart(2, "0")}`;
     return `${minutes}:${String(remainSeconds).padStart(2, "0")}`;
+  }
+
+  function stripDuplicateDuration(value) {
+    const text = clean(value)
+      .replace(/\s*·\s*(?:\d{1,2}:)?\d{1,2}:\d{2}\s*$/g, "")
+      .replace(/\s+(?:\d{1,2}:)?\d{1,2}:\d{2}\s*$/g, "");
+    const match = text.match(/(\d+(?:\.\d+)?)\s*(秒前|分钟前|小时前|天前|周前|个月前|年前)/);
+    return match ? `${match[1]}${match[2]}` : text;
   }
 
   function videoId(value) {
