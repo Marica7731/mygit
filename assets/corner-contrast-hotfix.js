@@ -20,20 +20,25 @@
     style.id = "corner-contrast-hotfix-style";
     style.textContent = `
       .thumbnail.corner-layout-ready .corner-badge {
-        background: rgba(3, 7, 18, 0.42) !important;
-        border-color: rgba(255, 255, 255, 0.26) !important;
+        color: #fff !important;
+        background: rgba(3, 7, 18, 0.56) !important;
+        border-color: rgba(255, 255, 255, 0.44) !important;
         box-shadow:
-          0 0 0 1px rgba(2, 6, 23, 0.28),
-          0 1px 4px rgba(0, 0, 0, 0.34) !important;
+          0 0 0 1px rgba(2, 6, 23, 0.44),
+          0 1px 5px rgba(0, 0, 0, 0.5) !important;
+        text-shadow:
+          0 1px 2px rgba(0, 0, 0, 0.86),
+          0 0 4px rgba(0, 0, 0, 0.58) !important;
+        -webkit-text-stroke: 0.12px rgba(0, 0, 0, 0.55);
       }
       .thumbnail.corner-layout-ready .corner-keyword {
-        background: rgba(6, 78, 59, 0.46) !important;
+        background: rgba(6, 78, 59, 0.62) !important;
       }
       .thumbnail.corner-layout-ready .corner-metric {
-        background: rgba(127, 29, 29, 0.48) !important;
+        background: rgba(127, 29, 29, 0.64) !important;
       }
       body[data-source-group="live"] .thumbnail.corner-layout-ready .corner-metric {
-        background: rgba(30, 58, 138, 0.46) !important;
+        background: rgba(30, 58, 138, 0.62) !important;
       }
     `;
     document.head.append(style);
