@@ -136,17 +136,12 @@ jobs:
           fi
 
       - name: Queue next update fallback
-        if: ${{ always() && !cancelled() }}
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           CURRENT_RUN_ID: ${{ github.run_id }}
-          PREVIOUS_STEPS_FAILED: ${{ failure() }}
         run: |
-          if [ "$PREVIOUS_STEPS_FAILED" = "true" ]; then
-            delay=600
-          else
-            delay=60
-          fi
+          delay=60
           echo "Waiting ${delay}s before fallback dispatch check..."
           sleep "$delay"
           node <<'NODE'
