@@ -59,7 +59,7 @@
   }
 
   function shortMetric(value) {
-    return clean(value).replace(/播放/g, "播").replace(/粉丝/g, "粉");
+    return clean(value);
   }
 
   function installStyle() {
