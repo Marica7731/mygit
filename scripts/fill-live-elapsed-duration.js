@@ -9,6 +9,7 @@ const DATA_FILE = path.join(ROOT_DIR, "data", "youtube-ranking.json");
 
 const CONFIG = {
   limit: intEnv("YTB_RANKING_LIVE_ELAPSED_LIMIT", 120),
+  thumbnailMaxElapsedSeconds: intEnv("YTB_RANKING_LIVE_THUMBNAIL_MAX_ELAPSED_SECONDS", 45 * 24 * 3600),
   delayMs: intEnv("YTB_RANKING_LIVE_ELAPSED_DELAY_MS", 600),
   navigationTimeoutMs: intEnv("YTB_RANKING_LIVE_ELAPSED_NAVIGATION_TIMEOUT_MS", 15000),
   headless: booleanEnv("YTB_RANKING_HEADLESS", true),
@@ -54,6 +55,31 @@ function formatDuration(seconds) {
     return `${hours}:${String(minutes).padStart(2, "0")}:${String(remainSeconds).padStart(2, "0")}`;
   }
   return `${minutes}:${String(remainSeconds).padStart(2, "0")}`;
+}
+
+function timestampFromThumbnail(item, now = Date.now()) {
+  if (item.statusType !== "live") return null;
+  const value = clean(item.thumbnailUrl);
+  if (!value) return null;
+
+  let raw = "";
+  try {
+    raw = new URL(value).searchParams.get("v") || "";
+  } catch {
+    raw = value.match(/[?&]v=([0-9a-f]{8,}|[0-9]{10})/i)?.[1] || "";
+  }
+
+  if (!raw) return null;
+  const seconds = /^[0-9a-f]{8,}$/i.test(raw) ? Number.parseInt(raw, 16) : Number(raw);
+  if (!Number.isFinite(seconds)) return null;
+
+  const minSeconds = Date.parse("2020-01-01T00:00:00Z") / 1000;
+  const nowSeconds = Math.floor(now / 1000);
+  if (seconds < minSeconds || seconds > nowSeconds + 300) return null;
+
+  const elapsed = nowSeconds - seconds;
+  if (elapsed > CONFIG.thumbnailMaxElapsedSeconds) return null;
+  return elapsed > 0 ? elapsed : null;
 }
 
 function allItems(payload) {
@@ -112,14 +138,31 @@ function buildSearchableText(item) {
   );
 }
 
-function mergeDuration(item, seconds) {
+function mergeDuration(item, seconds, source = "liveStartTimestamp") {
   const durationSeconds = Number(seconds);
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return false;
   item.durationSeconds = durationSeconds;
   item.durationText = formatDuration(durationSeconds);
-  item.durationSource = "liveStartTimestamp";
+  item.durationSource = source;
   item.searchableText = buildSearchableText(item);
   return true;
+}
+
+function enrichWithThumbnailTimestamp(targets, byVideoId) {
+  const now = Date.now();
+  let checked = 0;
+  let changed = 0;
+
+  for (const item of targets) {
+    const seconds = timestampFromThumbnail(item, now);
+    if (!seconds) continue;
+    checked += 1;
+    for (const entry of byVideoId.get(item.videoId) || []) {
+      if (mergeDuration(entry, seconds, "thumbnailTimestamp")) changed += 1;
+    }
+  }
+
+  return { checked, changed };
 }
 
 async function gotoWithRetry(page, url) {
@@ -169,8 +212,9 @@ async function extractLiveDuration(page) {
 async function main() {
   const payload = JSON.parse(await fs.readFile(DATA_FILE, "utf8"));
   const missingBefore = uniqueByVideoId(targetItems(payload));
-  const targets = missingBefore.slice(0, CONFIG.limit);
   const byVideoId = mapByVideoId(payload);
+  const thumbnail = enrichWithThumbnailTimestamp(missingBefore.slice(0, CONFIG.limit), byVideoId);
+  const targets = uniqueByVideoId(targetItems(payload)).slice(0, CONFIG.limit);
   let checked = 0;
   let changed = 0;
   let failed = 0;
@@ -215,8 +259,10 @@ async function main() {
     generatedAt: new Date().toISOString(),
     limit: CONFIG.limit,
     beforeMissing: missingBefore.length,
-    attempted: targets.length,
+    attempted: missingBefore.slice(0, CONFIG.limit).length,
     afterMissing: uniqueByVideoId(targetItems(payload)).length,
+    thumbnail,
+    playwrightAttempted: targets.length,
     checked,
     changed,
     failed,
