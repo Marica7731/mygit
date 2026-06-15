@@ -216,7 +216,7 @@ async function main() {
     limit: CONFIG.limit,
     beforeMissing: missingBefore.length,
     attempted: targets.length,
-    afterMissing: targetItems(payload).length,
+    afterMissing: uniqueByVideoId(targetItems(payload)).length,
     checked,
     changed,
     failed,
