@@ -318,6 +318,7 @@ async function extractDurationFromPage(page) {
     const html = document.documentElement.innerHTML || "";
     const player = window.ytInitialPlayerResponse || {};
     const details = player.videoDetails || {};
+    const liveDetails = player.microformat?.playerMicroformatRenderer?.liveBroadcastDetails || {};
 
     const jsonString = (name) => {
       const match = html.match(new RegExp(`"${name}"\\s*:\\s*"([^"]+)"`));
@@ -336,6 +337,12 @@ async function extractDurationFromPage(page) {
       const total = Number(days) * 86400 + Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
       return Number.isFinite(total) && total > 0 ? total : null;
     };
+    const elapsedFrom = (value) => {
+      const timestamp = Date.parse(String(value || ""));
+      if (!Number.isFinite(timestamp)) return null;
+      const elapsed = Math.floor((Date.now() - timestamp) / 1000);
+      return elapsed > 0 ? elapsed : null;
+    };
 
     const lengthSeconds = Number(details.lengthSeconds) || jsonNumber("lengthSeconds");
     if (lengthSeconds) return lengthSeconds;
@@ -347,7 +354,7 @@ async function extractDurationFromPage(page) {
       jsonString("duration") ||
         document.querySelector('meta[itemprop="duration"]')?.getAttribute("content") ||
         "",
-    );
+    ) || elapsedFrom(liveDetails.startTimestamp || jsonString("startTimestamp") || jsonString("actualStartTime"));
   });
 }
 

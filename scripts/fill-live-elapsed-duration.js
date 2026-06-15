@@ -168,7 +168,8 @@ async function extractLiveDuration(page) {
 
 async function main() {
   const payload = JSON.parse(await fs.readFile(DATA_FILE, "utf8"));
-  const targets = uniqueByVideoId(targetItems(payload)).slice(0, CONFIG.limit);
+  const missingBefore = uniqueByVideoId(targetItems(payload));
+  const targets = missingBefore.slice(0, CONFIG.limit);
   const byVideoId = mapByVideoId(payload);
   let checked = 0;
   let changed = 0;
@@ -213,7 +214,8 @@ async function main() {
   payload.liveDurationPostProcess = {
     generatedAt: new Date().toISOString(),
     limit: CONFIG.limit,
-    beforeMissing: targets.length,
+    beforeMissing: missingBefore.length,
+    attempted: targets.length,
     afterMissing: targetItems(payload).length,
     checked,
     changed,
@@ -221,7 +223,7 @@ async function main() {
   };
 
   await fs.writeFile(DATA_FILE, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
-  console.log(`[live-duration] missing ${targets.length} -> ${payload.liveDurationPostProcess.afterMissing}`);
+  console.log(`[live-duration] missing ${missingBefore.length} -> ${payload.liveDurationPostProcess.afterMissing}`);
 }
 
 main().catch((error) => {

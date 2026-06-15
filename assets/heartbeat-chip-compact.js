@@ -129,17 +129,25 @@
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
-        padding: 2px 5px !important;
-        border-radius: 5px !important;
-        background: rgba(15, 23, 42, 0.72) !important;
+        padding: 0 1px !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        box-shadow: none !important;
+        filter: none !important;
         color: #fff !important;
         font-size: 10px !important;
-        font-weight: 850 !important;
-        line-height: 1.1 !important;
+        font-weight: 950 !important;
+        line-height: 1.08 !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         white-space: nowrap !important;
         pointer-events: none !important;
+        text-shadow:
+          0 1px 2px rgba(15, 23, 42, 0.78),
+          0 0 2px rgba(15, 23, 42, 0.62) !important;
       }
       .thumbnail .hb-keyword,
       .thumbnail .hotfix-thumb-keyword {
@@ -147,6 +155,13 @@
         right: auto !important;
         bottom: 5px !important;
         top: auto !important;
+        color: #1f6792 !important;
+        text-shadow:
+          0 1px 0 rgba(255, 255, 255, 0.95),
+          1px 0 0 rgba(255, 255, 255, 0.95),
+          -1px 0 0 rgba(255, 255, 255, 0.95),
+          0 -1px 0 rgba(255, 255, 255, 0.95),
+          0 1px 2px rgba(15, 23, 42, 0.3) !important;
       }
       .thumbnail .hb-duration,
       .thumbnail .hotfix-thumb-duration {

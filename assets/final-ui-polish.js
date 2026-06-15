@@ -188,12 +188,30 @@
       }
       .thumbnail.corner-layout-ready .corner-badge {
         background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        backdrop-filter: none !important;
         border: 0 !important;
         box-shadow: none !important;
         filter: none !important;
         padding: 0 1px !important;
         border-radius: 0 !important;
         pointer-events: none !important;
+      }
+      .thumbnail .hb-thumb-chip,
+      .thumbnail .hotfix-thumb-badge,
+      .thumbnail .hb-thumb-meta,
+      .thumbnail .thumb-badge,
+      .thumbnail .thumb-chip {
+        background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        backdrop-filter: none !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        filter: none !important;
+        padding: 0 1px !important;
+        border-radius: 0 !important;
       }
       @media (max-width: 520px) {
         body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-badge {
