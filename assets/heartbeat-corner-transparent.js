@@ -2,14 +2,11 @@
   ready(() => {
     installStyle();
     refresh();
-    [250, 900, 1800, 3600, 7000].forEach((delay) => setTimeout(refresh, delay));
+    [250, 900, 1800, 3600, 7000, 12000].forEach((delay) => setTimeout(refresh, delay));
     document.addEventListener("click", scheduleRefresh, true);
     document.addEventListener("change", scheduleRefresh, true);
     document.addEventListener("input", scheduleRefresh, true);
     window.addEventListener("resize", scheduleRefresh, { passive: true });
-    const observer = new MutationObserver(scheduleRefresh);
-    observer.observe(document.body, { childList: true, subtree: true });
-    observer.observe(document.body, { attributes: true, attributeFilter: ["data-layout-mode"] });
   });
 
   let timer = 0;
