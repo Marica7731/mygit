@@ -1,7 +1,18 @@
 (function () {
   ready(() => {
     installStyle();
+    scrubBodyDuration();
+    [250, 900, 1800, 3600].forEach((delay) => setTimeout(scrubBodyDuration, delay));
+    new MutationObserver(scrubBodyDuration).observe(document.body, { childList: true, subtree: true });
   });
+
+  function scrubBodyDuration() {
+    document.querySelectorAll(".compact-meta,.hb-meta").forEach((node) => {
+      const nextText = clean(node.textContent).replace(/\s*·\s*(?:\d{1,2}:)?\d{1,2}:\d{2}\s*$/, "");
+      if (nextText && node.textContent !== nextText) node.textContent = nextText;
+      node.hidden = !nextText;
+    });
+  }
 
   function installStyle() {
     if (document.getElementById("corner-contrast-hotfix-style")) return;
@@ -30,5 +41,9 @@
 
   function ready(fn) {
     document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", fn) : fn();
+  }
+
+  function clean(value) {
+    return String(value || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
   }
 })();
