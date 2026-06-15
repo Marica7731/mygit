@@ -5,7 +5,7 @@
 
   ready(() => {
     installStyle();
-    fetch("data/youtube-ranking.json")
+    fetch(`data/youtube-ranking.json?corner=${Date.now()}`, { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         const rows = data?.groups?.[GROUP]?.items || [];
@@ -77,9 +77,10 @@
   function scrubRepeatedBody(card) {
     card
       .querySelectorAll(
-        ".rank-line,.keyword-pill,.status-pill,.hb-metric,.rank-metric,.hotfix-rank-metric,.original-rank,.meta-list,.id-line",
+        ".rank-line,.keyword-pill,.status-pill,.hb-metric,.rank-metric,.hotfix-rank-metric,.original-rank,.meta-list,.compact-meta,.id-line",
       )
       .forEach((node) => {
+        if (node.classList.contains("hb-meta")) return;
         node.setAttribute("aria-hidden", "true");
         node.hidden = true;
       });
@@ -112,7 +113,8 @@
 
   function writeBodyMeta(card, item) {
     let meta = card.querySelector(".hb-meta");
-    const published = shortTime(item?.publishedText) || publishedFromExisting(meta?.textContent);
+    const existing = publishedFromExisting(card.querySelector(".compact-meta,.hb-meta")?.textContent || "");
+    const published = shortTime(item?.publishedText) || existing;
     if (!published) {
       meta?.remove();
       return;
@@ -171,13 +173,22 @@
   }
 
   function publishedFromExisting(value) {
-    return clean(value)
-      .replace(/\s*·\s*\d{1,2}:\d{2}(?::\d{2})?\s*$/, "")
+    const text = clean(value)
+      .replace(/\s*·\s*(?:\d{1,2}:)?\d{1,2}:\d{2}\s*$/, "")
       .replace(/\s*(?:\d{1,2}:)?\d{1,2}:\d{2}\s*$/, "");
+    if (/^20\d{2}年前$/.test(text)) return "";
+    const match = text.match(/(\d+(?:\.\d+)?)\s*(秒前|分钟前|小时前|天前|周前|个月前|年前)/);
+    return match ? `${match[1]}${match[2]}` : "";
   }
 
   function shortTime(value) {
-    const match = clean(value).match(/(\d+(?:\.\d+)?)\s*(秒|分|時間|日|週間|か月|ヶ月|年)/);
+    const text = clean(value);
+    const chinese = text.match(/(\d+(?:\.\d+)?)\s*(秒前|分钟前|小时前|天前|周前|个月前|年前)/);
+    if (chinese) {
+      if (chinese[2] === "年前" && Number(chinese[1]) > 20) return "";
+      return `${chinese[1]}${chinese[2]}`;
+    }
+    const match = text.match(/(\d+(?:\.\d+)?)\s*(秒|分|時間|日|週間|か月|ヶ月|年)/);
     if (!match) return "";
     if (match[2] === "年" && Number(match[1]) > 20) return "";
     return `${match[1]}${
@@ -257,8 +268,29 @@
       .video-card .hotfix-rank-metric,
       .video-card .original-rank,
       .video-card .meta-list,
+      .video-card .compact-meta,
       .video-card .id-line {
         display: none !important;
+      }
+      .video-card {
+        grid-template-rows: auto auto !important;
+        height: auto !important;
+        min-height: 0 !important;
+        align-self: start !important;
+      }
+      .video-card .card-body {
+        display: grid !important;
+        grid-template-rows: auto auto auto !important;
+        align-content: start !important;
+        gap: 5px !important;
+        min-height: 0 !important;
+      }
+      .video-card .card-body > [hidden],
+      .video-card .card-body > [aria-hidden="true"] {
+        display: none !important;
+      }
+      .video-card .channel-metric-row {
+        align-self: start !important;
       }
       .thumbnail.corner-layout-ready {
         position: relative !important;
@@ -344,12 +376,18 @@
         margin-top: 0 !important;
       }
       .video-card .hb-meta {
-        margin-top: -1px !important;
+        margin: 0 !important;
+        color: #526173 !important;
+        font-size: 12px !important;
+        line-height: 1.25 !important;
         white-space: nowrap !important;
       }
       @media (max-width: 520px) {
         .corner-badge {
           font-size: 10px !important;
+        }
+        .video-card .hb-meta {
+          font-size: 11px !important;
         }
       }
     `;
