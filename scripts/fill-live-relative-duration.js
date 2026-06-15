@@ -11,6 +11,7 @@ const CONFIG = {
   limit: intEnv("YTB_RANKING_LIVE_RELATIVE_DURATION_LIMIT", 120),
   delayMs: intEnv("YTB_RANKING_LIVE_RELATIVE_DURATION_DELAY_MS", 2500),
   navigationTimeoutMs: intEnv("YTB_RANKING_LIVE_RELATIVE_DURATION_NAVIGATION_TIMEOUT_MS", 15000),
+  signalTimeoutMs: intEnv("YTB_RANKING_LIVE_RELATIVE_DURATION_SIGNAL_TIMEOUT_MS", 8000),
   headless: booleanEnv("YTB_RANKING_HEADLESS", true),
   chromeExecutable: process.env.YTB_RANKING_CHROME_EXECUTABLE || "",
 };
@@ -51,6 +52,42 @@ function formatDuration(seconds) {
   const remainSeconds = total % 60;
   if (hours > 0) return `${hours}:${String(minutes).padStart(2, "0")}:${String(remainSeconds).padStart(2, "0")}`;
   return `${minutes}:${String(remainSeconds).padStart(2, "0")}`;
+}
+
+function elapsedFromTimestamp(value, now = Date.now()) {
+  const timestamp = Date.parse(String(value || ""));
+  if (!Number.isFinite(timestamp)) return null;
+  const elapsed = Math.floor((now - timestamp) / 1000);
+  return elapsed > 0 ? elapsed : null;
+}
+
+function durationFromTimestampRange(startValue, endValue) {
+  const start = Date.parse(String(startValue || ""));
+  const end = Date.parse(String(endValue || ""));
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+  return Math.floor((end - start) / 1000);
+}
+
+function parseRelativeDuration(text) {
+  const normalized = clean(text);
+  const patterns = [
+    /(\d+(?:[.]\d+)?)\s*(秒|分|時間|日)\s*前にライブ配信開始/i,
+    /ライブ配信開始\s*(\d+(?:[.]\d+)?)\s*(秒|分|時間|日)\s*前/i,
+    /started streaming\s*(\d+(?:[.]\d+)?)\s*(seconds?|minutes?|hours?|days?)\s*ago/i,
+    /(\d+(?:[.]\d+)?)\s*(seconds?|minutes?|hours?|days?)\s*ago\s*(?:started streaming|live)/i,
+  ];
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    if (!match) continue;
+    const value = Number(match[1]);
+    const unit = match[2];
+    if (!Number.isFinite(value) || value <= 0) continue;
+    if (/秒|seconds?/i.test(unit)) return Math.round(value);
+    if (/分|minutes?/i.test(unit)) return Math.round(value * 60);
+    if (/時間|hours?/i.test(unit)) return Math.round(value * 3600);
+    if (/日|days?/i.test(unit)) return Math.round(value * 86400);
+  }
+  return null;
 }
 
 function allItems(payload) {
@@ -139,13 +176,25 @@ async function extractDuration(page) {
     const html = document.documentElement.innerHTML || "";
     const text = String(document.body?.innerText || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ");
     const player = window.ytInitialPlayerResponse || {};
+    const details = player.videoDetails || {};
     const liveDetails = player.microformat?.playerMicroformatRenderer?.liveBroadcastDetails || {};
     const jsonString = (name) => html.match(new RegExp(`"${name}"\\s*:\\s*"([^"]+)"`))?.[1] || "";
-    const elapsedFromTimestamp = (value) => {
+    const jsonNumber = (name) => {
+      const raw = jsonString(name) || html.match(new RegExp(`"${name}"\\s*:\\s*(\\d+)`))?.[1] || "";
+      const parsed = Number(raw);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    };
+    const elapsedFromTimestamp = (value, now = Date.now()) => {
       const timestamp = Date.parse(String(value || ""));
       if (!Number.isFinite(timestamp)) return null;
-      const elapsed = Math.floor((Date.now() - timestamp) / 1000);
+      const elapsed = Math.floor((now - timestamp) / 1000);
       return elapsed > 0 ? elapsed : null;
+    };
+    const durationFromTimestampRange = (startValue, endValue) => {
+      const start = Date.parse(String(startValue || ""));
+      const end = Date.parse(String(endValue || ""));
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+      return Math.floor((end - start) / 1000);
     };
     const elapsedFromRelative = () => {
       const patterns = [
@@ -169,9 +218,57 @@ async function extractDuration(page) {
     };
 
     return (
+      Number(details.lengthSeconds) ||
+      jsonNumber("lengthSeconds") ||
+      durationFromTimestampRange(
+        liveDetails.startTimestamp || jsonString("startTimestamp") || jsonString("actualStartTime"),
+        liveDetails.endTimestamp || jsonString("endTimestamp") || jsonString("actualEndTime"),
+      ) ||
       elapsedFromTimestamp(liveDetails.startTimestamp || jsonString("startTimestamp") || jsonString("actualStartTime")) ||
       elapsedFromRelative()
     );
+  });
+}
+
+async function waitForLiveDurationSignal(page) {
+  try {
+    await page.waitForFunction(
+      () => {
+        const html = document.documentElement.innerHTML || "";
+        const text = String(document.body?.innerText || "");
+        const player = window.ytInitialPlayerResponse || {};
+        const details = player.videoDetails || {};
+        const liveDetails = player.microformat?.playerMicroformatRenderer?.liveBroadcastDetails || {};
+        return (
+          Number(details.lengthSeconds) > 0 ||
+          Boolean(liveDetails.startTimestamp) ||
+          Boolean(liveDetails.endTimestamp) ||
+          /"(?:startTimestamp|actualStartTime|endTimestamp|actualEndTime)"\s*:\s*"/.test(html) ||
+          /(?:前にライブ配信開始|started streaming)/i.test(text)
+        );
+      },
+      { timeout: CONFIG.signalTimeoutMs },
+    );
+  } catch (_) {
+    // Some YouTube responses never expose a live clock to anonymous runners. The caller still tries one parse pass.
+  }
+}
+
+async function diagnoseDurationPage(page) {
+  return page.evaluate(() => {
+    const html = document.documentElement.innerHTML || "";
+    const text = String(document.body?.innerText || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ");
+    const player = window.ytInitialPlayerResponse || {};
+    const liveDetails = player.microformat?.playerMicroformatRenderer?.liveBroadcastDetails || {};
+    return {
+      title: document.title,
+      hasPlayer: Boolean(window.ytInitialPlayerResponse),
+      hasStartTimestamp:
+        Boolean(liveDetails.startTimestamp) || /"(?:startTimestamp|actualStartTime)"\s*:\s*"/.test(html),
+      hasRelativeStart: /(?:前にライブ配信開始|started streaming)/i.test(text),
+      hasConsent: /consent\.youtube|同意|Before you continue/i.test(text + html),
+      textSnippet: String(text || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim().slice(0, 220),
+    };
   });
 }
 
@@ -183,6 +280,7 @@ async function main() {
   let checked = 0;
   let changed = 0;
   let failed = 0;
+  const missingSamples = [];
 
   if (targets.length) {
     const browser = await chromium.launch({
@@ -203,10 +301,20 @@ async function main() {
       for (const item of targets) {
         try {
           await gotoWithRetry(page, canonicalWatchUrl(item));
+          await waitForLiveDurationSignal(page);
           await page.waitForTimeout(CONFIG.delayMs);
           const seconds = await extractDuration(page);
           checked += 1;
-          if (!seconds) continue;
+          if (!seconds) {
+            if (missingSamples.length < 8) {
+              missingSamples.push({
+                videoId: item.videoId,
+                title: clean(item.title).slice(0, 120),
+                ...(await diagnoseDurationPage(page)),
+              });
+            }
+            continue;
+          }
           for (const entry of byVideoId.get(item.videoId) || []) {
             if (mergeDuration(entry, seconds, "liveRelativeStart")) changed += 1;
           }
@@ -229,6 +337,7 @@ async function main() {
     checked,
     changed,
     failed,
+    missingSamples,
   };
 
   await fs.writeFile(DATA_FILE, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
