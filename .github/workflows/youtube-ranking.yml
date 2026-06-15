@@ -135,12 +135,20 @@ jobs:
             }
           fi
 
+      - name: Mark failed run
+        if: failure()
+        run: echo "previous ranking step" > /tmp/youtube-ranking-run-failed
+
       - name: Update run status
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          node scripts/update-ranking-status.js
+          force_failure=""
+          if [ -f /tmp/youtube-ranking-run-failed ]; then
+            force_failure="previous ranking step"
+          fi
+          YTB_RANKING_FORCE_FAILURE="$force_failure" node scripts/update-ranking-status.js
           cp data/youtube-ranking-status.json /tmp/youtube-ranking-status.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
