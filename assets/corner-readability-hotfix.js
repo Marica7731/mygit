@@ -43,39 +43,24 @@
         min-width: 0 !important;
         min-height: 0 !important;
         overflow: hidden !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        border-radius: 4px !important;
-        background: rgba(3, 7, 18, 0.3) !important;
-        box-shadow:
-          0 0 0 1px rgba(2, 6, 23, 0.2),
-          0 1px 4px rgba(0, 0, 0, 0.28) !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
         color: #fff !important;
         font-weight: 950 !important;
         font-variant-numeric: tabular-nums !important;
         letter-spacing: 0 !important;
         line-height: 1.06 !important;
         opacity: 0.98 !important;
-        padding: 1px 3px !important;
+        padding: 0 1px !important;
         text-overflow: ellipsis !important;
         white-space: nowrap !important;
-        filter:
-          drop-shadow(0 1px 1px rgba(0, 0, 0, 1))
-          drop-shadow(0 0 2px rgba(0, 0, 0, 1))
-          drop-shadow(0 0 5px rgba(0, 0, 0, 0.95)) !important;
+        filter: none !important;
         text-shadow:
-          0 0 1px rgba(0, 0, 0, 1),
-          0 0 2px rgba(0, 0, 0, 1),
-          1px 1px 1px rgba(0, 0, 0, 1),
-          -1px 1px 1px rgba(0, 0, 0, 1),
-          1px -1px 1px rgba(0, 0, 0, 1),
-          -1px -1px 1px rgba(0, 0, 0, 1),
-          0 1px 2px rgba(0, 0, 0, 1),
-          0 0 7px rgba(0, 0, 0, 1),
-          1px 0 1px rgba(0, 0, 0, 1),
-          -1px 0 1px rgba(0, 0, 0, 1),
-          0 1px 1px rgba(0, 0, 0, 1),
-          0 -1px 1px rgba(0, 0, 0, 1) !important;
-        -webkit-text-stroke: 0.8px rgba(3, 7, 18, 0.98) !important;
+          0 1px 2px rgba(15, 23, 42, 0.78),
+          0 0 2px rgba(15, 23, 42, 0.62) !important;
+        -webkit-text-stroke: 0 !important;
       }
 
       .thumbnail.corner-layout-ready .corner-rank,
@@ -84,18 +69,30 @@
       }
 
       .thumbnail.corner-layout-ready .corner-keyword {
-        background: rgba(6, 78, 59, 0.34) !important;
-        color: #ecfeff !important;
+        background: transparent !important;
+        color: #1f6792 !important;
+        text-shadow:
+          0 1px 0 rgba(255, 255, 255, 0.95),
+          1px 0 0 rgba(255, 255, 255, 0.95),
+          -1px 0 0 rgba(255, 255, 255, 0.95),
+          0 -1px 0 rgba(255, 255, 255, 0.95),
+          0 1px 2px rgba(15, 23, 42, 0.3) !important;
       }
 
       .thumbnail.corner-layout-ready .corner-metric {
-        background: rgba(127, 29, 29, 0.34) !important;
-        color: #fff7f7 !important;
+        background: transparent !important;
+        color: #c73636 !important;
+        text-shadow:
+          0 1px 0 rgba(255, 255, 255, 0.95),
+          1px 0 0 rgba(255, 255, 255, 0.95),
+          -1px 0 0 rgba(255, 255, 255, 0.95),
+          0 -1px 0 rgba(255, 255, 255, 0.95),
+          0 1px 2px rgba(15, 23, 42, 0.36) !important;
       }
 
       body[data-source-group="live"] .thumbnail.corner-layout-ready .corner-metric {
-        background: rgba(30, 58, 138, 0.34) !important;
-        color: #f8fbff !important;
+        background: transparent !important;
+        color: #3159ad !important;
       }
 
       .thumbnail.corner-layout-ready .corner-time {
