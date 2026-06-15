@@ -6,6 +6,14 @@ on:
       - main
     paths:
       - ".github/workflows/youtube-ranking.yml"
+      - "scripts/update-youtube-ranking.js"
+      - "scripts/enrich-live-details.js"
+      - "scripts/enrich-video-metrics.js"
+      - "scripts/fill-duration-details.js"
+      - "scripts/fill-live-elapsed-duration.js"
+      - "scripts/normalize-duration-fields.js"
+      - "scripts/validate-youtube-ranking.js"
+      - "scripts/validate-duration-quality.js"
   schedule:
     - cron: "0,10,20,30,40,50 * * * *"
   workflow_dispatch:
@@ -50,8 +58,8 @@ jobs:
       YTB_RANKING_LIVE_ELAPSED_NAVIGATION_TIMEOUT_MS: "8000"
       YTB_RANKING_MIN_VIEW_COVERAGE: "0.8"
       YTB_RANKING_MIN_KEYWORD_VIEW_COVERAGE: "0.75"
-      YTB_RANKING_MIN_DURATION_COVERAGE: "0.85"
-      YTB_RANKING_MIN_KEYWORD_DURATION_COVERAGE: "0.8"
+      YTB_RANKING_MIN_DURATION_COVERAGE: "0.95"
+      YTB_RANKING_MIN_KEYWORD_DURATION_COVERAGE: "0.95"
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
     steps:
       - name: Checkout
@@ -104,6 +112,9 @@ jobs:
 
       - name: Fill live elapsed durations
         run: node scripts/fill-live-elapsed-duration.js
+
+      - name: Normalize duration fields
+        run: node scripts/normalize-duration-fields.js
 
       - name: Validate ranking data
         run: node scripts/validate-youtube-ranking.js
