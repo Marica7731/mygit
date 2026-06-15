@@ -13,6 +13,7 @@
       .catch(() => {});
     refresh();
     [250, 900, 1800, 3600, 7000, 12000].forEach((delay) => setTimeout(refresh, delay));
+    setInterval(refresh, 1500);
     const observer = new MutationObserver(scheduleRefresh);
     observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true });
     document.addEventListener("click", scheduleRefresh, true);
@@ -30,10 +31,11 @@
   function refresh() {
     hideDefaultFilterChips();
     document.querySelectorAll(".video-card").forEach((card) => {
-      if (card.hidden || getComputedStyle(card).display === "none") return;
       scrubBodyDuplicates(card);
+      if (card.hidden || getComputedStyle(card).display === "none") return;
       ensureCornerTime(card);
       ensureChannelLink(card);
+      normalizeAvatarLink(card);
     });
   }
 
@@ -60,6 +62,24 @@
       meta.textContent = text;
       meta.hidden = !text || /^20\d{2}年前$/.test(text);
     }
+  }
+
+  function normalizeAvatarLink(card) {
+    const avatar = card.querySelector(".channel-avatar");
+    if (!avatar) return;
+    const links = Array.from(avatar.querySelectorAll("a[href]"));
+    if (links.length <= 1 && !avatar.querySelector("a a")) return;
+    const href = links.find((link) => link.href)?.href || "";
+    const image = avatar.querySelector("img");
+    if (!href || !image) return;
+    const link = document.createElement("a");
+    link.className = "channel-avatar-link";
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.append(image);
+    avatar.textContent = "";
+    avatar.append(link);
   }
 
   function ensureCornerTime(card) {
