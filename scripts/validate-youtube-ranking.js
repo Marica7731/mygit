@@ -11,6 +11,9 @@ const CONFIG = {
   minKeywordViewCoverage: numberEnv("YTB_RANKING_MIN_KEYWORD_VIEW_COVERAGE", 0.45),
   minViewGroupItems: intEnv("YTB_RANKING_MIN_VIEW_GROUP_ITEMS", 30),
   minKeywordItems: intEnv("YTB_RANKING_MIN_KEYWORD_ITEMS", 10),
+  minLiveItems: intEnv("YTB_RANKING_MIN_LIVE_ITEMS", 20),
+  minTodayVideos: intEnv("YTB_RANKING_MIN_TODAY_VIDEOS", 300),
+  minMonthVideos: intEnv("YTB_RANKING_MIN_MONTH_VIDEOS", 300),
   minLiveSubscriberCoverage: numberEnv("YTB_RANKING_MIN_LIVE_SUBSCRIBER_COVERAGE", 0.55),
   maxMissingThumbnailRatio: numberEnv("YTB_RANKING_MAX_MISSING_THUMBNAIL_RATIO", 0.05),
 };
@@ -25,6 +28,7 @@ function main() {
   for (const group of ["live", "today", "month"]) {
     const items = getItems(payload, group);
     if (!items.length) errors.push(`${group}: items is empty`);
+    checkCollectionSize(group, items, errors);
     checkThumbnails(group, items, errors);
   }
 
@@ -43,6 +47,24 @@ function main() {
 function getItems(payload, group) {
   const items = payload?.groups?.[group]?.items;
   return Array.isArray(items) ? items : [];
+}
+
+function checkCollectionSize(group, items, errors) {
+  if (!items.length) return;
+
+  if (group === "live") {
+    const liveItems = items.filter((item) => item.statusType === "live" || item.statusType === "upcoming");
+    if (liveItems.length < CONFIG.minLiveItems) {
+      errors.push(`live: only ${liveItems.length} live/upcoming items collected, expected at least ${CONFIG.minLiveItems}`);
+    }
+    return;
+  }
+
+  const videos = items.filter((item) => item.statusType !== "live" && item.statusType !== "upcoming");
+  const minimum = group === "today" ? CONFIG.minTodayVideos : CONFIG.minMonthVideos;
+  if (videos.length < minimum) {
+    errors.push(`${group}: only ${videos.length} non-live videos collected, expected at least ${minimum}`);
+  }
 }
 
 function checkThumbnails(group, items, errors) {
