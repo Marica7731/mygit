@@ -48,10 +48,14 @@
   }
 
   function scrubRepeatedBody(card) {
-    card.querySelectorAll(".rank-line,.keyword-pill,.status-pill,.hb-metric,.rank-metric,.hotfix-rank-metric,.original-rank,.meta-list,.id-line").forEach((node) => {
-      node.setAttribute("aria-hidden", "true");
-      node.hidden = true;
-    });
+    card
+      .querySelectorAll(
+        ".rank-line,.keyword-pill,.status-pill,.hb-metric,.rank-metric,.hotfix-rank-metric,.original-rank,.meta-list,.id-line",
+      )
+      .forEach((node) => {
+        node.setAttribute("aria-hidden", "true");
+        node.hidden = true;
+      });
   }
 
   function writeCorners(card, item, visibleRank) {
@@ -112,8 +116,11 @@
   }
 
   function durationLabel(item, card) {
-    const value = duration(item?.durationText) || clean(card.querySelector(".hb-duration,.hotfix-thumb-duration")?.textContent || "");
-    return /^\d{1,2}:\d{2}(?::\d{2})?$/.test(value) ? value : "";
+    return (
+      duration(item?.durationText) ||
+      formatDuration(item?.durationSeconds) ||
+      duration(card.querySelector(".hb-duration,.hotfix-thumb-duration")?.textContent || "")
+    );
   }
 
   function findItem(card) {
@@ -122,9 +129,9 @@
   }
 
   function fallbackKeyword(card) {
-    const text = clean(card.textContent);
-    if (text.includes("弾き語り")) return "弾き語り";
-    if (text.includes("歌枠")) return "歌枠";
+    const value = clean(card.textContent);
+    if (value.includes("弾き語り")) return "弾き語り";
+    if (value.includes("歌枠")) return "歌枠";
     return "";
   }
 
@@ -137,12 +144,34 @@
   function shortTime(value) {
     const match = clean(value).match(/(\d+(?:\.\d+)?)\s*(秒|分|時間|日|週間|か月|ヶ月|年)/);
     if (!match) return "";
-    return `${match[1]}${({ 秒: "秒前", 分: "分钟前", 時間: "小时前", 日: "天前", 週間: "周前", "か月": "个月前", "ヶ月": "个月前", 年: "年前" }[match[2]] || "前")}`;
+    return `${match[1]}${
+      {
+        秒: "秒前",
+        分: "分钟前",
+        時間: "小时前",
+        日: "天前",
+        週間: "周前",
+        か月: "个月前",
+        ヶ月: "个月前",
+        年: "年前",
+      }[match[2]] || "前"
+    }`;
   }
 
   function duration(value) {
-    const text = clean(value).replace(/\s*(?:再生中|正在播放|配信済み).*$/i, "");
-    return /^\d{1,2}:\d{2}(?::\d{2})?$/.test(text) ? text : "";
+    const match = clean(value).match(/\b(?:\d{1,2}:)?\d{1,2}:\d{2}\b/);
+    return match ? match[0] : "";
+  }
+
+  function formatDuration(seconds) {
+    const number = Number(seconds);
+    if (!Number.isFinite(number) || number <= 0) return "";
+    const total = Math.round(number);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const remainSeconds = total % 60;
+    if (hours > 0) return `${hours}:${String(minutes).padStart(2, "0")}:${String(remainSeconds).padStart(2, "0")}`;
+    return `${minutes}:${String(remainSeconds).padStart(2, "0")}`;
   }
 
   function compact(value) {
@@ -214,46 +243,60 @@
         height: auto !important;
         max-width: calc(56% - 10px) !important;
         min-width: 0 !important;
-        min-height: 18px !important;
-        padding: 2px 6px !important;
-        border-radius: 6px !important;
-        background: rgba(15, 23, 42, 0.74) !important;
+        min-height: 0 !important;
+        padding: 0 1px !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
         color: #fff !important;
         font-size: 11px !important;
-        font-weight: 900 !important;
-        line-height: 1.1 !important;
+        font-weight: 950 !important;
+        line-height: 1.08 !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         white-space: nowrap !important;
         pointer-events: none !important;
-        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18) !important;
+        box-shadow: none !important;
+        filter: none !important;
+        text-shadow:
+          0 1px 2px rgba(15, 23, 42, 0.78),
+          0 0 2px rgba(15, 23, 42, 0.62) !important;
+        -webkit-text-stroke: 0 !important;
       }
       .corner-rank {
         top: 5px !important;
         right: auto !important;
         bottom: auto !important;
         left: 5px !important;
-        min-width: 30px !important;
-        background: rgba(248, 250, 252, 0.94) !important;
-        color: #0f172a !important;
       }
       .corner-metric {
         top: 5px !important;
         right: 5px !important;
         bottom: auto !important;
         left: auto !important;
-        background: rgba(255, 241, 242, 0.94) !important;
-        color: #9f2f2f !important;
+        color: #c73636 !important;
+        text-shadow:
+          0 1px 0 rgba(255, 255, 255, 0.95),
+          1px 0 0 rgba(255, 255, 255, 0.95),
+          -1px 0 0 rgba(255, 255, 255, 0.95),
+          0 -1px 0 rgba(255, 255, 255, 0.95),
+          0 1px 2px rgba(15, 23, 42, 0.36) !important;
       }
       body[data-source-group="live"] .corner-metric {
-        background: rgba(239, 246, 255, 0.94) !important;
-        color: #254479 !important;
+        color: #3159ad !important;
       }
       .corner-keyword {
         top: auto !important;
         right: auto !important;
         bottom: 5px !important;
         left: 5px !important;
+        color: #1f6792 !important;
+        text-shadow:
+          0 1px 0 rgba(255, 255, 255, 0.95),
+          1px 0 0 rgba(255, 255, 255, 0.95),
+          -1px 0 0 rgba(255, 255, 255, 0.95),
+          0 -1px 0 rgba(255, 255, 255, 0.95),
+          0 1px 2px rgba(15, 23, 42, 0.3) !important;
       }
       .corner-time {
         top: auto !important;
@@ -270,13 +313,7 @@
       }
       @media (max-width: 520px) {
         .corner-badge {
-          min-height: 16px !important;
-          padding: 2px 5px !important;
-          border-radius: 5px !important;
           font-size: 10px !important;
-        }
-        .corner-rank {
-          min-width: 26px !important;
         }
       }
     `;
