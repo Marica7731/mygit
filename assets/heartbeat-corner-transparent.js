@@ -22,11 +22,23 @@
   }
 
   function refresh() {
+    hideDefaultFilterChips();
     document.querySelectorAll(".thumbnail").forEach((thumb) => {
       removeLegacyLayers(thumb);
       const three = isMobileThreeColumn();
       thumb.classList.toggle("corner-transparent-three", three);
       if (three) mergeThreeColumnLine(thumb);
+    });
+  }
+
+  function hideDefaultFilterChips() {
+    document.querySelectorAll(".active-filter-chips .filter-chip").forEach((chip) => {
+      const text = clean(chip.textContent);
+      if (/^标题:\s*歌枠\s*\/\s*弾き語り/.test(text) || text.includes("排除韩文")) {
+        chip.classList.add("default-title-chip");
+        chip.hidden = true;
+        chip.setAttribute("aria-hidden", "true");
+      }
     });
   }
 
@@ -78,34 +90,60 @@
       .thumbnail.corner-layout-ready > [class*="badge"]:not(.corner-badge) {
         display: none !important;
       }
+      .active-filter-chips .default-title-chip {
+        display: none !important;
+      }
       .thumbnail.corner-layout-ready .corner-badge {
+        position: absolute !important;
+        inset: auto !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: auto !important;
+        height: auto !important;
         min-width: 0 !important;
         min-height: 0 !important;
-        padding: 0 2px !important;
-        border-radius: 0 !important;
-        background: transparent !important;
-        box-shadow: none !important;
+        padding: 1px 3px !important;
+        border: 1px solid rgba(255, 255, 255, 0.22) !important;
+        border-radius: 4px !important;
+        background: rgba(3, 7, 18, 0.28) !important;
+        box-shadow:
+          0 0 0 1px rgba(3, 7, 18, 0.2),
+          0 1px 3px rgba(0, 0, 0, 0.28) !important;
         color: #fff !important;
+        font-weight: 950 !important;
+        line-height: 1.08 !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
         text-shadow:
-          0 1px 2px rgba(0, 0, 0, 0.95),
-          0 0 3px rgba(0, 0, 0, 0.9),
-          1px 0 1px rgba(0, 0, 0, 0.75),
-          -1px 0 1px rgba(0, 0, 0, 0.75) !important;
-        -webkit-text-stroke: 0.2px rgba(15, 23, 42, 0.7) !important;
+          0 1px 2px rgba(0, 0, 0, 1),
+          0 0 4px rgba(0, 0, 0, 0.98),
+          1px 0 1px rgba(0, 0, 0, 0.95),
+          -1px 0 1px rgba(0, 0, 0, 0.95),
+          0 1px 1px rgba(0, 0, 0, 0.95),
+          0 -1px 1px rgba(0, 0, 0, 0.9) !important;
+        -webkit-text-stroke: 0.35px rgba(7, 10, 18, 0.92) !important;
       }
       .thumbnail.corner-layout-ready .corner-time {
         justify-content: flex-end !important;
         text-align: right !important;
       }
       .thumbnail.corner-layout-ready .corner-metric {
+        background: rgba(127, 29, 29, 0.34) !important;
         color: #fff4f4 !important;
       }
       body[data-source-group="live"] .thumbnail.corner-layout-ready .corner-metric {
+        background: rgba(30, 58, 138, 0.32) !important;
         color: #eff6ff !important;
+      }
+      .thumbnail.corner-layout-ready .corner-keyword {
+        background: rgba(6, 78, 59, 0.32) !important;
+        color: #ecfeff !important;
       }
       @media (max-width: 640px) {
         body:not([data-layout-mode="three"]) .thumbnail.corner-layout-ready .corner-time {
-          max-width: 72% !important;
+          max-width: calc(100% - 12px) !important;
         }
         body:not([data-layout-mode="three"]) .thumbnail.corner-layout-ready .corner-keyword {
           max-width: 42% !important;
@@ -121,8 +159,8 @@
           right: 4px !important;
           bottom: 4px !important;
           left: auto !important;
-          max-width: 68% !important;
-          font-size: 9px !important;
+          max-width: calc(100% - 8px) !important;
+          font-size: 8.8px !important;
           justify-content: flex-end !important;
           text-align: right !important;
         }
@@ -132,6 +170,23 @@
           bottom: 4px !important;
           max-width: 28% !important;
           font-size: 9px !important;
+        }
+      }
+      @media (min-width: 900px) {
+        .cards,
+        body[data-layout-mode="auto"] .cards,
+        body[data-layout-mode="two"] .cards,
+        body[data-layout-mode="three"] .cards {
+          align-items: start !important;
+        }
+        .video-card {
+          align-self: start !important;
+          height: auto !important;
+          min-height: 0 !important;
+        }
+        .card-body {
+          min-height: 0 !important;
+          padding-bottom: 8px !important;
         }
       }
     `;
