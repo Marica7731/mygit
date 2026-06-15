@@ -226,14 +226,18 @@ async function enrichWithYoutubeApi(payload, targets) {
 
   for (const part of chunk(ids, 50)) {
     const data = await fetchYoutubeApi("videos", {
-      part: "contentDetails",
+      part: "contentDetails,liveStreamingDetails",
       id: part.join(","),
       maxResults: "50",
     });
 
     for (const video of data.items || []) {
       checked += 1;
-      const seconds = parseIsoDuration(video.contentDetails?.duration);
+      const live = video.liveStreamingDetails || {};
+      const seconds =
+        parseIsoDuration(video.contentDetails?.duration) ||
+        durationFromTimestampRange(live.actualStartTime, live.actualEndTime) ||
+        elapsedFromTimestamp(live.actualStartTime);
       for (const item of byVideoId.get(video.id) || []) {
         if (mergeDuration(item, seconds, "youtubeDataApi")) changed += 1;
       }
@@ -429,7 +433,11 @@ async function main() {
   const beforeVideoMissing = targetVideoItems(payload).length;
   const beforeLiveMissing = targetLiveItems(payload).length;
 
-  const api = await enrichWithYoutubeApi(payload, targetVideoItems(payload).slice(0, CONFIG.limit)).catch((error) => {
+  const apiTargets = [
+    ...targetVideoItems(payload).slice(0, CONFIG.limit),
+    ...targetLiveItems(payload).slice(0, CONFIG.liveLimit),
+  ];
+  const api = await enrichWithYoutubeApi(payload, apiTargets).catch((error) => {
     console.warn(`[duration-post] api skipped: ${error.message}`);
     return { checked: 0, changed: 0, error: error.message };
   });
