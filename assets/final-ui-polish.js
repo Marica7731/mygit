@@ -14,7 +14,7 @@
     refresh();
     [250, 900, 1800, 3600, 7000, 12000].forEach((delay) => setTimeout(refresh, delay));
     const observer = new MutationObserver(scheduleRefresh);
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true });
     document.addEventListener("click", scheduleRefresh, true);
     document.addEventListener("change", scheduleRefresh, true);
     document.addEventListener("input", scheduleRefresh, true);
@@ -51,8 +51,7 @@
   function scrubBodyDuplicates(card) {
     card.querySelectorAll(".rank-line,.keyword-pill,.status-pill,.rank-metric,.hotfix-rank-metric,.hb-metric,.compact-meta,.meta-list,.id-line").forEach((node) => {
       if (node.classList.contains("hb-meta")) return;
-      node.hidden = true;
-      node.setAttribute("aria-hidden", "true");
+      node.remove();
     });
 
     const meta = card.querySelector(".hb-meta");
