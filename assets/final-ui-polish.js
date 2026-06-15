@@ -30,6 +30,7 @@
 
   function refresh() {
     hideDefaultFilterChips();
+    hideLegacyFilterBrief();
     document.querySelectorAll(".video-card").forEach((card) => {
       scrubBodyDuplicates(card);
       if (card.hidden || getComputedStyle(card).display === "none") return;
@@ -37,6 +38,24 @@
       ensureChannelLink(card);
       normalizeAvatarLink(card);
     });
+  }
+
+  function hideLegacyFilterBrief() {
+    const brief = document.getElementById("filter-brief");
+    if (!brief) return;
+    const text = clean(brief.textContent);
+    if (text === "默认原始顺序") {
+      brief.textContent = "";
+      brief.hidden = true;
+      brief.setAttribute("aria-hidden", "true");
+      brief.dataset.finalHidden = "1";
+      return;
+    }
+    if (brief.dataset.finalHidden === "1" && text) {
+      brief.hidden = false;
+      brief.removeAttribute("aria-hidden");
+      delete brief.dataset.finalHidden;
+    }
   }
 
   function hideDefaultFilterChips() {
