@@ -11,15 +11,15 @@
     installStyle();
     cleanupCards();
     sweep();
-    for (let index = 1; index <= 12; index += 1) {
-      setTimeout(sweep, index * 350);
-      setTimeout(cleanupCards, index * 350 + 80);
+    for (let index = 1; index <= 10; index += 1) {
+      setTimeout(sweep, index * 450);
+      setTimeout(cleanupCards, index * 450 + 80);
     }
     window.addEventListener("scroll", sweep, { passive: true });
-    new MutationObserver(() => {
-      scheduleCleanup();
-      sweep();
-    }).observe(document.body, { childList: true, subtree: true });
+    window.addEventListener("resize", sweep, { passive: true });
+    document.addEventListener("click", scheduleCleanup, true);
+    document.addEventListener("change", scheduleCleanup, true);
+    document.addEventListener("input", scheduleCleanup, true);
   }
 
   function handleImageLoad(event) {
@@ -52,6 +52,7 @@
     requestAnimationFrame(() => {
       cleanupQueued = false;
       cleanupCards();
+      sweep();
     });
   }
 
@@ -103,7 +104,7 @@
   function isBadLoadedImage(img) {
     if (!img.complete) return false;
     if (!img.naturalWidth || !img.naturalHeight) return true;
-    return img.naturalWidth < 240 || img.naturalHeight < 135;
+    return img.naturalWidth < 160 || img.naturalHeight < 90;
   }
 
   function tryNextThumbnail(img) {
@@ -128,11 +129,10 @@
     const values = [];
     if (videoId) {
       values.push(
-        `https://i.ytimg.com/vi/${videoId}/hq720.jpg`,
-        `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
-        `https://i.ytimg.com/vi/${videoId}/sddefault.jpg`,
-        `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
         `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,
+        `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        `https://i.ytimg.com/vi/${videoId}/sddefault.jpg`,
+        `https://i.ytimg.com/vi/${videoId}/default.jpg`,
       );
     }
     values.push(img.dataset.originalThumbnailSrc, img.getAttribute("src"), img.currentSrc, img.src);
