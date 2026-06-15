@@ -25,9 +25,7 @@
     hideDefaultFilterChips();
     document.querySelectorAll(".thumbnail").forEach((thumb) => {
       removeLegacyLayers(thumb);
-      const three = isMobileThreeColumn();
-      thumb.classList.toggle("corner-transparent-three", three);
-      if (three) mergeThreeColumnLine(thumb);
+      thumb.classList.remove("corner-transparent-three");
     });
   }
 
@@ -42,21 +40,6 @@
     });
   }
 
-  function mergeThreeColumnLine(thumb) {
-    const rank = clean(thumb.querySelector(".corner-rank")?.textContent);
-    const metric = shortMetric(thumb.querySelector(".corner-metric")?.textContent);
-    const time = clean(thumb.querySelector(".corner-time")?.textContent).replace(/(?:^|\s)#\d+.*$/, "");
-    const suffix = [rank, metric].filter(Boolean).join(" ");
-    const line = [time, suffix].filter(Boolean).join(" ");
-    let timeNode = thumb.querySelector(".corner-time");
-    if (!timeNode && line) {
-      timeNode = document.createElement("span");
-      timeNode.className = "corner-badge corner-time";
-      thumb.append(timeNode);
-    }
-    if (timeNode && line && timeNode.textContent !== line) timeNode.textContent = line;
-  }
-
   function removeLegacyLayers(thumb) {
     thumb.querySelectorAll(":scope > *").forEach((node) => {
       if (node.matches("img,picture,source,.corner-badge,.thumbnail-placeholder")) return;
@@ -64,14 +47,6 @@
         node.remove();
       }
     });
-  }
-
-  function isMobileThreeColumn() {
-    return document.body.dataset.layoutMode === "three" && window.matchMedia("(max-width: 640px)").matches;
-  }
-
-  function shortMetric(value) {
-    return clean(value);
   }
 
   function installStyle() {
@@ -148,18 +123,12 @@
         body:not([data-layout-mode="three"]) .thumbnail.corner-layout-ready .corner-keyword {
           max-width: 42% !important;
         }
-        body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-rank,
-        body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-metric,
-        body[data-layout-mode="three"] .thumbnail.corner-transparent-three .corner-rank,
-        body[data-layout-mode="three"] .thumbnail.corner-transparent-three .corner-metric {
-          display: none !important;
-        }
         body[data-layout-mode="three"] .thumbnail.corner-layout-ready .corner-time,
         body[data-layout-mode="three"] .thumbnail.corner-transparent-three .corner-time {
           right: 4px !important;
           bottom: 4px !important;
           left: auto !important;
-          max-width: calc(100% - 8px) !important;
+          max-width: 46% !important;
           font-size: 8.8px !important;
           justify-content: flex-end !important;
           text-align: right !important;
