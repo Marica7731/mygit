@@ -12,6 +12,7 @@ on:
       - "scripts/merge-previous-view-metrics.js"
       - "scripts/fill-duration-details.js"
       - "scripts/fill-live-elapsed-duration.js"
+      - "scripts/fill-live-innertube-duration.js"
       - "scripts/fill-live-relative-duration.js"
       - "scripts/normalize-duration-fields.js"
       - "scripts/validate-youtube-ranking.js"
@@ -61,6 +62,9 @@ jobs:
       YTB_RANKING_LIVE_ELAPSED_LIMIT: "120"
       YTB_RANKING_LIVE_ELAPSED_DELAY_MS: "300"
       YTB_RANKING_LIVE_ELAPSED_NAVIGATION_TIMEOUT_MS: "10000"
+      YTB_RANKING_LIVE_INNERTUBE_LIMIT: "120"
+      YTB_RANKING_LIVE_INNERTUBE_CONCURRENCY: "4"
+      YTB_RANKING_LIVE_INNERTUBE_TIMEOUT_MS: "8000"
       YTB_RANKING_LIVE_RELATIVE_DURATION_LIMIT: "120"
       YTB_RANKING_LIVE_RELATIVE_DURATION_DELAY_MS: "2500"
       YTB_RANKING_LIVE_RELATIVE_DURATION_NAVIGATION_TIMEOUT_MS: "15000"
@@ -131,6 +135,9 @@ jobs:
 
       - name: Fill live elapsed durations
         run: node scripts/fill-live-elapsed-duration.js
+
+      - name: Fill live Innertube durations
+        run: node scripts/fill-live-innertube-duration.js
 
       - name: Fill live relative durations
         run: node scripts/fill-live-relative-duration.js
