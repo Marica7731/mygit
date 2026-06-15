@@ -1,30 +1,48 @@
 (function () {
   let generatedAt = null;
+  let statusInfo = null;
 
   ready(() => {
     installStyle();
-    fetch("data/youtube-ranking.json")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        generatedAt = data?.generatedAt ? new Date(data.generatedAt) : null;
-        refresh();
-      })
-      .catch(() => {});
+    loadData();
     [300, 1000, 2500, 5000, 9000].forEach((delay) => setTimeout(refresh, delay));
     setInterval(refresh, 60000);
   });
+
+  function loadData() {
+    Promise.all([
+      fetch("data/youtube-ranking.json")
+        .then((response) => (response.ok ? response.json() : null))
+        .catch(() => null),
+      fetch(`data/youtube-ranking-status.json?ts=${Date.now()}`)
+        .then((response) => (response.ok ? response.json() : null))
+        .catch(() => null),
+    ]).then(([data, status]) => {
+      generatedAt = data?.generatedAt ? new Date(data.generatedAt) : null;
+      statusInfo = normalizeStatus(status);
+      refresh();
+    });
+  }
 
   function refresh() {
     const chip = document.querySelector(".filter-chip.meta");
     if (!chip || !generatedAt || !Number.isFinite(generatedAt.getTime())) return;
     const ageMinutes = Math.max(0, Math.floor((Date.now() - generatedAt.getTime()) / 60000));
-    chip.textContent = `更新 ${formatShortDate(generatedAt)} · ${ageLabel(ageMinutes)}`;
-    chip.title = `最后更新 ${formatFullDate(generatedAt)}`;
+    const failed = statusInfo?.status === "failed" && statusInfo.attemptedAt && statusInfo.attemptedAt > generatedAt;
+    const statusAge = statusInfo?.attemptedAt ? Math.max(0, Math.floor((Date.now() - statusInfo.attemptedAt.getTime()) / 60000)) : null;
+    chip.textContent = failed
+      ? `更新 ${formatShortDate(generatedAt)} · ${ageLabel(ageMinutes)} · 抓取失败 ${ageLabel(statusAge)}`
+      : `更新 ${formatShortDate(generatedAt)} · ${ageLabel(ageMinutes)}`;
+    chip.title = failed
+      ? `最后成功 ${formatFullDate(generatedAt)}；最近抓取失败 ${formatFullDate(statusInfo.attemptedAt)}：${statusInfo.message || "质量检查未通过"}`
+      : `最后更新 ${formatFullDate(generatedAt)}`;
     chip.classList.toggle("is-stale-update", ageMinutes >= 45);
     chip.classList.toggle("is-old-update", ageMinutes >= 90);
+    chip.classList.toggle("is-failed-update", failed);
   }
 
   function ageLabel(minutes) {
+    if (minutes == null) return "刚刚";
     if (minutes < 1) return "刚刚";
     if (minutes < 60) return `${minutes}分钟前`;
     const hours = Math.floor(minutes / 60);
@@ -67,8 +85,23 @@
         background: rgba(254, 242, 242, 0.95) !important;
         color: #991b1b !important;
       }
+      .active-filter-chips .filter-chip.meta.is-failed-update {
+        border-color: rgba(239, 68, 68, 0.42) !important;
+        background: rgba(255, 247, 237, 0.98) !important;
+        color: #9a3412 !important;
+      }
     `;
     document.head.append(style);
+  }
+
+  function normalizeStatus(value) {
+    if (!value || typeof value !== "object") return null;
+    const attemptedAt = value.attemptedAt ? new Date(value.attemptedAt) : null;
+    return {
+      status: value.status || "",
+      attemptedAt: attemptedAt && Number.isFinite(attemptedAt.getTime()) ? attemptedAt : null,
+      message: value.message || "",
+    };
   }
 
   function ready(fn) {
