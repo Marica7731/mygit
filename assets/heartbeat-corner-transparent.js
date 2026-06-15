@@ -79,42 +79,39 @@
         min-width: 0 !important;
         min-height: 0 !important;
         padding: 1px 3px !important;
-        border: 1px solid rgba(255, 255, 255, 0.22) !important;
+        border: 1px solid rgba(148, 163, 184, 0.26) !important;
         border-radius: 4px !important;
-        background: rgba(3, 7, 18, 0.28) !important;
+        background: rgba(255, 255, 255, 0.86) !important;
         box-shadow:
-          0 0 0 1px rgba(3, 7, 18, 0.2),
-          0 1px 3px rgba(0, 0, 0, 0.28) !important;
-        color: #fff !important;
+          0 0 0 1px rgba(255, 255, 255, 0.2),
+          0 1px 3px rgba(15, 23, 42, 0.22) !important;
+        color: #172033 !important;
         font-weight: 950 !important;
         line-height: 1.08 !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         white-space: nowrap !important;
-        text-shadow:
-          0 1px 2px rgba(0, 0, 0, 1),
-          0 0 4px rgba(0, 0, 0, 0.98),
-          1px 0 1px rgba(0, 0, 0, 0.95),
-          -1px 0 1px rgba(0, 0, 0, 0.95),
-          0 1px 1px rgba(0, 0, 0, 0.95),
-          0 -1px 1px rgba(0, 0, 0, 0.9) !important;
-        -webkit-text-stroke: 0.35px rgba(7, 10, 18, 0.92) !important;
+        text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) !important;
+        -webkit-text-stroke: 0 !important;
       }
       .thumbnail.corner-layout-ready .corner-time {
         justify-content: flex-end !important;
         text-align: right !important;
       }
       .thumbnail.corner-layout-ready .corner-metric {
-        background: rgba(127, 29, 29, 0.34) !important;
-        color: #fff4f4 !important;
+        border-color: rgba(210, 75, 75, 0.18) !important;
+        background: rgba(255, 241, 237, 0.9) !important;
+        color: #9f2f2f !important;
       }
       body[data-source-group="live"] .thumbnail.corner-layout-ready .corner-metric {
-        background: rgba(30, 58, 138, 0.32) !important;
-        color: #eff6ff !important;
+        border-color: rgba(62, 91, 160, 0.2) !important;
+        background: rgba(238, 244, 255, 0.9) !important;
+        color: #254479 !important;
       }
       .thumbnail.corner-layout-ready .corner-keyword {
-        background: rgba(6, 78, 59, 0.32) !important;
-        color: #ecfeff !important;
+        border-color: rgba(36, 82, 122, 0.14) !important;
+        background: rgba(232, 244, 255, 0.9) !important;
+        color: #24527a !important;
       }
       @media (max-width: 640px) {
         body:not([data-layout-mode="three"]) .thumbnail.corner-layout-ready .corner-time {
