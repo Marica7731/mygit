@@ -9,6 +9,7 @@ on:
       - "scripts/update-youtube-ranking.js"
       - "scripts/enrich-live-details.js"
       - "scripts/enrich-video-metrics.js"
+      - "scripts/merge-previous-view-metrics.js"
       - "scripts/fill-duration-details.js"
       - "scripts/fill-live-elapsed-duration.js"
       - "scripts/normalize-duration-fields.js"
@@ -79,6 +80,11 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
+      - name: Snapshot previous ranking data
+        run: |
+          git fetch origin main
+          git show origin/main:data/youtube-ranking.json > /tmp/youtube-ranking-previous.json || true
+
       - name: Update ranking data
         run: node scripts/update-youtube-ranking.js
 
@@ -108,6 +114,9 @@ jobs:
 
       - name: Enrich video view metrics
         run: node scripts/enrich-video-metrics.js
+
+      - name: Recover previous view metrics
+        run: node scripts/merge-previous-view-metrics.js
 
       - name: Fill missing durations
         run: node scripts/fill-duration-details.js
