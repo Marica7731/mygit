@@ -24,6 +24,7 @@
         background: transparent !important;
         border: 0 !important;
         box-shadow: none !important;
+        filter: none !important;
         text-shadow:
           0 1px 2px rgba(15, 23, 42, 0.78),
           0 0 2px rgba(15, 23, 42, 0.62) !important;
