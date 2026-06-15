@@ -7,14 +7,14 @@ on:
     paths:
       - ".github/workflows/youtube-ranking.yml"
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "0,10,20,30,40,50 * * * *"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: youtube-ranking-${{ github.ref }}
+  group: youtube-ranking-main
   cancel-in-progress: false
 
 jobs:
