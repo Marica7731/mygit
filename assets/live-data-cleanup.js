@@ -66,33 +66,36 @@
 
     const removed = [];
     let clearedDuration = 0;
-    const filterItems = (items) =>
-      (Array.isArray(items) ? items : []).filter((item) => {
-        if (isExplicitDirtyLiveItem(item)) {
-          removed.push({
-            videoId: item.videoId || "",
-            title: clean(item.title).slice(0, 120),
-            channelName: clean(item.channelName),
-            durationText: clean(item.durationText),
-            durationSeconds: Number(item.durationSeconds) || null,
-          });
-          return false;
-        }
-        if (item?.sourceGroup === "live") {
-          if (hasDuration(item)) clearedDuration += 1;
-          item.durationText = "";
-          item.durationSeconds = null;
-        }
-        return true;
-      });
+
+    const cleanItem = (item) => {
+      if (isExplicitDirtyLiveItem(item)) {
+        removed.push({
+          videoId: item.videoId || "",
+          title: clean(item.title).slice(0, 120),
+          channelName: clean(item.channelName),
+          durationText: clean(item.durationText),
+          durationSeconds: Number(item.durationSeconds) || null,
+        });
+        return null;
+      }
+      if (item?.sourceGroup !== "live") return item;
+      if (hasDuration(item)) clearedDuration += 1;
+      return { ...item, durationText: "", durationSeconds: null };
+    };
+
+    const primaryItems = normalizeRanks((Array.isArray(group.items) ? group.items : []).map(cleanItem).filter(Boolean));
+    const primaryByVideoId = new Map(primaryItems.filter((item) => item.videoId).map((item) => [item.videoId, item]));
+    group.items = primaryItems;
 
     if (group.keywords && typeof group.keywords === "object") {
       for (const [keyword, items] of Object.entries(group.keywords)) {
-        group.keywords[keyword] = filterItems(items).map((item, index) => ({ ...item, visibleRank: index + 1 }));
+        group.keywords[keyword] = normalizeRanks(
+          (Array.isArray(items) ? items : [])
+            .map(cleanItem)
+            .filter(Boolean)
+            .map((item) => mergePrimaryFields(item, primaryByVideoId.get(item.videoId))),
+        );
       }
-      group.items = Object.values(group.keywords).flat().map((item, index) => ({ ...item, visibleRank: index + 1 }));
-    } else {
-      group.items = filterItems(group.items).map((item, index) => ({ ...item, visibleRank: index + 1 }));
     }
 
     const counts = new Map();
@@ -112,6 +115,30 @@
       removedExplicitDirtyLiveSamples: removed.slice(0, 8),
     };
     return payload;
+  }
+
+  function normalizeRanks(items) {
+    return items.map((item, index) => ({ ...item, visibleRank: index + 1 }));
+  }
+
+  function mergePrimaryFields(item, primary) {
+    if (!primary) return { ...item, durationText: "", durationSeconds: null };
+    return {
+      ...item,
+      channelUrl: primary.channelUrl || item.channelUrl,
+      channelAvatarUrl: primary.channelAvatarUrl || item.channelAvatarUrl,
+      channelId: primary.channelId || item.channelId,
+      thumbnailUrl: primary.thumbnailUrl || item.thumbnailUrl,
+      statusType: primary.statusType || item.statusType,
+      subscriberText: primary.subscriberText || item.subscriberText,
+      subscriberCount: primary.subscriberCount ?? item.subscriberCount,
+      subscriberSource: primary.subscriberSource || item.subscriberSource,
+      liveViewerText: primary.liveViewerText || item.liveViewerText,
+      liveViewerCount: primary.liveViewerCount ?? item.liveViewerCount,
+      liveViewerSource: primary.liveViewerSource || item.liveViewerSource,
+      durationText: "",
+      durationSeconds: null,
+    };
   }
 
   function isExplicitDirtyLiveItem(item) {
