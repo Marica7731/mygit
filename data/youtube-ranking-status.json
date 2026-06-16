@@ -1,22 +1,36 @@
 {
   "status": "success",
-  "attemptedAt": "2026-06-16T07:06:57.950Z",
-  "runId": "27600062143",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/27600062143",
-  "eventName": "workflow_dispatch",
+  "attemptedAt": "2026-06-16T07:16:23.270Z",
+  "runId": "27600420136",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/27600420136",
+  "eventName": "schedule",
   "headSha": "afb799495089ad2c03e5343eda659753de170a32",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-06-16T06:59:55.715Z",
+  "lastSuccessfulGeneratedAt": "2026-06-16T07:07:43.986Z",
   "liveDetailPostProcess": {
-    "generatedAt": "2026-06-16T07:05:07.002Z",
+    "generatedAt": "2026-06-16T07:13:09.287Z",
     "limit": 120,
     "channelLimit": 120,
     "clearedUntrustedLiveViewers": 0,
-    "watchChecked": 74,
-    "watchChanged": 77,
+    "watchChecked": 81,
+    "watchChanged": 84,
     "channelChecked": 0,
     "channelChanged": 0
   },
-  "liveDurationPostProcess": null
+  "liveDurationPostProcess": {
+    "generatedAt": "2026-06-16T07:16:18.462Z",
+    "limit": 120,
+    "beforeMissing": 81,
+    "attempted": 81,
+    "afterMissing": 55,
+    "thumbnail": {
+      "checked": 26,
+      "changed": 27
+    },
+    "playwrightAttempted": 55,
+    "checked": 55,
+    "changed": 0,
+    "failed": 0
+  }
 }
