@@ -9,21 +9,24 @@ const DATA_FILE = path.join(ROOT_DIR, "data", "youtube-ranking.json");
 function main() {
   const payload = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
   let checked = 0;
-  let changed = 0;
+  let durationChanged = 0;
+  let statusChanged = 0;
 
   for (const item of allItems(payload)) {
     checked += 1;
-    if (normalizeDuration(item)) changed += 1;
+    if (normalizeDuration(item)) durationChanged += 1;
+    if (normalizeVideoStatus(item)) statusChanged += 1;
   }
 
   payload.durationFieldNormalize = {
     generatedAt: new Date().toISOString(),
     checked,
-    changed,
+    changed: durationChanged,
+    statusChanged,
   };
 
   fs.writeFileSync(DATA_FILE, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
-  console.log(`[duration-normalize] checked=${checked}, changed=${changed}`);
+  console.log(`[duration-normalize] checked=${checked}, changed=${durationChanged}, statusChanged=${statusChanged}`);
 }
 
 function allItems(payload) {
@@ -48,6 +51,49 @@ function normalizeDuration(item) {
   }
   if (changed) item.searchableText = buildSearchableText(item);
   return changed;
+}
+
+function normalizeVideoStatus(item) {
+  if (!item || item.sourceGroup === "live") return false;
+  if (item.statusType !== "live" && item.statusType !== "upcoming") return false;
+  if (!hasVideoEvidence(item)) return false;
+
+  let changed = false;
+  item.statusType = "video";
+  changed = true;
+
+  if (item.liveViewerSource !== "youtubeDataApi") {
+    if (item.liveViewerText) {
+      item.liveViewerText = "";
+      changed = true;
+    }
+    if (item.liveViewerCount != null) {
+      item.liveViewerCount = null;
+      changed = true;
+    }
+    if (item.liveViewerSource) {
+      item.liveViewerSource = "";
+      changed = true;
+    }
+  }
+
+  if (changed) item.searchableText = buildSearchableText(item);
+  return changed;
+}
+
+function hasVideoEvidence(item) {
+  return (
+    positiveNumber(item.viewCount) ||
+    viewTextHasViews(item.viewText) ||
+    positiveNumber(item.durationSeconds) ||
+    Boolean(parseDurationText(item.durationText))
+  );
+}
+
+function viewTextHasViews(value) {
+  return /[0-9０-９][0-9０-９,，.．]*\s*(?:億|亿|万|萬|千|K|M|B)?\s*(?:回視聴|視聴回数|views?|次观看|次觀看|播放)/i.test(
+    clean(value),
+  );
 }
 
 function parseDurationText(value) {
