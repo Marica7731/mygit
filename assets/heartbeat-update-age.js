@@ -109,6 +109,7 @@
     observer.observe(root, {
       childList: true,
       subtree: true,
+      characterData: true,
     });
   }
 
