@@ -32,12 +32,14 @@
     const failed = statusInfo?.status === "failed" && statusInfo.attemptedAt && statusInfo.attemptedAt > generatedAt;
     const statusAge = statusInfo?.attemptedAt ? Math.max(0, Math.floor((Date.now() - statusInfo.attemptedAt.getTime()) / 60000)) : null;
     chips.forEach((chip) => {
-      chip.textContent = failed
+      const nextText = failed
         ? `更新 ${formatShortDate(generatedAt)} · ${ageLabel(ageMinutes)} · 抓取失败 ${ageLabel(statusAge)}`
         : `更新 ${formatShortDate(generatedAt)} · ${ageLabel(ageMinutes)}`;
-      chip.title = failed
+      const nextTitle = failed
         ? `最后成功 ${formatFullDate(generatedAt)}；最近抓取失败 ${formatFullDate(statusInfo.attemptedAt)}：${statusInfo.message || "质量检查未通过"}`
         : `最后更新 ${formatFullDate(generatedAt)}`;
+      if (chip.textContent !== nextText) chip.textContent = nextText;
+      if (chip.title !== nextTitle) chip.title = nextTitle;
       chip.classList.toggle("is-stale-update", ageMinutes >= 45);
       chip.classList.toggle("is-old-update", ageMinutes >= 90);
       chip.classList.toggle("is-failed-update", failed);
@@ -107,7 +109,6 @@
     observer.observe(root, {
       childList: true,
       subtree: true,
-      characterData: true,
     });
   }
 
