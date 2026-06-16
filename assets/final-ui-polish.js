@@ -4,13 +4,8 @@
 
   ready(() => {
     installStyle();
-    fetch(`data/youtube-ranking.json?finalUi=${Date.now()}`, { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        byId = new Map((data?.groups?.[GROUP]?.items || []).filter((item) => item.videoId).map((item) => [item.videoId, item]));
-        refresh();
-      })
-      .catch(() => {});
+    loadData();
+    [3000, 9000, 20000].forEach((delay) => setTimeout(loadData, delay));
     refresh();
     [250, 900, 1800, 3600, 7000, 12000].forEach((delay) => setTimeout(refresh, delay));
     setInterval(refresh, 1500);
@@ -21,6 +16,16 @@
     document.addEventListener("input", scheduleRefresh, true);
     window.addEventListener("resize", scheduleRefresh, { passive: true });
   });
+
+  function loadData() {
+    fetch(`data/youtube-ranking.json?finalUi=${Date.now()}`, { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        byId = new Map((data?.groups?.[GROUP]?.items || []).filter((item) => item.videoId).map((item) => [item.videoId, item]));
+        refresh();
+      })
+      .catch(() => {});
+  }
 
   let timer = 0;
   function scheduleRefresh() {
