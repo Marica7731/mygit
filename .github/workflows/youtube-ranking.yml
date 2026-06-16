@@ -218,5 +218,10 @@ jobs:
             }
           fi
 
-      - name: Skip inline fallback dispatch
-        run: echo "Standalone scheduler workflow handles 5-minute fallback dispatch checks."
+      - name: Queue chained fallback dispatch
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run youtube-ranking-chain.yml --ref main --repo "$GITHUB_REPOSITORY" -f trigger_run_id="$GITHUB_RUN_ID" || echo "::warning::Failed to queue chained ranking dispatch."
+          echo "Queued chain workflow for the next YouTube ranking update."
