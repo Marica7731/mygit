@@ -65,21 +65,25 @@
     if (!group) return payload;
 
     const removed = [];
+    let clearedDuration = 0;
     const filterItems = (items) =>
       (Array.isArray(items) ? items : []).filter((item) => {
-        if (!isDirtyLiveItem(item)) {
+        if (isExplicitDirtyLiveItem(item)) {
+          removed.push({
+            videoId: item.videoId || "",
+            title: clean(item.title).slice(0, 120),
+            channelName: clean(item.channelName),
+            durationText: clean(item.durationText),
+            durationSeconds: Number(item.durationSeconds) || null,
+          });
+          return false;
+        }
+        if (item?.sourceGroup === "live") {
+          if (hasDuration(item)) clearedDuration += 1;
           item.durationText = "";
           item.durationSeconds = null;
-          return true;
         }
-        removed.push({
-          videoId: item.videoId || "",
-          title: clean(item.title).slice(0, 120),
-          channelName: clean(item.channelName),
-          durationText: clean(item.durationText),
-          durationSeconds: Number(item.durationSeconds) || null,
-        });
-        return false;
+        return true;
       });
 
     if (group.keywords && typeof group.keywords === "object") {
@@ -103,20 +107,20 @@
     payload.liveDurationPostProcess = {
       ...(payload.liveDurationPostProcess || {}),
       frontendFiltered: true,
-      removedDirtyLiveDurationItems: removed.length,
-      removedDirtyLiveDurationSamples: removed.slice(0, 8),
+      clearedLiveDurationItems: clearedDuration,
+      removedExplicitDirtyLiveItems: removed.length,
+      removedExplicitDirtyLiveSamples: removed.slice(0, 8),
     };
     return payload;
   }
 
-  function isDirtyLiveItem(item) {
+  function isExplicitDirtyLiveItem(item) {
     if (!item || item.sourceGroup !== "live") return false;
     if (DIRTY_VIDEO_IDS.has(clean(item.videoId))) return true;
     const title = clean(item.title);
     const channel = clean(item.channelName);
     if (DIRTY_CHANNELS.some((value) => channel.includes(value))) return true;
-    if (DIRTY_TITLE_RE.some((pattern) => pattern.test(title))) return true;
-    return hasDuration(item);
+    return DIRTY_TITLE_RE.some((pattern) => pattern.test(title));
   }
 
   function hasDuration(item) {
@@ -139,12 +143,7 @@
 
   function isDirtyDomCard(card) {
     const text = clean(card.textContent);
-    if (text.includes("みかんとボーカルノート") || /24\s*時間\s*配信へようこそ/i.test(text)) return true;
-    const thumb = card.querySelector(".thumbnail");
-    if (!thumb) return false;
-    return Array.from(thumb.querySelectorAll(".thumb-duration,.corner-time,.hb-duration,.hotfix-thumb-duration")).some((node) =>
-      DURATION_RE.test(clean(node.textContent)),
-    );
+    return text.includes("みかんとボーカルノート") || /24\s*時間\s*配信へようこそ/i.test(text);
   }
 
   function renumberVisibleCards() {
