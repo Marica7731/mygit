@@ -4,6 +4,7 @@
 
   ready(() => {
     installStyle();
+    observeToolbar();
     loadData();
     [300, 1000, 2500, 5000, 9000].forEach((delay) => setTimeout(refresh, delay));
     setInterval(refresh, 60000);
@@ -94,6 +95,20 @@
       }
     `;
     document.head.append(style);
+  }
+
+  function observeToolbar() {
+    const root = document.getElementById("app") || document.body;
+    let pending = 0;
+    const observer = new MutationObserver(() => {
+      window.clearTimeout(pending);
+      pending = window.setTimeout(refresh, 60);
+    });
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
   }
 
   function normalizeStatus(value) {
