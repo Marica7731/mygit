@@ -1,0 +1,73 @@
+name: Chain YouTube ranking update
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/youtube-ranking-chain.yml"
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Update YouTube ranking
+    types:
+      - completed
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: youtube-ranking-chain
+  cancel-in-progress: true
+
+jobs:
+  dispatch-next:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion != 'cancelled' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      YTB_RANKING_CHAIN_DELAY_SECONDS: "60"
+      TRIGGER_RUN_ID: ${{ github.event.workflow_run.id }}
+    steps:
+      - name: Wait before next update
+        run: sleep "$YTB_RANKING_CHAIN_DELAY_SECONDS"
+
+      - name: Dispatch update when idle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process');
+
+          const repo = process.env.GITHUB_REPOSITORY;
+          const triggerRunId = String(process.env.TRIGGER_RUN_ID || '');
+          const raw = execFileSync(
+            'gh',
+            ['api', '--method', 'GET', `repos/${repo}/actions/workflows/youtube-ranking.yml/runs`, '-f', 'per_page=20'],
+            { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
+          );
+          const runs = JSON.parse(raw).workflow_runs || [];
+          const activeStatuses = new Set(['queued', 'in_progress', 'waiting', 'requested', 'pending']);
+          const active = runs.find((run) => activeStatuses.has(run.status));
+          if (active) {
+            console.log(`Skip dispatch: update run #${active.run_number} is ${active.status}.`);
+            process.exit(0);
+          }
+
+          const now = Date.now();
+          const recentOther = runs.find((run) => {
+            if (String(run.id) === triggerRunId) return false;
+            const activityAt = Date.parse(run.updated_at || run.run_started_at || run.created_at || '');
+            return Number.isFinite(activityAt) && now - activityAt < 90 * 1000;
+          });
+          if (recentOther) {
+            console.log(`Skip dispatch: another update run #${recentOther.run_number} changed recently at ${recentOther.updated_at}.`);
+            process.exit(0);
+          }
+
+          execFileSync('gh', ['workflow', 'run', 'youtube-ranking.yml', '--ref', 'main', '--repo', repo], {
+            stdio: 'inherit',
+          });
+          console.log('Dispatched next YouTube ranking update.');
+          NODE
