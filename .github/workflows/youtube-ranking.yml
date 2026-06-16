@@ -18,7 +18,7 @@ on:
       - "scripts/validate-youtube-ranking.js"
       - "scripts/validate-duration-quality.js"
   schedule:
-    - cron: "0,10,20,30,40,50 * * * *"
+    - cron: "3,13,23,33,43,53 * * * *"
   workflow_dispatch:
 
 permissions:
