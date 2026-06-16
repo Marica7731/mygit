@@ -100,13 +100,12 @@
   }
 
   function observeToolbar() {
-    const root = document.getElementById("app") || document.body;
     let pending = 0;
     const observer = new MutationObserver(() => {
       window.clearTimeout(pending);
       pending = window.setTimeout(refresh, 60);
     });
-    observer.observe(root, {
+    observer.observe(document.body, {
       childList: true,
       subtree: true,
       characterData: true,
