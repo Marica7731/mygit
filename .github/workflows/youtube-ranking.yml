@@ -11,6 +11,7 @@ on:
       - "scripts/enrich-video-metrics.js"
       - "scripts/merge-previous-view-metrics.js"
       - "scripts/fill-duration-details.js"
+      - "scripts/clear-live-duration-fields.js"
       - "scripts/fill-live-elapsed-duration.js"
       - "scripts/fill-live-innertube-duration.js"
       - "scripts/fill-live-relative-duration.js"
@@ -18,7 +19,7 @@ on:
       - "scripts/validate-youtube-ranking.js"
       - "scripts/validate-duration-quality.js"
   schedule:
-    - cron: "3,13,23,33,43,53 * * * *"
+    - cron: "0,10,20,30,40,50 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -136,17 +137,14 @@ jobs:
       - name: Fill missing durations
         run: node scripts/fill-duration-details.js
 
-      - name: Fill live elapsed durations
-        run: node scripts/fill-live-elapsed-duration.js
-
-      - name: Fill live Innertube durations
-        run: node scripts/fill-live-innertube-duration.js
-
-      - name: Skip live relative durations
-        run: echo "Skip watch-page live duration fallback on GitHub runners; Innertube duration fill runs in the previous step."
+      - name: Skip live duration enrichment
+        run: echo "Live page hides duration by design; skip live elapsed and Innertube duration enrichment."
 
       - name: Normalize duration fields
         run: node scripts/normalize-duration-fields.js
+
+      - name: Clear live duration fields
+        run: node scripts/clear-live-duration-fields.js
 
       - name: Validate ranking data
         run: node scripts/validate-youtube-ranking.js
