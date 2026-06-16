@@ -22,15 +22,6 @@
   }
 
   function compactToolbarLabels() {
-    const meta = document.querySelector(".filter-chip.meta");
-    if (meta) {
-      const date = generatedAt || parseUpdateDate(meta.textContent);
-      if (date && Number.isFinite(date.getTime())) {
-        meta.textContent = `更新 ${formatShortDate(date)}`;
-        meta.title = `最后更新 ${formatFullDate(date)}`;
-      }
-    }
-
     document.querySelectorAll(".filter-chip.sort").forEach((chip) => {
       const text = clean(chip.textContent);
       const next = {
