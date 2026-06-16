@@ -30,6 +30,10 @@ function normalizeRanks(items) {
   return items.map((item, index) => ({ ...item, visibleRank: index + 1 }));
 }
 
+function positiveNumber(value) {
+  return Number.isFinite(Number(value)) && Number(value) > 0;
+}
+
 function main() {
   if (!fs.existsSync(DATA_FILE)) {
     throw new Error(`Ranking data not found: ${DATA_FILE}`);
@@ -45,34 +49,37 @@ function main() {
   const removed = [];
   let clearedDuration = 0;
 
-  const cleanItems = (items) =>
-    (Array.isArray(items) ? items : []).filter((item) => {
-      if (isExplicitDirtyLiveItem(item)) {
-        removed.push({
-          videoId: item.videoId || "",
-          title: clean(item.title).slice(0, 120),
-          channelName: clean(item.channelName),
-          durationText: clean(item.durationText),
-          durationSeconds: Number(item.durationSeconds) || null,
-        });
-        return false;
-      }
+  const cleanItem = (item) => {
+    if (isExplicitDirtyLiveItem(item)) {
+      removed.push({
+        videoId: item.videoId || "",
+        title: clean(item.title).slice(0, 120),
+        channelName: clean(item.channelName),
+        durationText: clean(item.durationText),
+        durationSeconds: Number(item.durationSeconds) || null,
+      });
+      return null;
+    }
 
-      if (item?.sourceGroup === "live") {
-        if (hasDuration(item)) clearedDuration += 1;
-        item.durationText = "";
-        item.durationSeconds = null;
-      }
-      return true;
-    });
+    if (item?.sourceGroup !== "live") return item;
+    if (hasDuration(item)) clearedDuration += 1;
+    return { ...item, durationText: "", durationSeconds: null };
+  };
+
+  const primaryItems = normalizeRanks((Array.isArray(group.items) ? group.items : []).map(cleanItem).filter(Boolean));
+  const primaryByVideoId = new Map(primaryItems.filter((item) => item.videoId).map((item) => [item.videoId, item]));
+
+  group.items = primaryItems;
 
   if (group.keywords && typeof group.keywords === "object") {
     for (const [keyword, items] of Object.entries(group.keywords)) {
-      group.keywords[keyword] = normalizeRanks(cleanItems(items));
+      group.keywords[keyword] = normalizeRanks(
+        (Array.isArray(items) ? items : [])
+          .map(cleanItem)
+          .filter(Boolean)
+          .map((item) => mergePrimaryFields(item, primaryByVideoId.get(item.videoId))),
+      );
     }
-    group.items = normalizeRanks(Object.values(group.keywords).flat());
-  } else {
-    group.items = normalizeRanks(cleanItems(group.items));
   }
 
   const counts = new Map();
@@ -84,19 +91,44 @@ function main() {
     source.itemCount = counts.get(source.keyword) || 0;
   }
 
+  const subscriberItems = (group.items || []).filter((item) => positiveNumber(item.subscriberCount)).length;
   payload.liveDurationPostProcess = {
     ...(payload.liveDurationPostProcess || {}),
     durationDisplayPolicy: "hidden-on-live-page",
     clearedLiveDurationItems: clearedDuration,
     removedExplicitDirtyLiveItems: removed.length,
     removedExplicitDirtyLiveSamples: removed.slice(0, 12),
+    subscriberItemsAfterClean: subscriberItems,
     processedAt: new Date().toISOString(),
   };
 
   fs.writeFileSync(DATA_FILE, `${JSON.stringify(payload, null, 2)}\n`);
   console.log(
-    `[live-duration-clean] cleared=${clearedDuration}, removed=${removed.length}, liveItems=${group.items?.length || 0}`,
+    `[live-duration-clean] cleared=${clearedDuration}, removed=${removed.length}, liveItems=${group.items?.length || 0}, subscribers=${subscriberItems}`,
   );
+}
+
+function mergePrimaryFields(item, primary) {
+  if (!primary) return { ...item, durationText: "", durationSeconds: null };
+  return {
+    ...item,
+    channelUrl: primary.channelUrl || item.channelUrl,
+    channelAvatarUrl: primary.channelAvatarUrl || item.channelAvatarUrl,
+    channelId: primary.channelId || item.channelId,
+    thumbnailUrl: primary.thumbnailUrl || item.thumbnailUrl,
+    statusType: primary.statusType || item.statusType,
+    subscriberText: primary.subscriberText || item.subscriberText,
+    subscriberCount: primary.subscriberCount ?? item.subscriberCount,
+    subscriberSource: primary.subscriberSource || item.subscriberSource,
+    liveViewerText: primary.liveViewerText || item.liveViewerText,
+    liveViewerCount: primary.liveViewerCount ?? item.liveViewerCount,
+    liveViewerSource: primary.liveViewerSource || item.liveViewerSource,
+    likeText: primary.likeText || item.likeText,
+    likeCount: primary.likeCount ?? item.likeCount,
+    likeSource: primary.likeSource || item.likeSource,
+    durationText: "",
+    durationSeconds: null,
+  };
 }
 
 main();
