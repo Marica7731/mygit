@@ -25,20 +25,22 @@
   }
 
   function refresh() {
-    const chip = document.querySelector(".filter-chip.meta");
-    if (!chip || !generatedAt || !Number.isFinite(generatedAt.getTime())) return;
+    const chips = document.querySelectorAll(".filter-chip.meta");
+    if (!chips.length || !generatedAt || !Number.isFinite(generatedAt.getTime())) return;
     const ageMinutes = Math.max(0, Math.floor((Date.now() - generatedAt.getTime()) / 60000));
     const failed = statusInfo?.status === "failed" && statusInfo.attemptedAt && statusInfo.attemptedAt > generatedAt;
     const statusAge = statusInfo?.attemptedAt ? Math.max(0, Math.floor((Date.now() - statusInfo.attemptedAt.getTime()) / 60000)) : null;
-    chip.textContent = failed
-      ? `更新 ${formatShortDate(generatedAt)} · ${ageLabel(ageMinutes)} · 抓取失败 ${ageLabel(statusAge)}`
-      : `更新 ${formatShortDate(generatedAt)} · ${ageLabel(ageMinutes)}`;
-    chip.title = failed
-      ? `最后成功 ${formatFullDate(generatedAt)}；最近抓取失败 ${formatFullDate(statusInfo.attemptedAt)}：${statusInfo.message || "质量检查未通过"}`
-      : `最后更新 ${formatFullDate(generatedAt)}`;
-    chip.classList.toggle("is-stale-update", ageMinutes >= 45);
-    chip.classList.toggle("is-old-update", ageMinutes >= 90);
-    chip.classList.toggle("is-failed-update", failed);
+    chips.forEach((chip) => {
+      chip.textContent = failed
+        ? `更新 ${formatShortDate(generatedAt)} · ${ageLabel(ageMinutes)} · 抓取失败 ${ageLabel(statusAge)}`
+        : `更新 ${formatShortDate(generatedAt)} · ${ageLabel(ageMinutes)}`;
+      chip.title = failed
+        ? `最后成功 ${formatFullDate(generatedAt)}；最近抓取失败 ${formatFullDate(statusInfo.attemptedAt)}：${statusInfo.message || "质量检查未通过"}`
+        : `最后更新 ${formatFullDate(generatedAt)}`;
+      chip.classList.toggle("is-stale-update", ageMinutes >= 45);
+      chip.classList.toggle("is-old-update", ageMinutes >= 90);
+      chip.classList.toggle("is-failed-update", failed);
+    });
   }
 
   function ageLabel(minutes) {
