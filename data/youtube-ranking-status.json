@@ -1,26 +1,26 @@
 {
-  "status": "failed",
-  "attemptedAt": "2026-06-17T04:51:24.205Z",
-  "runId": "27666194570",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/27666194570",
+  "status": "success",
+  "attemptedAt": "2026-06-17T05:01:18.033Z",
+  "runId": "27666631655",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/27666631655",
   "eventName": "workflow_dispatch",
-  "headSha": "0bafb3d56f507555593945118f77ccf3172d3afc",
-  "message": "previous ranking step failed",
-  "failedStep": "previous ranking step",
-  "lastSuccessfulGeneratedAt": "2026-06-17T04:31:49.834Z",
+  "headSha": "56014c9d0e0b622d03dcfcb33ba569a69f656370",
+  "message": "ranking update passed",
+  "failedStep": "",
+  "lastSuccessfulGeneratedAt": "2026-06-17T04:53:33.512Z",
   "liveDetailPostProcess": {
-    "generatedAt": "2026-06-17T04:36:35.279Z",
+    "generatedAt": "2026-06-17T04:58:56.258Z",
     "limit": 120,
     "channelLimit": 120,
     "clearedUntrustedLiveViewers": 0,
-    "watchChecked": 65,
-    "watchChanged": 67,
+    "watchChecked": 75,
+    "watchChanged": 73,
     "channelChecked": 0,
     "channelChanged": 0
   },
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
-    "clearedLiveDurationItems": 2,
+    "clearedLiveDurationItems": 1,
     "removedExplicitDirtyLiveItems": 2,
     "removedExplicitDirtyLiveSamples": [
       {
@@ -38,7 +38,7 @@
         "durationSeconds": null
       }
     ],
-    "subscriberItemsAfterClean": 66,
-    "processedAt": "2026-06-17T04:38:33.576Z"
+    "subscriberItemsAfterClean": 72,
+    "processedAt": "2026-06-17T05:01:15.407Z"
   }
 }
