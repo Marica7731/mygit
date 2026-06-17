@@ -1,44 +1,29 @@
 {
-  "status": "failed",
-  "attemptedAt": "2026-06-17T03:20:57.703Z",
-  "runId": "27663173691",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/27663173691",
+  "status": "success",
+  "attemptedAt": "2026-06-17T03:29:56.506Z",
+  "runId": "27663571730",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/27663571730",
   "eventName": "workflow_dispatch",
-  "headSha": "65cc1dfaf0b923bcdefe43cab77740267a659fdc",
-  "message": "Validate ranking data failed",
-  "failedStep": "Validate ranking data",
-  "lastSuccessfulGeneratedAt": "2026-06-17T03:00:16.724Z",
+  "headSha": "85d93c309a9eed30f93230a42e55015841cda558",
+  "message": "ranking update passed",
+  "failedStep": "",
+  "lastSuccessfulGeneratedAt": "2026-06-17T03:22:53.719Z",
   "liveDetailPostProcess": {
-    "generatedAt": "2026-06-17T03:04:53.503Z",
+    "generatedAt": "2026-06-17T03:27:43.671Z",
     "limit": 120,
     "channelLimit": 120,
     "clearedUntrustedLiveViewers": 0,
-    "watchChecked": 53,
-    "watchChanged": 55,
+    "watchChecked": 66,
+    "watchChanged": 68,
     "channelChecked": 0,
     "channelChanged": 0
   },
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
     "clearedLiveDurationItems": 0,
-    "removedExplicitDirtyLiveItems": 2,
-    "removedExplicitDirtyLiveSamples": [
-      {
-        "videoId": "Q549p5qmepE",
-        "title": "【 Karaoke #歌枠 】元プロが歌う24時間配信へようこそ🍊 #作業用BGM 【 #vtuber #vsinger 】",
-        "channelName": "みかんとボーカルノート",
-        "durationText": "",
-        "durationSeconds": null
-      },
-      {
-        "videoId": "Q549p5qmepE",
-        "title": "【 Karaoke #歌枠 】元プロが歌う24時間配信へようこそ🍊 #作業用BGM 【 #vtuber #vsinger 】",
-        "channelName": "みかんとボーカルノート",
-        "durationText": "",
-        "durationSeconds": null
-      }
-    ],
-    "subscriberItemsAfterClean": 54,
-    "processedAt": "2026-06-17T03:09:17.349Z"
+    "removedExplicitDirtyLiveItems": 0,
+    "removedExplicitDirtyLiveSamples": [],
+    "subscriberItemsAfterClean": 68,
+    "processedAt": "2026-06-17T03:29:52.221Z"
   }
 }
