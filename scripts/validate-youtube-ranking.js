@@ -111,6 +111,16 @@ function checkViewCoverage(group, items, errors) {
   }
 
   const withViews = videos.filter((item) => positiveNumber(item.viewCount));
+
+  if (group === "today") {
+    if (withViews.length < CONFIG.minTodayVideos) {
+      errors.push(
+        `today: only ${withViews.length} non-live videos with views, expected at least ${CONFIG.minTodayVideos}`,
+      );
+    }
+    return;
+  }
+
   const ratio = withViews.length / videos.length;
   if (ratio < CONFIG.minViewCoverage) {
     errors.push(
