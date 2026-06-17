@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const DATA_FILE = path.resolve(process.cwd(), "data/youtube-ranking.json");
+const PREVIOUS_DATA_FILE = process.env.YTB_RANKING_PREVIOUS_FILE || "/tmp/youtube-ranking-previous.json";
 const DURATION_RE = /\b(?:\d{1,3}:)?\d{1,2}:\d{2}\b/;
 const DIRTY_VIDEO_IDS = new Set(["Q549p5qmepE"]);
 const DIRTY_CHANNELS = ["みかんとボーカルノート"];
@@ -32,6 +33,68 @@ function normalizeRanks(items) {
 
 function positiveNumber(value) {
   return Number.isFinite(Number(value)) && Number(value) > 0;
+}
+
+function metricKey(prefix, value) {
+  const normalized = clean(value);
+  if (!normalized) return "";
+  return `${prefix}:${normalized.toLowerCase()}`;
+}
+
+function metricKeys(item) {
+  return [
+    metricKey("video", item?.videoId),
+    metricKey("channel-url", item?.channelUrl),
+    metricKey("channel-id", item?.channelId),
+    metricKey("channel-name", item?.channelName),
+  ].filter(Boolean);
+}
+
+function loadPreviousSubscriberMetrics() {
+  if (!fs.existsSync(PREVIOUS_DATA_FILE)) return new Map();
+
+  try {
+    const payload = JSON.parse(fs.readFileSync(PREVIOUS_DATA_FILE, "utf8"));
+    const items = payload.groups?.live?.items || [];
+    const metrics = new Map();
+
+    for (const item of items) {
+      if (!positiveNumber(item?.subscriberCount)) continue;
+      const metric = {
+        subscriberText: clean(item.subscriberText),
+        subscriberCount: Number(item.subscriberCount),
+        subscriberSource: clean(item.subscriberSource) || "previousRanking",
+      };
+      for (const key of metricKeys(item)) {
+        if (!metrics.has(key)) metrics.set(key, metric);
+      }
+    }
+
+    return metrics;
+  } catch (error) {
+    console.warn(`[live-duration-clean] failed to read previous ranking metrics: ${error.message}`);
+    return new Map();
+  }
+}
+
+function recoverSubscriberMetrics(items, metrics) {
+  if (!metrics.size) return 0;
+
+  let recovered = 0;
+  for (const item of items) {
+    if (positiveNumber(item.subscriberCount)) continue;
+    const metric = metricKeys(item)
+      .map((key) => metrics.get(key))
+      .find(Boolean);
+    if (!metric) continue;
+
+    item.subscriberText = metric.subscriberText || item.subscriberText || "";
+    item.subscriberCount = metric.subscriberCount;
+    item.subscriberSource = metric.subscriberSource || "previousRanking";
+    recovered += 1;
+  }
+
+  return recovered;
 }
 
 function main() {
@@ -66,7 +129,9 @@ function main() {
     return { ...item, durationText: "", durationSeconds: null };
   };
 
+  const previousSubscriberMetrics = loadPreviousSubscriberMetrics();
   const primaryItems = normalizeRanks((Array.isArray(group.items) ? group.items : []).map(cleanItem).filter(Boolean));
+  const recoveredSubscribers = recoverSubscriberMetrics(primaryItems, previousSubscriberMetrics);
   const primaryByVideoId = new Map(primaryItems.filter((item) => item.videoId).map((item) => [item.videoId, item]));
 
   group.items = primaryItems;
@@ -98,13 +163,14 @@ function main() {
     clearedLiveDurationItems: clearedDuration,
     removedExplicitDirtyLiveItems: removed.length,
     removedExplicitDirtyLiveSamples: removed.slice(0, 12),
+    recoveredSubscriberItems: recoveredSubscribers,
     subscriberItemsAfterClean: subscriberItems,
     processedAt: new Date().toISOString(),
   };
 
   fs.writeFileSync(DATA_FILE, `${JSON.stringify(payload, null, 2)}\n`);
   console.log(
-    `[live-duration-clean] cleared=${clearedDuration}, removed=${removed.length}, liveItems=${group.items?.length || 0}, subscribers=${subscriberItems}`,
+    `[live-duration-clean] cleared=${clearedDuration}, removed=${removed.length}, recoveredSubscribers=${recoveredSubscribers}, liveItems=${group.items?.length || 0}, subscribers=${subscriberItems}`,
   );
 }
 
