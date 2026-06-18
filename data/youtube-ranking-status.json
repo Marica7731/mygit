@@ -1,22 +1,45 @@
 {
-  "status": "success",
-  "attemptedAt": "2026-06-18T23:00:48.529Z",
-  "runId": "27794283692",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/27794283692",
-  "eventName": "workflow_dispatch",
+  "status": "failed",
+  "attemptedAt": "2026-06-18T23:20:48.277Z",
+  "runId": "27794540845",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/27794540845",
+  "eventName": "schedule",
   "headSha": "889401af863d1f7dc17261b14938d33f86348688",
-  "message": "ranking update passed",
-  "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-06-18T22:54:43.469Z",
+  "message": "Validate ranking data failed",
+  "failedStep": "Validate ranking data",
+  "lastSuccessfulGeneratedAt": "2026-06-18T22:45:24.324Z",
   "liveDetailPostProcess": {
-    "generatedAt": "2026-06-18T22:59:52.464Z",
+    "generatedAt": "2026-06-18T22:50:33.809Z",
     "limit": 120,
     "channelLimit": 120,
     "clearedUntrustedLiveViewers": 0,
-    "watchChecked": 68,
-    "watchChanged": 68,
+    "watchChecked": 69,
+    "watchChanged": 69,
     "channelChecked": 0,
     "channelChanged": 0
   },
-  "liveDurationPostProcess": null
+  "liveDurationPostProcess": {
+    "durationDisplayPolicy": "hidden-on-live-page",
+    "clearedLiveDurationItems": 0,
+    "removedExplicitDirtyLiveItems": 2,
+    "removedExplicitDirtyLiveSamples": [
+      {
+        "videoId": "Q549p5qmepE",
+        "title": "【 Karaoke #歌枠 】元プロが歌う24時間配信へようこそ🍊 #作業用BGM 【 #vtuber #vsinger 】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      },
+      {
+        "videoId": "Q549p5qmepE",
+        "title": "【 Karaoke #歌枠 】元プロが歌う24時間配信へようこそ🍊 #作業用BGM 【 #vtuber #vsinger 】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      }
+    ],
+    "recoveredSubscriberItems": 0,
+    "subscriberItemsAfterClean": 68,
+    "processedAt": "2026-06-18T22:52:48.138Z"
+  }
 }
