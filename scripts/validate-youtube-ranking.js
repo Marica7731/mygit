@@ -12,9 +12,9 @@ const CONFIG = {
   minViewGroupItems: intEnv("YTB_RANKING_MIN_VIEW_GROUP_ITEMS", 30),
   minKeywordItems: intEnv("YTB_RANKING_MIN_KEYWORD_ITEMS", 10),
   minLiveItems: intEnv("YTB_RANKING_MIN_LIVE_ITEMS", 20),
-  minTodayVideos: intEnv("YTB_RANKING_MIN_TODAY_VIDEOS", 300),
+  minTodayVideos: intEnv("YTB_RANKING_MIN_TODAY_VIDEOS", 240),
   minMonthVideos: intEnv("YTB_RANKING_MIN_MONTH_VIDEOS", 300),
-  minLiveSubscriberCoverage: numberEnv("YTB_RANKING_MIN_LIVE_SUBSCRIBER_COVERAGE", 0.55),
+  minLiveSubscriberCoverage: numberEnv("YTB_RANKING_MIN_LIVE_SUBSCRIBER_COVERAGE", 0.85),
   maxMissingThumbnailRatio: numberEnv("YTB_RANKING_MAX_MISSING_THUMBNAIL_RATIO", 0.05),
 };
 
