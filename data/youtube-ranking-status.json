@@ -1,30 +1,45 @@
 {
-  "status": "failed",
-  "attemptedAt": "2026-06-19T14:59:59.281Z",
-  "runId": "27832544114",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/27832544114",
+  "status": "success",
+  "attemptedAt": "2026-06-19T15:12:23.814Z",
+  "runId": "27833224826",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/27833224826",
   "eventName": "workflow_dispatch",
-  "headSha": "16a32b6274ebbd6c1b39170f60ab3a3de2f69a21",
-  "message": "previous ranking step failed",
-  "failedStep": "previous ranking step",
-  "lastSuccessfulGeneratedAt": "2026-06-19T14:33:53.519Z",
+  "headSha": "ffd8058209a523de0f3907ed6c858e13adcc70e5",
+  "message": "ranking update passed",
+  "failedStep": "",
+  "lastSuccessfulGeneratedAt": "2026-06-19T15:02:04.807Z",
   "liveDetailPostProcess": {
-    "generatedAt": "2026-06-19T14:40:51.646Z",
+    "generatedAt": "2026-06-19T15:09:09.238Z",
     "limit": 120,
     "channelLimit": 120,
-    "clearedUntrustedLiveViewers": 134,
+    "clearedUntrustedLiveViewers": 135,
     "watchChecked": 120,
-    "watchChanged": 124,
+    "watchChanged": 125,
     "channelChecked": 0,
     "channelChanged": 0
   },
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
-    "clearedLiveDurationItems": 0,
-    "removedExplicitDirtyLiveItems": 0,
-    "removedExplicitDirtyLiveSamples": [],
+    "clearedLiveDurationItems": 1,
+    "removedExplicitDirtyLiveItems": 2,
+    "removedExplicitDirtyLiveSamples": [
+      {
+        "videoId": "Q549p5qmepE",
+        "title": "【 Karaoke #歌枠 】元プロが歌う24時間配信へようこそ🍊 #作業用BGM 【 #vtuber #vsinger 】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      },
+      {
+        "videoId": "Q549p5qmepE",
+        "title": "【 Karaoke #歌枠 】元プロが歌う24時間配信へようこそ🍊 #作業用BGM 【 #vtuber #vsinger 】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      }
+    ],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 133,
-    "processedAt": "2026-06-19T14:46:30.638Z"
+    "subscriberItemsAfterClean": 130,
+    "processedAt": "2026-06-19T15:12:20.852Z"
   }
 }
