@@ -29,12 +29,15 @@ jobs:
         id: recent
         env:
           GH_TOKEN: ${{ github.token }}
+          YTB_RANKING_FAILURE_COOLDOWN_MINUTES: "30"
         run: |
           node <<'NODE'
           const { execFileSync } = require('node:child_process');
           const fs = require('node:fs');
 
           const repo = process.env.GITHUB_REPOSITORY;
+          const eventName = process.env.GITHUB_EVENT_NAME || '';
+          const cooldownMinutes = Number(process.env.YTB_RANKING_FAILURE_COOLDOWN_MINUTES || 30);
           const raw = execFileSync(
             'gh',
             ['api', '--method', 'GET', `repos/${repo}/actions/workflows/youtube-ranking.yml/runs`, '-f', 'per_page=20'],
@@ -49,14 +52,48 @@ jobs:
             return activeStatuses.has(run.status) || (Number.isFinite(activityAt) && now - activityAt < recentMs);
           });
 
-          const skip = Boolean(blocking);
+          const status = readRankingStatus(repo);
+          const failedAt = Date.parse(status?.attemptedAt || '');
+          const failureCooldown =
+            !blocking &&
+            eventName !== 'workflow_dispatch' &&
+            status?.status === 'failed' &&
+            Number.isFinite(failedAt) &&
+            now - failedAt < cooldownMinutes * 60 * 1000
+              ? {
+                  attemptedAt: status.attemptedAt,
+                  message: status.message || 'previous update failed',
+                  remainingMinutes: Math.ceil((cooldownMinutes * 60 * 1000 - (now - failedAt)) / 60000),
+                }
+              : null;
+
+          const skip = Boolean(blocking || failureCooldown);
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `skip=${skip}\n`);
           if (blocking) {
             console.log(
               `Skip dispatch: recent or active update run #${blocking.run_number} ${blocking.event} ${blocking.status} ${blocking.updated_at}`,
             );
+          } else if (failureCooldown) {
+            console.log(
+              `Skip dispatch: previous failure is cooling down for ${failureCooldown.remainingMinutes}m (${failureCooldown.message}, ${failureCooldown.attemptedAt}).`,
+            );
           } else {
             console.log('No recent or active update run. Dispatching is allowed.');
+          }
+
+          function readRankingStatus(repo) {
+            try {
+              const rawStatus = execFileSync(
+                'gh',
+                ['api', '--method', 'GET', `repos/${repo}/contents/data/youtube-ranking-status.json?ref=main`],
+                { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+              );
+              const payload = JSON.parse(rawStatus);
+              const content = String(payload.content || '').replace(/\s+/g, '');
+              return JSON.parse(Buffer.from(content, 'base64').toString('utf8'));
+            } catch {
+              return null;
+            }
           }
           NODE
 

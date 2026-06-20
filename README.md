@@ -168,7 +168,9 @@ reachedBottom, truncatedByLimit, searchableText, collectedAt
 - 分页控件同时出现在列表顶部和底部；长列表滚动后右下角显示小型返回顶部按钮。
 - PNG 导出会主动按视频 ID 拉取前 100 张封面候选，减少未滚动加载导致的 `No thumbnail`。
 - 更新入口从多路自动触发收敛到 scheduler 空闲检查后派发主 workflow。
-- 最近一次“8 分钟前抓取失败”的原因不是抓取脚本崩溃，而是 `Validate ranking data` 阶段未达数据量阈值：`today` 只有 40 条非直播视频，低于 240；`month` 只有 100 条非直播视频，低于 300；后续 run 已重新成功。
+- 主 workflow 在排行质量校验失败时会自动用更保守的滚动、超时和并发参数重试一次，降低 YouTube 短时加载不足导致的失败率。
+- scheduler 会读取 `data/youtube-ranking-status.json`，最近一次失败仍在 30 分钟冷却期内时跳过自动派发，避免每 10 分钟重复刷失败状态；手动触发不受冷却限制。
+- 最近 24 小时内的抓取失败集中在 `Validate ranking data`，不是 runner、安装、Node、Playwright 或推送崩溃。最近一次失败样例为 `today` 非直播 190/240、`month` 非直播 246/300、`today` 有播放量 170/240；因此改为同一 run 内保守重试，并对失败自动派发做冷却。
 
 ### 使用方法
 
@@ -213,11 +215,12 @@ node scripts/validate-live-snapshots.js
 | `assets/final-ui-polish.js`, `assets/corner-readability-hotfix.js`, `assets/heartbeat-corner-transparent.js`, `assets/png-export-hotfix.js` | 最终 UI 清理、角标可读性和 PNG 导出兜底 | `png-export-hotfix.js` 在导出前等待数据索引，并按 `videoId` 主动尝试 `hq720 / maxres / sd / hq / mq / default` 封面候选；其它脚本同步识别新旧默认标题过滤文案，避免内部过滤条件在页面或导出标题中露出 | 页面末尾加载或导出时兜底清理工具条状态 |
 | `scripts/archive-live-snapshot.js` | 直播快照生成脚本 | `buildSnapshot()` 保存当前 `groups.live`；`pruneSnapshotFiles()` 清理 7 天外快照；`summarizeLiveGroup()` 生成索引摘要 | 主 workflow 成功校验后运行，产出给 `assets/ranking-controls.js` 读取的快照文件 |
 | `scripts/validate-live-snapshots.js` | 直播快照校验脚本 | 校验索引 schema、快照文件、`groups.live.items` 和 7 天保留期 | 本地 `npm run validate:snapshots` 与 GitHub Actions 调用 |
+| `scripts/validate-youtube-ranking.js` | 排行数据质量校验脚本 | 校验三组条目、缩略图、直播订阅数和播放量覆盖；对已到页底或达到 limit 的自然低数量结果降为 warning，未完成抓取仍保持 failure | 主 workflow 的初次校验和保守重试后终检都会调用 |
 | `data/live-snapshots/index.json` | 直播快照索引 | 记录快照 id、文件名、展示标签、条目数量和过期时间 | 前端快照下拉框读取 |
 | `data/live-snapshots/*.json` | 直播快照数据 | 保存某次抓取的 `groups.live` | 选择 `?snapshot=<id>` 时由前端替换主数据请求 |
 | `index.html`, `live.html`, `today.html`, `month.html` | GitHub Pages 页面入口 | 更新修复脚本的 cache-busting query | 保证线上页面加载 `20260620-controls5` 和 `20260620-png2` 版本脚本 |
-| `.github/workflows/youtube-ranking.yml` | 主抓取、补指标、校验、快照和提交数据 workflow | 移除自动 schedule 与 chain 派发，串行不取消运行中任务；成功后写入直播快照 | 由 scheduler 或手动触发 |
-| `.github/workflows/youtube-ranking-scheduler.yml` | GitHub Actions 调度入口 | 每 10 分钟检查空闲后派发主 workflow，保留 repository_dispatch | 学习 culua_web_h5 的 dispatch 控制方式，减少重复触发 |
+| `.github/workflows/youtube-ranking.yml` | 主抓取、补指标、校验、快照和提交数据 workflow | 串行不取消运行中任务；初次质量校验失败后用保守滚动/并发/超时参数重跑一次；成功后写入直播快照 | 由 scheduler 或手动触发 |
+| `.github/workflows/youtube-ranking-scheduler.yml` | GitHub Actions 调度入口 | 每 10 分钟检查空闲后派发主 workflow；若最近失败仍在 30 分钟冷却期内则跳过自动派发，保留 repository_dispatch | 学习 culua_web_h5 的 dispatch 控制方式，减少重复触发和失败噪音 |
 | `.github/workflows/youtube-ranking-chain.yml` | 手动 fallback 派发器 | 只保留 `workflow_dispatch` | 不再自动链式触发主 workflow |
 | `scripts/check-js-syntax.js` | 跨平台 JS 语法检查 | 遍历 `scripts/` 和 `assets/`，逐个执行 `node --check` | 替换 `package.json` 中 Bash 专用的 `for` 语法 |
 | `package.json` | npm 命令入口 | `npm run check` 调用跨平台检查脚本；`npm run snapshot` / `npm run validate:snapshots` 维护直播快照 | Windows PowerShell 与 Linux runner 都可直接运行 |
@@ -235,6 +238,8 @@ node scripts/validate-live-snapshots.js
 - 快照只保留直播页数据，不保存今日和本月历史；7 天保留指当前 main 分支静态文件保留，Git 历史不会自动瘦身。
 - 搜索词是临时状态，刷新会重置；黑名单仍通过 `ytb-ranking-blacklist-v1` 保存。
 - 默认机器人屏蔽在前端数据请求层完成，当前主数据和历史快照展示都会生效。
+- 自动调度失败冷却只影响定时派发；需要立即补跑时可手动执行 `Update YouTube ranking` workflow。
+- 质量校验仍会阻止明显不完整的数据覆盖线上排行；保守重试只是在同一次 workflow 内再抓一次，不会提交未通过终检的候选数据。
 - 调度器通过 `GITHUB_TOKEN` 派发主 workflow，不需要提交 GitHub PAT、cookie 或 `.env`。
 
 ### 测试说明
@@ -263,6 +268,8 @@ node scripts/validate-live-snapshots.js
 - 黑名单刷新后仍保留。
 - `live.html` 的快照下拉可选择 `data/live-snapshots/index.json` 中的快照。
 - `npm run check`、`node scripts/validate-youtube-ranking.js`、`node scripts/validate-duration-quality.js` 均通过。
+- GitHub Actions 中 `Update YouTube ranking` 若初次 `Validate ranking data` 失败，会出现 `Retry ranking data with conservative settings` step；终检通过才提交数据。
+- GitHub Actions 中 `Dispatch YouTube ranking update` 若处于失败冷却期，应输出 `Skip dispatch: previous failure is cooling down...`。
 
 ## 注意事项
 

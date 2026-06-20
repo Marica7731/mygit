@@ -148,6 +148,36 @@ jobs:
         run: node scripts/clear-live-duration-fields.js
 
       - name: Validate ranking data
+        id: validate_ranking
+        continue-on-error: true
+        run: node scripts/validate-youtube-ranking.js
+
+      - name: Retry ranking data with conservative settings
+        if: steps.validate_ranking.outcome == 'failure'
+        env:
+          YTB_RANKING_SCROLL_TO_BOTTOM_GROUPS: "live,today,month"
+          YTB_RANKING_MAX_SCROLLS: "220"
+          YTB_RANKING_SCROLL_DELAY_MS: "2000"
+          YTB_RANKING_INITIAL_DELAY_MS: "4000"
+          YTB_RANKING_NAVIGATION_TIMEOUT_MS: "90000"
+          YTB_RANKING_METRIC_FETCH_CONCURRENCY: "4"
+          YTB_RANKING_METRIC_FETCH_TIMEOUT_MS: "10000"
+          YTB_RANKING_OEMBED_CHANNEL_CONCURRENCY: "4"
+          YTB_RANKING_OEMBED_CHANNEL_TIMEOUT_MS: "10000"
+          YTB_RANKING_DURATION_FETCH_CONCURRENCY: "2"
+          YTB_RANKING_DURATION_FETCH_TIMEOUT_MS: "12000"
+        run: |
+          echo "::warning::Initial ranking validation failed. Retrying once with conservative scroll and fetch settings."
+          node scripts/update-youtube-ranking.js
+          node scripts/enrich-live-details.js
+          node scripts/enrich-video-metrics.js
+          node scripts/merge-previous-view-metrics.js
+          node scripts/fill-duration-details.js
+          echo "Live page hides duration by design; skip live elapsed and Innertube duration enrichment."
+          node scripts/normalize-duration-fields.js
+          node scripts/clear-live-duration-fields.js
+
+      - name: Validate ranking data after retry
         run: node scripts/validate-youtube-ranking.js
 
       - name: Validate duration data

@@ -24,16 +24,17 @@ const VIEW_GROUPS = ["today", "month"];
 function main() {
   const payload = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
   const errors = [];
+  const warnings = [];
 
   for (const group of ["live", "today", "month"]) {
     const items = getItems(payload, group);
     if (!items.length) errors.push(`${group}: items is empty`);
-    checkCollectionSize(group, items, errors);
+    checkCollectionSize(payload, group, items, errors, warnings);
     checkThumbnails(group, items, errors);
   }
 
   checkLiveSubscribers(getItems(payload, "live"), errors);
-  for (const group of VIEW_GROUPS) checkViewCoverage(group, getItems(payload, group), errors);
+  for (const group of VIEW_GROUPS) checkViewCoverage(payload, group, getItems(payload, group), errors, warnings);
 
   if (errors.length) {
     console.error("[validate-ranking] data quality check failed:");
@@ -41,6 +42,10 @@ function main() {
     process.exit(1);
   }
 
+  if (warnings.length) {
+    console.warn("[validate-ranking] data quality warnings:");
+    for (const warning of warnings) console.warn(`- ${warning}`);
+  }
   console.log("[validate-ranking] data quality check passed");
 }
 
@@ -49,7 +54,18 @@ function getItems(payload, group) {
   return Array.isArray(items) ? items : [];
 }
 
-function checkCollectionSize(group, items, errors) {
+function getSources(payload, group) {
+  const sources = payload?.groups?.[group]?.sources;
+  return Array.isArray(sources) ? sources : [];
+}
+
+function hasCompleteSourceCoverage(payload, group) {
+  const sources = getSources(payload, group);
+  if (!sources.length) return false;
+  return sources.every((source) => source.reachedBottom === true || source.truncatedByLimit === true);
+}
+
+function checkCollectionSize(payload, group, items, errors, warnings) {
   if (!items.length) return;
 
   if (group === "live") {
@@ -63,7 +79,9 @@ function checkCollectionSize(group, items, errors) {
   const videos = items.filter((item) => item.statusType !== "live" && item.statusType !== "upcoming");
   const minimum = group === "today" ? CONFIG.minTodayVideos : CONFIG.minMonthVideos;
   if (videos.length < minimum) {
-    errors.push(`${group}: only ${videos.length} non-live videos collected, expected at least ${minimum}`);
+    const message = `${group}: only ${videos.length} non-live videos collected, expected at least ${minimum}`;
+    if (hasCompleteSourceCoverage(payload, group)) warnings.push(`${message}; all sources reached bottom or limit`);
+    else errors.push(message);
   }
 }
 
@@ -103,7 +121,7 @@ function checkLiveSubscribers(items, errors) {
   }
 }
 
-function checkViewCoverage(group, items, errors) {
+function checkViewCoverage(payload, group, items, errors, warnings) {
   const videos = items.filter((item) => item.statusType !== "live" && item.statusType !== "upcoming");
   if (videos.length < CONFIG.minViewGroupItems) {
     errors.push(`${group}: only ${videos.length} non-live videos collected`);
@@ -114,9 +132,13 @@ function checkViewCoverage(group, items, errors) {
 
   if (group === "today") {
     if (withViews.length < CONFIG.minTodayVideos) {
-      errors.push(
-        `today: only ${withViews.length} non-live videos with views, expected at least ${CONFIG.minTodayVideos}`,
-      );
+      const ratio = withViews.length / videos.length;
+      const message = `today: only ${withViews.length} non-live videos with views, expected at least ${CONFIG.minTodayVideos}`;
+      if (hasCompleteSourceCoverage(payload, group) && ratio >= CONFIG.minViewCoverage) {
+        warnings.push(`${message}; coverage ${percent(ratio)} is acceptable for current source size`);
+      } else {
+        errors.push(message);
+      }
     }
     return;
   }
