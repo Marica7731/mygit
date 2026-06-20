@@ -14,9 +14,12 @@
   let currentPage = 1;
   let itemByVideoId = new Map();
   let rankingReferenceMs = NaN;
+  let originalKeywordCounts = new Map();
+  let originalTotalCount = 0;
   let snapshotIndex = null;
   let controlsReady = false;
   let updateQueued = false;
+  let timePopoverOpen = false;
 
   sanitizeState();
   patchStatePersistence();
@@ -33,6 +36,7 @@
     ["click", "change", "input"].forEach((eventName) => {
       document.addEventListener(eventName, handleControlEvent, true);
     });
+    document.addEventListener("keydown", handleDocumentKeydown, true);
     window.addEventListener("resize", scheduleUpdate, { passive: true });
     [0, 500, 1500, 3500].forEach((delay) => setTimeout(refreshStyleOrder, delay));
     [250, 800, 1600, 3200, 6400].forEach((delay) => setTimeout(scheduleUpdate, delay));
@@ -156,8 +160,9 @@
 
     lockAutoLayout();
     moveSearchControl(toolbar, toggle);
-    installTimeFilter(toolbar);
+    installTimeFilter();
     installSnapshotFilter(toolbar);
+    arrangeToolbarRows(toolbar);
     ensurePagination(sections);
     controlsReady = true;
     scheduleUpdate();
@@ -175,23 +180,26 @@
     toggle.insertAdjacentElement("afterend", searchLabel);
   }
 
-  function installTimeFilter(toolbar) {
-    if (GROUP === "live" || toolbar.querySelector("#time-filter")) return;
-    const label = document.createElement("label");
-    label.className = "time-filter-field";
-    label.innerHTML = `
+  function installTimeFilter() {
+    if (GROUP === "live" || document.getElementById("time-filter-popover")) return;
+    const popover = document.createElement("div");
+    popover.id = "time-filter-popover";
+    popover.className = "time-filter-popover";
+    popover.hidden = true;
+    popover.innerHTML = `
       <select id="time-filter" aria-label="发布时间筛选">
         ${timeOptions()
           .map((option) => `<option value="${option.value}">${option.label}</option>`)
           .join("")}
       </select>
     `;
-    toolbar.append(label);
-    const select = label.querySelector("select");
+    document.body.append(popover);
+    const select = popover.querySelector("select");
     select.value = localStorage.getItem(TIME_FILTER_KEY) || "all";
     select.addEventListener("change", () => {
       localStorage.setItem(TIME_FILTER_KEY, select.value);
       currentPage = 1;
+      closeTimePopover();
       scheduleUpdate();
     });
   }
@@ -214,6 +222,37 @@
       else url.searchParams.delete(SNAPSHOT_PARAM);
       location.href = url.href;
     });
+  }
+
+  function arrangeToolbarRows(toolbar) {
+    if (!toolbar) return;
+    let searchRow = toolbar.querySelector(".toolbar-search-row");
+    let metaRow = toolbar.querySelector(".toolbar-meta-row");
+    if (!searchRow) {
+      searchRow = document.createElement("div");
+      searchRow.className = "toolbar-search-row";
+      toolbar.prepend(searchRow);
+    }
+    if (!metaRow) {
+      metaRow = document.createElement("div");
+      metaRow.className = "toolbar-meta-row";
+      searchRow.insertAdjacentElement("afterend", metaRow);
+    }
+
+    const search = toolbar.querySelector(".external-search-field");
+    if (search && search.parentElement !== searchRow) searchRow.append(search);
+
+    const toggle = document.getElementById("toggle-filters");
+    if (toggle && toggle.parentElement !== metaRow) metaRow.append(toggle);
+
+    const sourceBar = document.getElementById("source-chip-bar");
+    if (sourceBar && sourceBar.parentElement !== metaRow) metaRow.append(sourceBar);
+
+    const activeChips = document.getElementById("active-filter-chips");
+    if (activeChips && activeChips.parentElement !== metaRow) metaRow.append(activeChips);
+
+    const snapshot = document.querySelector(".snapshot-filter-field");
+    if (snapshot && snapshot.parentElement !== metaRow) metaRow.append(snapshot);
   }
 
   function stripControlCaption(label) {
@@ -241,6 +280,8 @@
     requestAnimationFrame(() => {
       updateQueued = false;
       lockAutoLayout();
+      arrangeToolbarRows(document.querySelector(".filter-toolbar"));
+      syncTimeFilterTrigger();
       updateSnapshotOptions();
       applyTimeFilterAndPagination();
     });
@@ -249,6 +290,15 @@
   function handleControlEvent(event) {
     const target = event.target;
     const isPager = target?.closest?.("#ranking-pagination");
+    const trigger = target?.closest?.(".time-filter-trigger");
+    if (trigger && event.type === "click") {
+      event.preventDefault();
+      toggleTimePopover(trigger);
+      return;
+    }
+    if (event.type === "click" && timePopoverOpen && !target?.closest?.("#time-filter-popover")) {
+      closeTimePopover();
+    }
     const changesFilter =
       target?.matches?.('[data-state="search"], #time-filter, #snapshot-filter, [data-blacklist-input], [data-state]');
     if (changesFilter && !isPager) currentPage = 1;
@@ -284,6 +334,7 @@
     });
 
     renderPagination(eligibleCards.length, pageCount, pageSize);
+    updateDataSummary(eligibleCards);
   }
 
   function renderPagination(total, pageCount, pageSize) {
@@ -388,10 +439,50 @@
       rankingReferenceMs = Date.parse(group.updatedAt || group.collectedAt || data?.generatedAt || data?.collectedAt || "");
       const items = group.items || [];
       itemByVideoId = new Map(items.filter((item) => item.videoId).map((item) => [item.videoId, item]));
+      originalKeywordCounts = sourceKeywordCounts(group, items);
+      originalTotalCount = Array.from(originalKeywordCounts.values()).reduce((sum, value) => sum + value, 0);
     } catch {
       rankingReferenceMs = NaN;
+      originalKeywordCounts = new Map();
+      originalTotalCount = 0;
       itemByVideoId = new Map();
     }
+  }
+
+  function keywordCounts(items) {
+    const counts = new Map();
+    for (const item of items || []) {
+      const keyword = normalizedKeyword(item?.keyword || item?.group);
+      if (!keyword) continue;
+      counts.set(keyword, (counts.get(keyword) || 0) + 1);
+    }
+    return counts;
+  }
+
+  function sourceKeywordCounts(group, fallbackItems) {
+    const counts = new Map();
+    if (group?.keywords && typeof group.keywords === "object") {
+      for (const [key, rows] of Object.entries(group.keywords)) {
+        const keyword = normalizedKeyword(key);
+        if (!keyword || !Array.isArray(rows)) continue;
+        counts.set(keyword, rows.length);
+      }
+    }
+    if (!counts.size && Array.isArray(group?.sources)) {
+      for (const source of group.sources) {
+        const keyword = normalizedKeyword(source.keyword);
+        if (!keyword) continue;
+        counts.set(keyword, Number(source.itemCount) || 0);
+      }
+    }
+    return counts.size ? counts : keywordCounts(fallbackItems);
+  }
+
+  function normalizedKeyword(value) {
+    const text = clean(value);
+    if (text.includes("弾き語り")) return "弾き語り";
+    if (text.includes("歌枠")) return "歌枠";
+    return text;
   }
 
   function pageSizeForCards(cards) {
@@ -441,6 +532,97 @@
     if (select.innerHTML !== nextHtml) select.innerHTML = nextHtml;
     select.value = selectedSnapshot || "";
     label.hidden = false;
+  }
+
+  function syncTimeFilterTrigger() {
+    if (GROUP === "live") return;
+    const chip = Array.from(document.querySelectorAll("#active-filter-chips .filter-chip.meta")).find((node) =>
+      clean(node.textContent).startsWith("更新"),
+    );
+    if (!chip) return;
+    chip.classList.add("time-filter-trigger");
+    chip.setAttribute("role", "button");
+    chip.setAttribute("tabindex", "0");
+    chip.setAttribute("aria-controls", "time-filter-popover");
+    chip.setAttribute("aria-expanded", String(timePopoverOpen));
+    if (!chip.dataset.timeBaseTitle) chip.dataset.timeBaseTitle = chip.getAttribute("title") || clean(chip.textContent);
+    chip.title = `${chip.dataset.timeBaseTitle} / 点击选择发布时间`;
+  }
+
+  function toggleTimePopover(trigger) {
+    timePopoverOpen ? closeTimePopover() : openTimePopover(trigger);
+  }
+
+  function openTimePopover(trigger) {
+    const popover = document.getElementById("time-filter-popover");
+    if (!popover || !trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    popover.hidden = false;
+    popover.style.top = `${Math.round(rect.bottom + 6)}px`;
+    popover.style.left = `${Math.max(8, Math.round(Math.min(rect.left, window.innerWidth - 180)))}px`;
+    timePopoverOpen = true;
+    trigger.setAttribute("aria-expanded", "true");
+    popover.querySelector("select")?.focus({ preventScroll: true });
+  }
+
+  function closeTimePopover() {
+    const popover = document.getElementById("time-filter-popover");
+    if (popover) popover.hidden = true;
+    timePopoverOpen = false;
+    document.querySelectorAll(".time-filter-trigger").forEach((node) => node.setAttribute("aria-expanded", "false"));
+  }
+
+  function handleDocumentKeydown(event) {
+    const trigger = event.target?.closest?.(".time-filter-trigger");
+    if (trigger && (event.key === "Enter" || event.key === " ")) {
+      event.preventDefault();
+      toggleTimePopover(trigger);
+      return;
+    }
+    if (event.key === "Escape") closeTimePopover();
+  }
+
+  function updateDataSummary(eligibleCards) {
+    const sourceBar = document.getElementById("source-chip-bar");
+    if (!sourceBar) return;
+    const countState = currentCountState();
+    const hasActiveFilter = Boolean(
+      currentTimeLimitMs() != null ||
+        clean(document.querySelector('[data-state="search"]')?.value) ||
+        (countState && countState.visible !== countState.total),
+    );
+    const counts = new Map([
+      ["歌枠", hasActiveFilter ? 0 : originalKeywordCounts.get("歌枠") || 0],
+      ["弾き語り", hasActiveFilter ? 0 : originalKeywordCounts.get("弾き語り") || 0],
+    ]);
+    for (const card of eligibleCards || []) {
+      if (!hasActiveFilter) break;
+      const item = itemByVideoId.get(videoIdFromCard(card));
+      const keyword = normalizedKeyword(item?.keyword || item?.group || card.textContent);
+      if (!counts.has(keyword)) continue;
+      counts.set(keyword, counts.get(keyword) + 1);
+    }
+    const currentTotal = Array.from(counts.values()).reduce((sum, value) => sum + value, 0);
+    const baselineTotal = countState?.total || originalTotalCount || currentTotal;
+    const filtered = hasActiveFilter ? Math.max(0, baselineTotal - currentTotal) : 0;
+    const parts = ["歌枠", "弾き語り"];
+    const labels = filtered > 0 ? [...parts, "过滤"] : parts;
+    const values = filtered > 0 ? [...parts.map((key) => counts.get(key) || 0), filtered] : parts.map((key) => counts.get(key) || 0);
+    sourceBar.innerHTML = `<span class="source-summary-chip">${labels.join(" / ")} = ${values.join(" / ")}</span>`;
+    document.querySelectorAll("#active-filter-chips .filter-chip.count").forEach((chip) => {
+      chip.hidden = true;
+      chip.setAttribute("aria-hidden", "true");
+    });
+  }
+
+  function currentCountState() {
+    const text = clean(document.querySelector("#active-filter-chips .filter-chip.count")?.textContent);
+    const match = text.match(/(\d+)\s*\/\s*(\d+)/);
+    if (!match) return null;
+    return {
+      visible: Number(match[1]) || 0,
+      total: Number(match[2]) || 0,
+    };
   }
 
   function lockAutoLayout() {
@@ -528,9 +710,120 @@
       }
       .time-filter-field,
       .snapshot-filter-field {
-        flex-basis: 150px !important;
+        flex-basis: 140px !important;
         min-width: 132px !important;
+        max-width: 210px !important;
+      }
+      .filter-toolbar {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 7px !important;
+      }
+      .toolbar-search-row {
+        display: flex !important;
+        align-items: center !important;
+        width: 100% !important;
+      }
+      .toolbar-search-row .external-search-field {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        width: 100% !important;
+      }
+      .toolbar-search-row .external-search-field input {
+        height: 36px !important;
+        border-radius: 10px !important;
+      }
+      .toolbar-meta-row {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        gap: 6px !important;
+        min-height: 30px !important;
+      }
+      #toggle-filters {
+        height: 30px !important;
+        min-height: 30px !important;
+        padding: 4px 12px !important;
+        border-radius: 10px !important;
+        font-size: 13px !important;
+        line-height: 1 !important;
+      }
+      #filter-count {
+        min-width: 20px !important;
+        height: 20px !important;
+        margin-left: 4px !important;
+        font-size: 12px !important;
+        line-height: 20px !important;
+      }
+      #source-chip-bar {
+        display: inline-flex !important;
+        flex: 0 1 auto !important;
+        align-items: center !important;
+        gap: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+      }
+      .source-summary-chip,
+      #active-filter-chips .filter-chip,
+      .snapshot-filter-field select {
+        min-height: 30px !important;
+        height: 30px !important;
+        border-radius: 10px !important;
+        font-size: 13px !important;
+        line-height: 1.1 !important;
+      }
+      .source-summary-chip,
+      #active-filter-chips .filter-chip {
+        display: inline-flex !important;
+        align-items: center !important;
+        padding: 4px 10px !important;
+        white-space: nowrap !important;
+      }
+      #active-filter-chips {
+        display: inline-flex !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        gap: 6px !important;
+      }
+      #active-filter-chips .filter-chip.count[hidden] {
+        display: none !important;
+      }
+      #active-filter-chips .filter-chip.meta {
+        cursor: pointer !important;
+        user-select: none !important;
+      }
+      .snapshot-filter-field {
+        flex: 0 1 170px !important;
+        min-width: 150px !important;
         max-width: 220px !important;
+      }
+      .time-filter-popover {
+        position: fixed;
+        z-index: 1000;
+        min-width: 172px;
+        padding: 8px;
+        border: 1px solid rgba(15, 23, 42, 0.14);
+        border-radius: 10px;
+        background: #ffffff;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+      }
+      .time-filter-popover[hidden] {
+        display: none !important;
+      }
+      .time-filter-popover select {
+        width: 100%;
+        height: 32px;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        border-radius: 8px;
+        background: #ffffff;
+        color: #172033;
+        font: inherit;
       }
       .ranking-pagination {
         display: flex;
@@ -569,21 +862,36 @@
       }
       .video-card .card-body {
         display: grid !important;
-        grid-template-rows: calc(1.27em * 3) minmax(20px, 1fr) !important;
-        align-content: stretch !important;
+        grid-template-rows: calc(1.18em * 2) auto auto !important;
+        align-content: start !important;
+        gap: 4px !important;
+        padding-bottom: 7px !important;
       }
       .video-card h3 {
-        height: calc(1.27em * 3) !important;
-        min-height: 3.75em !important;
-        max-height: calc(1.27em * 3) !important;
-        line-height: 1.27 !important;
+        height: calc(1.18em * 2) !important;
+        min-height: calc(1.18em * 2) !important;
+        max-height: calc(1.18em * 2) !important;
+        line-height: 1.18 !important;
+      }
+      .video-card h3 a {
+        -webkit-line-clamp: 2 !important;
+      }
+      .video-card .hb-meta {
+        align-self: start !important;
+        height: auto !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        font-size: 11.5px !important;
+        line-height: 1.12 !important;
       }
       .video-card .channel {
-        align-self: end !important;
+        align-self: start !important;
+        min-height: 18px !important;
+        line-height: 1.15 !important;
       }
       @media (max-width: 760px) {
         .external-search-field {
-          order: 9;
           flex: 1 0 100% !important;
           max-width: 100% !important;
         }
