@@ -20,6 +20,7 @@
   let controlsReady = false;
   let updateQueued = false;
   let timePopoverOpen = false;
+  let backTopButton = null;
 
   sanitizeState();
   patchStatePersistence();
@@ -30,6 +31,7 @@
   function boot() {
     lockAutoLayout();
     installControlBar();
+    installBackToTopButton();
     loadRankingData().finally(() => scheduleUpdate());
     loadSnapshotIndex().finally(() => scheduleUpdate());
     observeApp();
@@ -253,6 +255,8 @@
 
     const snapshot = document.querySelector(".snapshot-filter-field");
     if (snapshot && snapshot.parentElement !== metaRow) metaRow.append(snapshot);
+
+    hideInternalFilterChips();
   }
 
   function stripControlCaption(label) {
@@ -266,12 +270,18 @@
   }
 
   function ensurePagination(sections) {
-    if (document.getElementById("ranking-pagination")) return;
-    const top = document.createElement("nav");
-    top.id = "ranking-pagination";
-    top.className = "ranking-pagination";
-    top.setAttribute("aria-label", "分页");
-    sections.insertAdjacentElement("beforebegin", top);
+    ensurePaginationRoot(sections, "ranking-pagination", "beforebegin", "顶部分页");
+    ensurePaginationRoot(sections, "ranking-pagination-bottom", "afterend", "底部分页");
+  }
+
+  function ensurePaginationRoot(sections, id, position, label) {
+    if (document.getElementById(id)) return;
+    const root = document.createElement("nav");
+    root.id = id;
+    root.className = "ranking-pagination";
+    root.dataset.paginationRoot = "1";
+    root.setAttribute("aria-label", label);
+    sections.insertAdjacentElement(position, root);
   }
 
   function scheduleUpdate() {
@@ -281,6 +291,7 @@
       updateQueued = false;
       lockAutoLayout();
       arrangeToolbarRows(document.querySelector(".filter-toolbar"));
+      hideInternalFilterChips();
       syncTimeFilterTrigger();
       updateSnapshotOptions();
       applyTimeFilterAndPagination();
@@ -289,7 +300,7 @@
 
   function handleControlEvent(event) {
     const target = event.target;
-    const isPager = target?.closest?.("#ranking-pagination");
+    const isPager = target?.closest?.(".ranking-pagination");
     const trigger = target?.closest?.(".time-filter-trigger");
     if (trigger && event.type === "click") {
       event.preventDefault();
@@ -338,31 +349,35 @@
   }
 
   function renderPagination(total, pageCount, pageSize) {
-    const root = document.getElementById("ranking-pagination");
-    if (!root) return;
+    const roots = Array.from(document.querySelectorAll(".ranking-pagination"));
+    if (!roots.length) return;
     if (total <= pageSize) {
-      root.hidden = true;
-      root.innerHTML = "";
+      roots.forEach((root) => {
+        root.hidden = true;
+        root.innerHTML = "";
+      });
       return;
     }
 
-    root.hidden = false;
     const start = (currentPage - 1) * pageSize + 1;
     const end = Math.min(total, currentPage * pageSize);
-    root.innerHTML = `
-      <button type="button" data-page-action="prev" ${currentPage <= 1 ? "disabled" : ""}>上一页</button>
-      <span>${start}-${end} / ${total}</span>
-      <button type="button" data-page-action="next" ${currentPage >= pageCount ? "disabled" : ""}>下一页</button>
-    `;
-    root.querySelector('[data-page-action="prev"]')?.addEventListener("click", () => {
-      currentPage -= 1;
-      scheduleUpdate();
-      scrollToTopOfCards();
-    });
-    root.querySelector('[data-page-action="next"]')?.addEventListener("click", () => {
-      currentPage += 1;
-      scheduleUpdate();
-      scrollToTopOfCards();
+    roots.forEach((root) => {
+      root.hidden = false;
+      root.innerHTML = `
+        <button type="button" data-page-action="prev" ${currentPage <= 1 ? "disabled" : ""}>上一页</button>
+        <span>${start}-${end} / ${total}</span>
+        <button type="button" data-page-action="next" ${currentPage >= pageCount ? "disabled" : ""}>下一页</button>
+      `;
+      root.querySelector('[data-page-action="prev"]')?.addEventListener("click", () => {
+        currentPage -= 1;
+        scheduleUpdate();
+        scrollToTopOfCards();
+      });
+      root.querySelector('[data-page-action="next"]')?.addEventListener("click", () => {
+        currentPage += 1;
+        scheduleUpdate();
+        scrollToTopOfCards();
+      });
     });
   }
 
@@ -613,6 +628,21 @@
       chip.hidden = true;
       chip.setAttribute("aria-hidden", "true");
     });
+    hideInternalFilterChips();
+  }
+
+  function hideInternalFilterChips() {
+    document.querySelectorAll("#active-filter-chips .filter-chip").forEach((chip) => {
+      const text = clean(chip.textContent);
+      const isInternal =
+        chip.classList.contains("default-title-chip") ||
+        text.includes("排除韩文") ||
+        /^标题:\s*(?:歌|歌枠)\s*\/\s*弾き語り(?:\s|，|,|×|$)/u.test(text);
+      if (!isInternal) return;
+      chip.hidden = true;
+      chip.setAttribute("aria-hidden", "true");
+      chip.classList.add("internal-filter-chip");
+    });
   }
 
   function currentCountState() {
@@ -641,6 +671,27 @@
       attributes: true,
       attributeFilter: ["hidden", "class"],
     });
+  }
+
+  function installBackToTopButton() {
+    if (backTopButton || document.getElementById("back-to-top")) return;
+    const button = document.createElement("button");
+    button.id = "back-to-top";
+    button.type = "button";
+    button.hidden = true;
+    button.setAttribute("aria-label", "返回顶部");
+    button.textContent = "↑";
+    document.body.append(button);
+    button.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+    window.addEventListener("scroll", updateBackToTopButton, { passive: true });
+    backTopButton = button;
+    updateBackToTopButton();
+  }
+
+  function updateBackToTopButton() {
+    const button = backTopButton || document.getElementById("back-to-top");
+    if (!button) return;
+    button.hidden = window.scrollY < 640;
   }
 
   function scrollToTopOfCards() {
@@ -737,10 +788,24 @@
       }
       .toolbar-meta-row {
         display: flex !important;
-        flex-wrap: wrap !important;
+        flex-wrap: nowrap !important;
         align-items: center !important;
         gap: 6px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
         min-height: 30px !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        overscroll-behavior-x: contain !important;
+        scrollbar-width: none !important;
+        white-space: nowrap !important;
+      }
+      .toolbar-meta-row::-webkit-scrollbar {
+        display: none !important;
+      }
+      .toolbar-meta-row > * {
+        flex: 0 0 auto !important;
       }
       #toggle-filters {
         height: 30px !important;
@@ -759,7 +824,7 @@
       }
       #source-chip-bar {
         display: inline-flex !important;
-        flex: 0 1 auto !important;
+        flex: 0 0 auto !important;
         align-items: center !important;
         gap: 0 !important;
         margin: 0 !important;
@@ -787,11 +852,16 @@
       }
       #active-filter-chips {
         display: inline-flex !important;
-        flex-wrap: wrap !important;
+        flex: 0 0 auto !important;
+        flex-wrap: nowrap !important;
         align-items: center !important;
         gap: 6px !important;
+        min-width: 0 !important;
+        overflow: visible !important;
       }
-      #active-filter-chips .filter-chip.count[hidden] {
+      #active-filter-chips .filter-chip.count[hidden],
+      #active-filter-chips .filter-chip.internal-filter-chip,
+      #active-filter-chips .filter-chip.default-title-chip {
         display: none !important;
       }
       #active-filter-chips .filter-chip.meta {
@@ -852,6 +922,30 @@
         cursor: default;
         opacity: 0.42;
       }
+      #ranking-pagination-bottom {
+        margin: 14px 0 2px;
+      }
+      #back-to-top {
+        position: fixed;
+        right: max(12px, env(safe-area-inset-right));
+        bottom: max(14px, env(safe-area-inset-bottom));
+        z-index: 80;
+        display: inline-grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border: 1px solid rgba(15, 118, 110, 0.25);
+        border-radius: 999px;
+        background: rgba(15, 118, 110, 0.92);
+        color: #ffffff;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+        font-size: 18px;
+        font-weight: 900;
+        line-height: 1;
+      }
+      #back-to-top[hidden] {
+        display: none !important;
+      }
       .cards {
         align-items: stretch !important;
       }
@@ -861,34 +955,52 @@
         height: 100% !important;
       }
       .video-card .card-body {
-        display: grid !important;
-        grid-template-rows: calc(1.18em * 2) auto auto !important;
+        display: flex !important;
+        flex-direction: column !important;
         align-content: start !important;
-        gap: 4px !important;
-        padding-bottom: 7px !important;
+        gap: 3px !important;
+        min-height: 0 !important;
+        padding: 7px 8px 6px !important;
       }
       .video-card h3 {
-        height: calc(1.18em * 2) !important;
-        min-height: calc(1.18em * 2) !important;
-        max-height: calc(1.18em * 2) !important;
-        line-height: 1.18 !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: calc(1.16em * 2) !important;
+        margin: 0 !important;
+        line-height: 1.16 !important;
       }
       .video-card h3 a {
         -webkit-line-clamp: 2 !important;
       }
       .video-card .hb-meta {
         align-self: start !important;
+        flex: 0 0 auto !important;
         height: auto !important;
         min-height: 0 !important;
+        max-height: calc(1.08em * 1) !important;
         margin: 0 !important;
         padding: 0 !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
         font-size: 11.5px !important;
-        line-height: 1.12 !important;
+        line-height: 1.08 !important;
+      }
+      .video-card .channel-metric-row {
+        align-self: stretch !important;
+        gap: 3px !important;
+        margin: 0 !important;
+        min-height: 0 !important;
       }
       .video-card .channel {
         align-self: start !important;
-        min-height: 18px !important;
-        line-height: 1.15 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        line-height: 1.12 !important;
+      }
+      .video-card .channel-avatar {
+        width: 20px !important;
+        height: 20px !important;
       }
       @media (max-width: 760px) {
         .external-search-field {
@@ -897,7 +1009,7 @@
         }
         .time-filter-field,
         .snapshot-filter-field {
-          flex: 1 0 132px !important;
+          flex: 0 0 132px !important;
         }
       }
     `;

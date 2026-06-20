@@ -373,7 +373,7 @@
     const chips = Array.from(document.querySelectorAll(".active-filter-chips .filter-chip"))
       .filter((chip) => !chip.hidden && getComputedStyle(chip).display !== "none")
       .map((chip) => clean(chip.textContent))
-      .filter((text) => text && !/^标题:\s*歌枠\s*\/\s*弾き語り/.test(text) && !text.includes("排除韩文"));
+      .filter((text) => text && !/^标题:\s*(?:歌|歌枠)\s*\/\s*弾き語り(?:\s|，|,|×|$)/.test(text) && !text.includes("排除韩文"));
     return chips.join(" · ").slice(0, 120);
   }
 

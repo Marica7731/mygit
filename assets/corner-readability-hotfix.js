@@ -14,7 +14,7 @@
   function scrubDefaultChips() {
     document.querySelectorAll(".active-filter-chips .filter-chip").forEach((chip) => {
       const text = clean(chip.textContent);
-      if (/^标题:\s*歌枠\s*\/\s*弾き語り/.test(text) || text.includes("排除韩文")) {
+      if (/^标题:\s*(?:歌|歌枠)\s*\/\s*弾き語り(?:\s|，|,|×|$)/.test(text) || text.includes("排除韩文")) {
         chip.classList.add("default-title-chip");
         chip.hidden = true;
         chip.setAttribute("aria-hidden", "true");

@@ -1,6 +1,6 @@
 (function () {
   const STORAGE_PREFIX = "ytb-ranking-state-v1:";
-  const DEFAULT_TITLE_TERMS = ["歌枠", "弾き語り"];
+  const DEFAULT_TITLE_TERMS = ["歌", "弾き語り"];
   const KOREAN_TEXT_PATTERN = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/;
   const DEFAULT_TITLE_DISABLED_PREFIX = "ytb-ranking-default-title-filter-disabled-v1:";
   const VALID_LAYOUTS = new Set(["auto", "two", "three"]);
@@ -389,16 +389,7 @@
   }
 
   function renderDefaultTitleChip() {
-    const chipBar = document.getElementById("active-filter-chips");
-    if (!chipBar || !isDefaultTitleFilterActive()) return;
-    if (chipBar.querySelector(".default-title-chip")) return;
-
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "filter-chip allow default-title-chip";
-    chip.textContent = `标题: ${DEFAULT_TITLE_TERMS.join(" / ")}，排除韩文 ×`;
-    chip.title = "点击移除默认标题规则";
-    chipBar.append(chip);
+    // The default title/Korean filter is internal; do not expose it as a removable toolbar chip.
   }
 
   function updateChannelAvatar(row, avatar, item) {
