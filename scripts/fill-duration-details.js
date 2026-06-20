@@ -15,6 +15,7 @@ const CONFIG = {
   playwrightLimit: intEnv("YTB_RANKING_DURATION_PLAYWRIGHT_LIMIT", 160),
   delayMs: intEnv("YTB_RANKING_DURATION_PLAYWRIGHT_DELAY_MS", 600),
   navigationTimeoutMs: intEnv("YTB_RANKING_DURATION_PLAYWRIGHT_NAVIGATION_TIMEOUT_MS", 15000),
+  includeLiveDurations: booleanEnv("YTB_RANKING_DURATION_INCLUDE_LIVE", false),
   headless: booleanEnv("YTB_RANKING_HEADLESS", true),
   chromeExecutable: process.env.YTB_RANKING_CHROME_EXECUTABLE || "",
   youtubeApiKey: process.env.YOUTUBE_API_KEY || process.env.YTB_RANKING_YOUTUBE_API_KEY || "",
@@ -432,10 +433,11 @@ async function main() {
   const payload = JSON.parse(await fs.readFile(DATA_FILE, "utf8"));
   const beforeVideoMissing = targetVideoItems(payload).length;
   const beforeLiveMissing = targetLiveItems(payload).length;
+  const liveTargets = CONFIG.includeLiveDurations ? targetLiveItems(payload).slice(0, CONFIG.liveLimit) : [];
 
   const apiTargets = [
     ...targetVideoItems(payload).slice(0, CONFIG.limit),
-    ...targetLiveItems(payload).slice(0, CONFIG.liveLimit),
+    ...liveTargets,
   ];
   const api = await enrichWithYoutubeApi(payload, apiTargets).catch((error) => {
     console.warn(`[duration-post] api skipped: ${error.message}`);
@@ -443,11 +445,10 @@ async function main() {
   });
 
   const videoTargets = targetVideoItems(payload).slice(0, CONFIG.limit);
-  const liveTargets = targetLiveItems(payload).slice(0, CONFIG.liveLimit);
   const fetchResult = await enrichWithFetch(payload, [...videoTargets, ...liveTargets]);
   const playwrightResult = await enrichWithPlaywright(payload, [
     ...targetVideoItems(payload).slice(0, CONFIG.limit),
-    ...targetLiveItems(payload).slice(0, CONFIG.liveLimit),
+    ...liveTargets,
   ]);
 
   const afterVideoMissing = targetVideoItems(payload).length;
@@ -457,10 +458,12 @@ async function main() {
     generatedAt: new Date().toISOString(),
     limit: CONFIG.limit,
     liveLimit: CONFIG.liveLimit,
+    includeLiveDurations: CONFIG.includeLiveDurations,
     beforeVideoMissing,
     afterVideoMissing,
     beforeLiveMissing,
     afterLiveMissing,
+    skippedLiveMissing: CONFIG.includeLiveDurations ? 0 : beforeLiveMissing,
     youtubeDataApiConfigured: Boolean(CONFIG.youtubeApiKey),
     api,
     fetch: fetchResult,

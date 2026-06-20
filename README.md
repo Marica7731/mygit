@@ -40,6 +40,7 @@ YTB_RANKING_MONTH_LIMIT=500
 YTB_RANKING_SCROLL_TO_BOTTOM_GROUPS=live,today
 YTB_RANKING_ENRICH_LIVE_DETAILS=1
 YTB_RANKING_LIVE_DETAIL_LIMIT=120
+YTB_RANKING_DURATION_INCLUDE_LIVE=0
 YOUTUBE_API_KEY=
 YTB_RANKING_CHROME_EXECUTABLE=
 ```
@@ -171,6 +172,7 @@ reachedBottom, truncatedByLimit, searchableText, collectedAt
 - 主 workflow 在排行质量校验失败时会自动用更保守的滚动、超时和并发参数重试一次，降低 YouTube 短时加载不足导致的失败率。
 - scheduler 会读取 `data/youtube-ranking-status.json`，最近一次失败仍在 30 分钟冷却期内时跳过自动派发，避免每 10 分钟重复刷失败状态；手动触发不受冷却限制。
 - 最近 24 小时内的抓取失败集中在 `Validate ranking data`，不是 runner、安装、Node、Playwright 或推送崩溃。最近一次失败样例为 `today` 非直播 190/240、`month` 非直播 246/300、`today` 有播放量 170/240；因此改为同一 run 内保守重试，并对失败自动派发做冷却。
+- 非直播视频时长仍会补全并校验；直播页不展示时长，`scripts/fill-duration-details.js` 默认跳过直播条目，避免随后被 `clear-live-duration-fields.js` 清掉的无效 fetch / Playwright 工作拖慢更新。
 
 ### 使用方法
 
@@ -216,6 +218,7 @@ node scripts/validate-live-snapshots.js
 | `scripts/archive-live-snapshot.js` | 直播快照生成脚本 | `buildSnapshot()` 保存当前 `groups.live`；`pruneSnapshotFiles()` 清理 7 天外快照；`summarizeLiveGroup()` 生成索引摘要 | 主 workflow 成功校验后运行，产出给 `assets/ranking-controls.js` 读取的快照文件 |
 | `scripts/validate-live-snapshots.js` | 直播快照校验脚本 | 校验索引 schema、快照文件、`groups.live.items` 和 7 天保留期 | 本地 `npm run validate:snapshots` 与 GitHub Actions 调用 |
 | `scripts/validate-youtube-ranking.js` | 排行数据质量校验脚本 | 校验三组条目、缩略图、直播订阅数和播放量覆盖；对已到页底或达到 limit 的自然低数量结果降为 warning，未完成抓取仍保持 failure | 主 workflow 的初次校验和保守重试后终检都会调用 |
+| `scripts/fill-duration-details.js` | 非直播视频时长补全脚本 | `targetVideoItems()` 收集今日/本月缺失时长的视频；`YTB_RANKING_DURATION_INCLUDE_LIVE=0` 时跳过直播条目；`enrichWithFetch()` / `enrichWithPlaywright()` 只在仍有缺失时补充 | 主 workflow 在播放量补齐后运行，补出的 `durationText` / `durationSeconds` 供前端和 `validate-duration-quality.js` 使用 |
 | `data/live-snapshots/index.json` | 直播快照索引 | 记录快照 id、文件名、展示标签、条目数量和过期时间 | 前端快照下拉框读取 |
 | `data/live-snapshots/*.json` | 直播快照数据 | 保存某次抓取的 `groups.live` | 选择 `?snapshot=<id>` 时由前端替换主数据请求 |
 | `index.html`, `live.html`, `today.html`, `month.html` | GitHub Pages 页面入口 | 更新修复脚本的 cache-busting query | 保证线上页面加载 `20260620-controls5` 和 `20260620-png2` 版本脚本 |
@@ -240,6 +243,7 @@ node scripts/validate-live-snapshots.js
 - 默认机器人屏蔽在前端数据请求层完成，当前主数据和历史快照展示都会生效。
 - 自动调度失败冷却只影响定时派发；需要立即补跑时可手动执行 `Update YouTube ranking` workflow。
 - 质量校验仍会阻止明显不完整的数据覆盖线上排行；保守重试只是在同一次 workflow 内再抓一次，不会提交未通过终检的候选数据。
+- `YTB_RANKING_DURATION_INCLUDE_LIVE` 默认为 `0`；只有确实需要在数据层保留直播时长时才应改成 `1`，否则会增加大量 watch 页和 Playwright 请求且最终不在直播页展示。
 - 调度器通过 `GITHUB_TOKEN` 派发主 workflow，不需要提交 GitHub PAT、cookie 或 `.env`。
 
 ### 测试说明
@@ -268,6 +272,7 @@ node scripts/validate-live-snapshots.js
 - 黑名单刷新后仍保留。
 - `live.html` 的快照下拉可选择 `data/live-snapshots/index.json` 中的快照。
 - `npm run check`、`node scripts/validate-youtube-ranking.js`、`node scripts/validate-duration-quality.js` 均通过。
+- `node scripts/fill-duration-details.js` 在直播时长默认关闭时应输出 `includeLiveDurations: false`，且 `fetch.checked` / `playwright.checked` 不再随直播缺失数量增长。
 - GitHub Actions 中 `Update YouTube ranking` 若初次 `Validate ranking data` 失败，会出现 `Retry ranking data with conservative settings` step；终检通过才提交数据。
 - GitHub Actions 中 `Dispatch YouTube ranking update` 若处于失败冷却期，应输出 `Skip dispatch: previous failure is cooling down...`。
 
