@@ -81,6 +81,11 @@
     });
 
     const meta = card.querySelector(".hb-meta");
+    if (GROUP === "live") {
+      meta?.remove();
+      return;
+    }
+
     if (meta) {
       const text = stripDuplicateDuration(meta.textContent);
       meta.textContent = text;
@@ -107,6 +112,11 @@
   }
 
   function ensureCornerTime(card) {
+    if (GROUP === "live") {
+      card.querySelector(".corner-time")?.remove();
+      return;
+    }
+
     const thumb = card.querySelector(".thumbnail");
     if (!thumb || thumb.querySelector(".corner-time")) return;
     const item = byId.get(videoId(card.querySelector('a[href*="watch"],a[href*="/shorts/"],.thumbnail')?.href || ""));

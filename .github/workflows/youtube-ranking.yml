@@ -18,8 +18,8 @@ on:
       - "scripts/normalize-duration-fields.js"
       - "scripts/validate-youtube-ranking.js"
       - "scripts/validate-duration-quality.js"
-  schedule:
-    - cron: "0,10,20,30,40,50 * * * *"
+      - "scripts/archive-live-snapshot.js"
+      - "scripts/validate-live-snapshots.js"
   workflow_dispatch:
 
 permissions:
@@ -28,7 +28,7 @@ permissions:
 
 concurrency:
   group: youtube-ranking-main
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   update-ranking:
@@ -153,6 +153,11 @@ jobs:
       - name: Validate duration data
         run: node scripts/validate-duration-quality.js
 
+      - name: Archive live snapshot
+        run: |
+          node scripts/archive-live-snapshot.js
+          node scripts/validate-live-snapshots.js
+
       - name: Commit updated data
         run: |
           git config user.name "github-actions[bot]"
@@ -160,8 +165,11 @@ jobs:
           cp data/youtube-ranking.json /tmp/youtube-ranking.json
           git fetch origin main
           git reset --hard origin/main
+          mkdir -p data
           cp /tmp/youtube-ranking.json data/youtube-ranking.json
-          git add data/youtube-ranking.json
+          node scripts/archive-live-snapshot.js
+          node scripts/validate-live-snapshots.js
+          git add data/youtube-ranking.json data/live-snapshots
           if git diff --cached --quiet; then
             echo "No data changes to commit."
           else
@@ -169,14 +177,16 @@ jobs:
             git push || {
               git fetch origin main
               git reset --hard origin/main
+              mkdir -p data
               cp /tmp/youtube-ranking.json data/youtube-ranking.json
-              git add data/youtube-ranking.json
+              node scripts/archive-live-snapshot.js
+              node scripts/validate-live-snapshots.js
+              git add data/youtube-ranking.json data/live-snapshots
               git diff --cached --quiet && exit 0
               git commit -m "chore: 更新 YouTube 排行数据"
               git push
             }
           fi
-
       - name: Mark failed run
         if: failure()
         run: echo "previous ranking step" > /tmp/youtube-ranking-run-failed
@@ -216,11 +226,3 @@ jobs:
               git push
             }
           fi
-
-      - name: Queue chained fallback dispatch
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh workflow run youtube-ranking-chain.yml --ref main --repo "$GITHUB_REPOSITORY" -f trigger_run_id="$GITHUB_RUN_ID" || echo "::warning::Failed to queue chained ranking dispatch."
-          echo "Queued chain workflow for the next YouTube ranking update."

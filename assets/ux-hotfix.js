@@ -40,8 +40,7 @@
         return;
       }
       if (videoId) seen.add(videoId);
-      card.hidden = false;
-      card.classList.remove("is-duplicate-video");
+      restoreDuplicateCard(card);
       card.querySelectorAll(".rank-line .rank-metric").forEach((node) => node.remove());
       addMetric(card, items.get(videoId));
       linkChannelTargets(card, items.get(videoId));
@@ -75,6 +74,13 @@
     node.className = `hotfix-rank-metric metric-${metric.type}`;
     node.textContent = metric.text;
     line.append(node);
+  }
+
+  function restoreDuplicateCard(card) {
+    if (!card.classList.contains("is-duplicate-video")) return;
+    card.hidden = false;
+    card.classList.remove("is-duplicate-video");
+    card.removeAttribute("aria-hidden");
   }
 
   function metricFor(item) {

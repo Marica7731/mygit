@@ -112,6 +112,11 @@
   }
 
   function writeBodyMeta(card, item) {
+    if (GROUP === "live") {
+      card.querySelector(".hb-meta")?.remove();
+      return;
+    }
+
     let meta = card.querySelector(".hb-meta");
     const existing = publishedFromExisting(card.querySelector(".compact-meta,.hb-meta")?.textContent || "");
     const published = shortTime(item?.publishedText) || existing;
@@ -135,16 +140,15 @@
   function metricLabel(item, card) {
     if (GROUP === "live") {
       if (positive(item?.subscriberCount)) return `${compact(item.subscriberCount)}粉丝`;
-      const text = clean(card.querySelector(".hb-metric")?.textContent || "");
-      return /粉丝/.test(text) ? text : "";
+      return "";
     }
     if (item?.statusType === "live" || item?.statusType === "upcoming") return "";
     if (positive(item?.viewCount)) return `${compact(item.viewCount)}播放`;
-    const text = clean(card.querySelector(".hb-metric")?.textContent || "");
-    return /播放/.test(text) ? text : "";
+    return "";
   }
 
   function durationLabel(item, card) {
+    if (GROUP === "live") return "";
     return (
       duration(item?.durationText) ||
       formatDuration(item?.durationSeconds) ||
@@ -154,7 +158,7 @@
 
   function findItem(card) {
     const id = videoId(card.querySelector('a[href*="watch"],a[href*="/shorts/"],.thumbnail')?.href || "");
-    return (id && byId.get(id)) || byText.get(key(text(card, "h3"), text(card, ".channel"))) || null;
+    return id ? byId.get(id) || null : byText.get(key(text(card, "h3"), text(card, ".channel"))) || null;
   }
 
   function cardIdentity(card) {

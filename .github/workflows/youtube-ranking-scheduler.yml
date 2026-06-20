@@ -8,7 +8,6 @@ on:
       - ".github/workflows/youtube-ranking-scheduler.yml"
   schedule:
     - cron: "5,15,25,35,45,55 * * * *"
-    - cron: "8,18,28,38,48,58 * * * *"
   workflow_dispatch:
   repository_dispatch:
     types:
@@ -44,7 +43,7 @@ jobs:
           const runs = JSON.parse(raw).workflow_runs || [];
           const now = Date.now();
           const activeStatuses = new Set(['queued', 'in_progress', 'waiting', 'requested', 'pending']);
-          const recentMs = 12 * 60 * 1000;
+          const recentMs = 3 * 60 * 1000;
           const blocking = runs.find((run) => {
             const activityAt = Date.parse(run.updated_at || run.run_started_at || run.created_at || '');
             return activeStatuses.has(run.status) || (Number.isFinite(activityAt) && now - activityAt < recentMs);

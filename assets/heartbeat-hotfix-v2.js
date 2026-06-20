@@ -26,9 +26,7 @@
       const cardKey = item?.videoId ? `v:${item.videoId}` : key(item?.title || text(card, "h3"), item?.channelName || text(card, ".channel"));
       if (cardKey && seen.has(cardKey)) return hide(card);
       if (cardKey) seen.add(cardKey);
-      card.hidden = false;
-      card.classList.remove("is-duplicate-video");
-      card.removeAttribute("aria-hidden");
+      restoreDuplicateCard(card);
       card.querySelectorAll(".rank-line .rank-metric,.original-rank,.meta-list,.id-line,.status-pill.video").forEach((node) => node.remove());
       if (!item) return;
       upsertMetric(card, item);
@@ -56,7 +54,7 @@
 
   function findItem(card) {
     const id = videoId(card.querySelector('a[href*="watch"],a[href*="/shorts/"],.thumbnail')?.href || "");
-    return (id && byId.get(id)) || byText.get(key(text(card, "h3"), text(card, ".channel"))) || null;
+    return id ? byId.get(id) || null : byText.get(key(text(card, "h3"), text(card, ".channel"))) || null;
   }
 
   function upsertMetric(card, item) {
@@ -87,6 +85,11 @@
   }
 
   function upsertMeta(card, item) {
+    if (GROUP === "live") {
+      card.querySelector(".hb-meta")?.remove();
+      return;
+    }
+
     const values = [shortTime(item.publishedText), duration(item.durationText)].filter(Boolean);
     let node = card.querySelector(".hb-meta");
     if (!values.length) {
@@ -106,7 +109,7 @@
     const thumb = card.querySelector(".thumbnail");
     if (!thumb) return;
     setThumbChip(thumb, "keyword", item.keyword || item.group || "");
-    setThumbChip(thumb, "duration", duration(item.durationText));
+    setThumbChip(thumb, "duration", GROUP === "live" ? "" : duration(item.durationText));
   }
 
   function setThumbChip(thumb, type, value) {
@@ -173,6 +176,12 @@
     card.hidden = true;
     card.classList.add("is-duplicate-video");
     card.setAttribute("aria-hidden", "true");
+  }
+  function restoreDuplicateCard(card) {
+    if (!card.classList.contains("is-duplicate-video")) return;
+    card.hidden = false;
+    card.classList.remove("is-duplicate-video");
+    card.removeAttribute("aria-hidden");
   }
   function ready(fn) {
     document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", fn) : fn();

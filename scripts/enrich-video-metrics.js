@@ -41,6 +41,15 @@ function formatCount(value, suffix) {
   return `${Math.round(number).toLocaleString("ja-JP")} ${suffix}`;
 }
 
+function positiveNumber(value) {
+  return Number.isFinite(Number(value)) && Number(value) > 0;
+}
+
+function shouldReplaceViewCount(item, source) {
+  if (!positiveNumber(item?.viewCount)) return true;
+  return source === "youtubeDataApi";
+}
+
 function canonicalWatchUrl(item) {
   if (item.watchUrl) return item.watchUrl;
   return item.videoId ? `https://www.youtube.com/watch?v=${encodeURIComponent(item.videoId)}` : "";
@@ -237,7 +246,7 @@ function mergeMetric(item, detail, source) {
     changed = true;
   }
 
-  if (detail.viewCount != null && detail.viewCount > 0) {
+  if (detail.viewCount != null && detail.viewCount > 0 && shouldReplaceViewCount(item, source)) {
     item.viewCount = detail.viewCount;
     item.viewText = formatCount(detail.viewCount, "回視聴");
     item.viewSource = source;

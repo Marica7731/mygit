@@ -1,24 +1,12 @@
 name: Chain YouTube ranking update
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/youtube-ranking-chain.yml"
-  schedule:
-    - cron: "6,16,26,36,46,56 * * * *"
   workflow_dispatch:
     inputs:
       trigger_run_id:
         description: "Update run id that requested this tick"
         required: false
         type: string
-  workflow_run:
-    workflows:
-      - Update YouTube ranking
-    types:
-      - completed
 
 permissions:
   actions: write

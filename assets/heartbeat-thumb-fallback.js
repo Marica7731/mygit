@@ -30,9 +30,8 @@
 
   function fallback(img) {
     const videoId = getVideoId(img);
-    const card = img.closest(".video-card");
     if (!videoId) {
-      if (card) card.hidden = true;
+      markThumbnailUnavailable(img);
       return;
     }
 
@@ -47,7 +46,7 @@
     while (index < candidates.length && stripQuery(candidates[index]) === current) index += 1;
 
     if (index >= candidates.length) {
-      if (card) card.hidden = true;
+      markThumbnailUnavailable(img);
       return;
     }
 
@@ -55,6 +54,25 @@
     img.dataset.hbThumbOk = "";
     img.src = candidates[index];
     img.removeAttribute("srcset");
+  }
+
+  function markThumbnailUnavailable(img) {
+    const card = img.closest(".video-card");
+    const thumbnail = img.closest(".thumbnail");
+    if (card) card.classList.add("is-thumbnail-missing");
+    if (!thumbnail) return;
+
+    let placeholder = thumbnail.querySelector(".thumbnail-placeholder");
+    if (!placeholder) {
+      placeholder = document.createElement("span");
+      placeholder.className = "thumbnail-placeholder";
+      placeholder.textContent = "封面";
+      thumbnail.append(placeholder);
+    }
+
+    img.hidden = true;
+    thumbnail.classList.add("is-thumbnail-broken");
+    placeholder.hidden = false;
   }
 
   function getVideoId(img) {

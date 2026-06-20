@@ -275,9 +275,6 @@
 
     if (item?.viewCount != null) return { type: "view", text: `${formatCompactCount(item.viewCount)}播放` };
     if (hasViewMetricText(item?.viewText)) return { type: "view", text: item.viewText };
-    if (hasViewMetricText(card.querySelector(".rank-metric, .meta-list span.metric-view")?.textContent)) {
-      return { type: "view", text: card.querySelector(".rank-metric, .meta-list span.metric-view")?.textContent || "" };
-    }
     return null;
   }
 

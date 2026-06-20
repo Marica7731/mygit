@@ -55,6 +55,10 @@
     document.querySelectorAll(".video-card").forEach((card) => {
       const meta = card.querySelector(".hb-meta");
       if (!meta) return;
+      if ((document.body.dataset.sourceGroup || "live") === "live") {
+        meta.remove();
+        return;
+      }
       const title = card.querySelector("h3");
       const channel = card.querySelector(".channel");
       if (title && meta.previousElementSibling !== title) title.insertAdjacentElement("afterend", meta);

@@ -74,8 +74,7 @@
     document.querySelectorAll(".video-card").forEach((card) => {
       const videoId = getVideoId(card.querySelector('a[href*="watch"], a[href*="/shorts/"], .thumbnail')?.href || "");
       if (!videoId) {
-        card.hidden = false;
-        card.classList.remove("is-duplicate-video");
+        restoreDuplicateCard(card);
         return;
       }
       if (seen.has(videoId)) {
@@ -85,10 +84,15 @@
         return;
       }
       seen.add(videoId);
-      card.hidden = false;
-      card.classList.remove("is-duplicate-video");
-      card.removeAttribute("aria-hidden");
+      restoreDuplicateCard(card);
     });
+  }
+
+  function restoreDuplicateCard(card) {
+    if (!card.classList.contains("is-duplicate-video")) return;
+    card.hidden = false;
+    card.classList.remove("is-duplicate-video");
+    card.removeAttribute("aria-hidden");
   }
 
   function isThumbnailImage(value) {
