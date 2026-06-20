@@ -1,6 +1,6 @@
 (function () {
   const STORAGE_PREFIX = "ytb-ranking-state-v1:";
-  const DEFAULT_TITLE_TERMS = ["歌", "弾き語り"];
+  const DEFAULT_TITLE_TERMS = ["歌枠", "弾き語"];
   const KOREAN_TEXT_PATTERN = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/;
   const DEFAULT_TITLE_DISABLED_PREFIX = "ytb-ranking-default-title-filter-disabled-v1:";
   const originalFetch = window.fetch.bind(window);

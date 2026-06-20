@@ -158,12 +158,12 @@ reachedBottom, truncatedByLimit, searchableText, collectedAt
 - 工具条第一行只保留搜索框，第二行展示筛选按钮、来源统计和更新 chip；来源统计合并为 `歌枠 / 弾き語り = N / N`，有过滤时显示 `歌枠 / 弾き語り / 过滤 = N / N / N`。
 - 第二行工具条改为单行横向滚动，不再因为来源统计、更新时间或快照下拉过长而挤出第四行/第五行。
 - 顶部工具栏增加主动收起按钮，H5 和 Web 都可手动折叠；折叠状态不缓存，刷新后默认展开。
-- 默认标题规则和韩文排除规则作为底层过滤逻辑运行，不再在工具条显示 `标题: ...` 或 `排除韩文` chip；标题规则从 `歌枠 / 弾き語り` 放宽为 `歌 / 弾き語り`，不影响搜索框输入。
+- 默认标题规则和韩文排除规则作为底层过滤逻辑运行，不再在工具条显示 `标题: ...` 或 `排除韩文` chip；标题规则要求标题包含 `歌枠` 或 `弾き語`，不影响搜索框输入。
 - 今日页和本月页增加发布时间筛选，优先使用 `publishedTimestamp`，只在字段缺失时解析 `publishedText`。
 - 今日页和本月页增加最低播放量筛选，使用数据里的 `viewCount` 字段，不在直播页展示。
 - 今日页和本月页的时间筛选不再常驻工具条，点击更新时间 chip 后直接弹出时间范围按钮，不再嵌套下拉选择。
 - 直播页增加最近 7 天快照选择，快照由 GitHub Actions 成功抓取后自动保存。
-- 直播页默认屏蔽机器人频道 `そびたんねる / Piero Soubi`，包含历史快照视图。
+- 直播页默认屏蔽机器人频道 `そびたんねる / Piero Soubi`，并屏蔽频道名 `きよき一瓢`，包含历史快照视图。
 - 卡片正文区域统一拉伸，短标题卡和长标题卡在同一行内保持一致高度。
 - 今日页和本月页的发布时间 meta 使用自然高度，不再撑高整张卡片。
 - 分页控件同时出现在列表顶部和底部；长列表滚动后右下角显示小型返回顶部按钮。
@@ -213,7 +213,7 @@ node scripts/validate-live-snapshots.js
 | `assets/thumbnail-hotfix.js` | 缩略图质量检查和重复卡处理 | `restoreDuplicateCard()` 只恢复 `.is-duplicate-video` | 避免覆盖坏封面、直播清理等其它隐藏状态 |
 | `assets/ux-hotfix.js` | 早期 UI 密度和导出补丁 | `restoreDuplicateCard()` 只恢复本脚本标记的重复卡 | 避免与缩略图 fallback 争抢 `card.hidden` |
 | `assets/ranking-controls.js` | 分页、搜索、横向滚动工具条、顶部栏折叠、最低播放量筛选、返回顶部、时间筛选、快照和默认屏蔽控制层 | `arrangeToolbarRows()` 把工具条拆成搜索行和单行横向滚动数据行；`installToolbarCollapseButton()` / `setToolbarCollapsed()` 管理不落盘的顶部栏折叠；`installMinViewsFilter()` 和 `matchesMinViewsFilter()` 按 `viewCount` 做最低播放量过滤；`hideInternalFilterChips()` 隐藏底层过滤说明；`renderPagination()` 同步顶部/底部分页；`installBackToTopButton()` 管理返回顶部按钮；`syncTimeFilterTrigger()` 让更新时间 chip 弹出时间按钮；`filterRankingResponse()` 过滤默认屏蔽频道；`applyTimeFilterAndPagination()` 按时间、播放量和分页隐藏卡片 | 在四个 HTML 中先于主应用加载，避免侵入重打主 chunk |
-| `assets/ui-overrides.js` | 默认标题过滤、黑白名单 chip、直播指标展示和头像兜底逻辑 | `filterRankingDataByTitle()` 使用内部 `歌 / 弾き語り` 标题规则并排除韩文；`renderDefaultTitleChip()` 不再输出默认过滤 chip；`prepareChannelRows()` 补头像和频道行 | 后置增强卡片 DOM，默认过滤逻辑与 `assets/sort-hotfix.js` 保持一致 |
+| `assets/ui-overrides.js` | 默认标题过滤、黑白名单 chip、直播指标展示和头像兜底逻辑 | `filterRankingDataByTitle()` 使用内部 `歌枠 / 弾き語` 标题规则并排除韩文；`renderDefaultTitleChip()` 不再输出默认过滤 chip；`prepareChannelRows()` 补头像和频道行 | 后置增强卡片 DOM，默认过滤逻辑与 `assets/sort-hotfix.js` 保持一致 |
 | `assets/final-ui-polish.js`, `assets/corner-readability-hotfix.js`, `assets/heartbeat-corner-transparent.js`, `assets/png-export-hotfix.js` | 最终 UI 清理、角标可读性和 PNG 导出兜底 | `png-export-hotfix.js` 在导出前等待数据索引，并按 `videoId` 主动尝试 `hq720 / maxres / sd / hq / mq / default` 封面候选；其它脚本同步识别新旧默认标题过滤文案，避免内部过滤条件在页面或导出标题中露出 | 页面末尾加载或导出时兜底清理工具条状态 |
 | `scripts/archive-live-snapshot.js` | 直播快照生成脚本 | `buildSnapshot()` 保存当前 `groups.live`；`pruneSnapshotFiles()` 清理 7 天外快照；`summarizeLiveGroup()` 生成索引摘要 | 主 workflow 成功校验后运行，产出给 `assets/ranking-controls.js` 读取的快照文件 |
 | `scripts/validate-live-snapshots.js` | 直播快照校验脚本 | 校验索引 schema、快照文件、`groups.live.items` 和 7 天保留期 | 本地 `npm run validate:snapshots` 与 GitHub Actions 调用 |
@@ -221,7 +221,7 @@ node scripts/validate-live-snapshots.js
 | `scripts/fill-duration-details.js` | 非直播视频时长补全脚本 | `targetVideoItems()` 收集今日/本月缺失时长的视频；`YTB_RANKING_DURATION_INCLUDE_LIVE=0` 时跳过直播条目；`enrichWithFetch()` / `enrichWithPlaywright()` 只在仍有缺失时补充 | 主 workflow 在播放量补齐后运行，补出的 `durationText` / `durationSeconds` 供前端和 `validate-duration-quality.js` 使用 |
 | `data/live-snapshots/index.json` | 直播快照索引 | 记录快照 id、文件名、展示标签、条目数量和过期时间 | 前端快照下拉框读取 |
 | `data/live-snapshots/*.json` | 直播快照数据 | 保存某次抓取的 `groups.live` | 选择 `?snapshot=<id>` 时由前端替换主数据请求 |
-| `index.html`, `live.html`, `today.html`, `month.html` | GitHub Pages 页面入口 | 更新修复脚本的 cache-busting query | 保证线上页面加载 `20260620-controls5` 和 `20260620-png2` 版本脚本 |
+| `index.html`, `live.html`, `today.html`, `month.html` | GitHub Pages 页面入口 | 更新修复脚本的 cache-busting query | 保证线上页面加载 `20260621-controls6` 和 `20260621-title1` 版本脚本 |
 | `.github/workflows/youtube-ranking.yml` | 主抓取、补指标、校验、快照和提交数据 workflow | 串行不取消运行中任务；初次质量校验失败后用保守滚动/并发/超时参数重跑一次；成功后写入直播快照 | 由 scheduler 或手动触发 |
 | `.github/workflows/youtube-ranking-scheduler.yml` | GitHub Actions 调度入口 | 每 10 分钟检查空闲后派发主 workflow；若最近失败仍在 30 分钟冷却期内则跳过自动派发，保留 repository_dispatch | 学习 culua_web_h5 的 dispatch 控制方式，减少重复触发和失败噪音 |
 | `.github/workflows/youtube-ranking-chain.yml` | 手动 fallback 派发器 | 只保留 `workflow_dispatch` | 不再自动链式触发主 workflow |
@@ -260,13 +260,13 @@ node scripts/validate-live-snapshots.js
 - 第一行只显示搜索框，更新时间、来源统计和过滤统计在第二行。
 - 第二行工具条保持单行横向滚动，不应出现第四行或第五行。
 - 点击顶部栏收起按钮后只保留展开入口；刷新后默认恢复展开，且 localStorage 不出现折叠状态。
-- 工具条不显示默认过滤逻辑，例如 `排除韩文`、`标题: 歌枠 / 弾き語り` 或 `标题: 歌 / 弾き語り`。
+- 工具条不显示默认过滤逻辑，例如 `排除韩文`、`标题: 歌枠 / 弾き語り`、`标题: 歌 / 弾き語り` 或 `标题: 歌枠 / 弾き語`。
 - 点击更新时间 chip 能直接弹出时间按钮，选择后分页回到第一页。
 - 今日页和本月页输入最低播放量后，低于阈值的卡片隐藏，来源统计和分页总数同步变化。
 - PNG 导出前 100 条时应主动拉取封面，非真实坏图不应显示 `No thumbnail`。
 - 顶部和底部都显示分页控件，点击任意一处只翻一页。
 - 长页面向下滚动后出现小型 `↑` 返回顶部按钮，点击后回到页面顶部。
-- `live.html` 中 `そびたんねる` / `Piero Soubi` / `Unmanned Japanese` 不再出现。
+- `live.html` 中 `そびたんねる` / `Piero Soubi` / `Unmanned Japanese` / `きよき一瓢` 不再出现。
 - 同一行卡片高度保持一致，短标题卡不会比相邻卡明显更矮。
 - 今日页和本月页卡片中的 `15小时前` 等发布时间文本保持紧凑，不应撑出大块空白。
 - 黑名单刷新后仍保留。

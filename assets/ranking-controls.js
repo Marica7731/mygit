@@ -8,7 +8,7 @@
   const TWO_COLUMN_PAGE_SIZE = 98;
   const TIME_FILTER_KEY = `ytb-ranking-time-filter-v1:${GROUP}`;
   const MIN_VIEWS_FILTER_KEY = `ytb-ranking-min-views-v1:${GROUP}`;
-  const DEFAULT_BLOCKED_PATTERNS = ["そびたんねる", "Piero Soubi", "Unmanned Japanese", "niY6C3ag-BY"];
+  const DEFAULT_BLOCKED_PATTERNS = ["そびたんねる", "Piero Soubi", "Unmanned Japanese", "niY6C3ag-BY", "きよき一瓢"];
 
   const rawFetch = window.fetch.bind(window);
   const selectedSnapshot = snapshotFromUrl();
