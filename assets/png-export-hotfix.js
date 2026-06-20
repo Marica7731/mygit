@@ -4,12 +4,13 @@
   const COLUMNS = 8;
   const MAX_BYTES = 10 * 1024 * 1024;
   let byId = new Map();
+  let dataReady = Promise.resolve();
 
   window.__YTB_RANKING_PNG_HOTFIX = true;
 
   ready(() => {
     installStyle();
-    fetch(`data/youtube-ranking.json?png=${Date.now()}`, { cache: "no-store" })
+    dataReady = fetch(`data/youtube-ranking.json?png=${Date.now()}`, { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         byId = new Map((data?.groups?.[GROUP]?.items || []).filter((item) => item.videoId).map((item) => [item.videoId, item]));
@@ -30,9 +31,11 @@
     toast("正在生成前 100 缩略图 PNG");
 
     try {
+      await dataReady.catch(() => {});
       const cards = visibleCards().slice(0, MAX_CARDS).map(readCard);
       if (!cards.length) throw new Error("empty view");
-      const images = await mapLimit(cards, 10, (card) => loadImage(card.imageUrl));
+      toast(`正在拉取 ${cards.length} 张封面`);
+      const images = await mapLimit(cards, 12, (card) => loadFirstImage(card.imageUrls));
       let canvas = drawGrid(cards, images, { tileWidth: 180, tileHeight: 150, thumbHeight: 101, gap: 8, padding: 16 });
       let blob = await canvasToBlob(canvas);
       if (blob.size > MAX_BYTES) {
@@ -145,7 +148,7 @@
       title: clean(item.title) || clean(card.querySelector("h3")?.textContent),
       channel: clean(item.channelName) || clean(card.querySelector(".channel")?.textContent),
       published: shortTime(item.publishedText) || clean(card.querySelector(".hb-meta")?.textContent),
-      imageUrl: bestImageUrl(item, img, id),
+      imageUrls: bestImageUrls(item, img, id),
     };
   }
 
@@ -157,17 +160,28 @@
     });
   }
 
-  function bestImageUrl(item, img, id) {
-    const values = [img?.currentSrc, img?.src, item?.thumbnailUrl];
+  function bestImageUrls(item, img, id) {
+    const values = [];
     if (id) {
       values.push(
-        `https://i.ytimg.com/vi/${id}/mqdefault.jpg`,
-        `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+        `https://i.ytimg.com/vi/${id}/hq720.jpg`,
+        `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
         `https://i.ytimg.com/vi/${id}/sddefault.jpg`,
+        `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+        `https://i.ytimg.com/vi/${id}/mqdefault.jpg`,
         `https://i.ytimg.com/vi/${id}/default.jpg`,
       );
     }
-    return values.map(absoluteUrl).find(Boolean) || "";
+    values.push(item?.thumbnailUrl, img?.dataset?.originalThumbnailSrc, img?.currentSrc, img?.src);
+    return Array.from(new Set(values.map(absoluteUrl).filter(Boolean)));
+  }
+
+  async function loadFirstImage(urls) {
+    for (const url of urls || []) {
+      const image = await loadImage(url);
+      if (image) return image;
+    }
+    return null;
   }
 
   function loadImage(url) {
@@ -374,6 +388,8 @@
       .filter((chip) => !chip.hidden && getComputedStyle(chip).display !== "none")
       .map((chip) => clean(chip.textContent))
       .filter((text) => text && !/^标题:\s*(?:歌|歌枠)\s*\/\s*弾き語り(?:\s|，|,|×|$)/.test(text) && !text.includes("排除韩文"));
+    const minViews = clean(document.getElementById("min-views-filter")?.value);
+    if (minViews) chips.push(`最低播放 ${minViews}`);
     return chips.join(" · ").slice(0, 120);
   }
 

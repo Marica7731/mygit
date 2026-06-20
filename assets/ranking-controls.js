@@ -7,6 +7,7 @@
   const PAGE_SIZE = 99;
   const TWO_COLUMN_PAGE_SIZE = 98;
   const TIME_FILTER_KEY = `ytb-ranking-time-filter-v1:${GROUP}`;
+  const MIN_VIEWS_FILTER_KEY = `ytb-ranking-min-views-v1:${GROUP}`;
   const DEFAULT_BLOCKED_PATTERNS = ["そびたんねる", "Piero Soubi", "Unmanned Japanese", "niY6C3ag-BY"];
 
   const rawFetch = window.fetch.bind(window);
@@ -20,6 +21,7 @@
   let controlsReady = false;
   let updateQueued = false;
   let timePopoverOpen = false;
+  let toolbarCollapsed = false;
   let backTopButton = null;
 
   sanitizeState();
@@ -162,7 +164,9 @@
 
     lockAutoLayout();
     moveSearchControl(toolbar, toggle);
+    installToolbarCollapseButton(toolbar);
     installTimeFilter();
+    installMinViewsFilter(toolbar);
     installSnapshotFilter(toolbar);
     arrangeToolbarRows(toolbar);
     ensurePagination(sections);
@@ -182,6 +186,16 @@
     toggle.insertAdjacentElement("afterend", searchLabel);
   }
 
+  function installToolbarCollapseButton(toolbar) {
+    if (!toolbar || document.getElementById("toggle-toolbar-collapse")) return;
+    const button = document.createElement("button");
+    button.id = "toggle-toolbar-collapse";
+    button.className = "toolbar-collapse-button";
+    button.type = "button";
+    toolbar.append(button);
+    setToolbarCollapsed(false);
+  }
+
   function installTimeFilter() {
     if (GROUP === "live" || document.getElementById("time-filter-popover")) return;
     const popover = document.createElement("div");
@@ -189,19 +203,42 @@
     popover.className = "time-filter-popover";
     popover.hidden = true;
     popover.innerHTML = `
-      <select id="time-filter" aria-label="发布时间筛选">
-        ${timeOptions()
-          .map((option) => `<option value="${option.value}">${option.label}</option>`)
-          .join("")}
-      </select>
+      <input type="hidden" id="time-filter" value="all">
+      <div class="time-filter-options" role="listbox" aria-label="发布时间筛选">
+        ${timeOptions().map(timeOptionButton).join("")}
+      </div>
     `;
     document.body.append(popover);
-    const select = popover.querySelector("select");
-    select.value = localStorage.getItem(TIME_FILTER_KEY) || "all";
-    select.addEventListener("change", () => {
-      localStorage.setItem(TIME_FILTER_KEY, select.value);
+    setTimeFilterValue(localStorage.getItem(TIME_FILTER_KEY) || "all", { persist: false, update: false });
+    popover.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-time-filter-value]");
+      if (!button) return;
+      setTimeFilterValue(button.dataset.timeFilterValue || "all");
       currentPage = 1;
       closeTimePopover();
+      scheduleUpdate();
+    });
+  }
+
+  function installMinViewsFilter(toolbar) {
+    if (GROUP === "live" || toolbar.querySelector("#min-views-filter")) return;
+    const label = document.createElement("label");
+    label.className = "min-views-filter-field";
+    label.innerHTML = `<input id="min-views-filter" type="text" inputmode="numeric" autocomplete="off" aria-label="最低播放量" placeholder="最低播放">`;
+    const input = label.querySelector("input");
+    input.value = localStorage.getItem(MIN_VIEWS_FILTER_KEY) || "";
+    toolbar.append(label);
+    input.addEventListener("input", () => {
+      const value = clean(input.value);
+      if (value) localStorage.setItem(MIN_VIEWS_FILTER_KEY, value);
+      else localStorage.removeItem(MIN_VIEWS_FILTER_KEY);
+      currentPage = 1;
+      scheduleUpdate();
+    });
+    input.addEventListener("change", () => {
+      input.value = formatMinViewsInput(input.value);
+      if (input.value) localStorage.setItem(MIN_VIEWS_FILTER_KEY, input.value);
+      else localStorage.removeItem(MIN_VIEWS_FILTER_KEY);
       scheduleUpdate();
     });
   }
@@ -244,8 +281,14 @@
     const search = toolbar.querySelector(".external-search-field");
     if (search && search.parentElement !== searchRow) searchRow.append(search);
 
+    const collapseButton = document.getElementById("toggle-toolbar-collapse");
+    if (collapseButton && collapseButton.parentElement !== searchRow) searchRow.append(collapseButton);
+
     const toggle = document.getElementById("toggle-filters");
     if (toggle && toggle.parentElement !== metaRow) metaRow.append(toggle);
+
+    const minViews = document.querySelector(".min-views-filter-field");
+    if (minViews && minViews.parentElement !== metaRow) metaRow.append(minViews);
 
     const sourceBar = document.getElementById("source-chip-bar");
     if (sourceBar && sourceBar.parentElement !== metaRow) metaRow.append(sourceBar);
@@ -293,6 +336,7 @@
       arrangeToolbarRows(document.querySelector(".filter-toolbar"));
       hideInternalFilterChips();
       syncTimeFilterTrigger();
+      syncToolbarCollapsed();
       updateSnapshotOptions();
       applyTimeFilterAndPagination();
     });
@@ -301,6 +345,13 @@
   function handleControlEvent(event) {
     const target = event.target;
     const isPager = target?.closest?.(".ranking-pagination");
+    const collapseButton = target?.closest?.("#toggle-toolbar-collapse");
+    if (collapseButton && event.type === "click") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setToolbarCollapsed(!toolbarCollapsed);
+      return;
+    }
     const trigger = target?.closest?.(".time-filter-trigger");
     if (trigger && event.type === "click") {
       event.preventDefault();
@@ -311,7 +362,7 @@
       closeTimePopover();
     }
     const changesFilter =
-      target?.matches?.('[data-state="search"], #time-filter, #snapshot-filter, [data-blacklist-input], [data-state]');
+      target?.matches?.('[data-state="search"], #time-filter, #min-views-filter, #snapshot-filter, [data-blacklist-input], [data-state]');
     if (changesFilter && !isPager) currentPage = 1;
     scheduleUpdate();
   }
@@ -324,13 +375,18 @@
     for (const card of cards) {
       delete card.dataset.pageHidden;
       delete card.dataset.timeHidden;
+      delete card.dataset.viewHidden;
     }
 
     const maxAgeMs = currentTimeLimitMs();
+    const minViews = currentMinViews();
     for (const card of cards) {
       const item = itemByVideoId.get(videoIdFromCard(card));
       if (maxAgeMs != null && !matchesTimeFilter(item, maxAgeMs)) {
         card.dataset.timeHidden = "1";
+      }
+      if (minViews != null && !matchesMinViewsFilter(item, minViews)) {
+        card.dataset.viewHidden = "1";
       }
     }
 
@@ -383,6 +439,7 @@
 
   function isPaginationEligible(card) {
     if (card.dataset.timeHidden === "1") return false;
+    if (card.dataset.viewHidden === "1") return false;
     if (card.hidden || card.classList.contains("is-duplicate-video") || card.classList.contains("is-live-duration-dirty")) {
       return false;
     }
@@ -406,6 +463,11 @@
     return Number.isFinite(hours) && hours > 0 ? hours * 60 * 60 * 1000 : null;
   }
 
+  function currentMinViews() {
+    if (GROUP === "live") return null;
+    return parseCompactNumber(document.getElementById("min-views-filter")?.value);
+  }
+
   function timeOptions() {
     const base = [
       { value: "all", label: "全部时间" },
@@ -423,6 +485,51 @@
       );
     }
     return base;
+  }
+
+  function timeOptionButton(option) {
+    return `<button type="button" role="option" data-time-filter-value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</button>`;
+  }
+
+  function setTimeFilterValue(value, options = {}) {
+    if (GROUP === "live") return;
+    const validValues = new Set(timeOptions().map((option) => option.value));
+    const next = validValues.has(String(value)) ? String(value) : "all";
+    const input = document.getElementById("time-filter");
+    if (input) input.value = next;
+    if (options.persist !== false) localStorage.setItem(TIME_FILTER_KEY, next);
+    document.querySelectorAll("[data-time-filter-value]").forEach((button) => {
+      const selected = button.dataset.timeFilterValue === next;
+      button.classList.toggle("is-selected", selected);
+      button.setAttribute("aria-selected", String(selected));
+    });
+    if (options.update !== false) scheduleUpdate();
+  }
+
+  function matchesMinViewsFilter(item, minViews) {
+    const views = Number(item?.viewCount);
+    return Number.isFinite(views) && views >= minViews;
+  }
+
+  function parseCompactNumber(value) {
+    const text = normalizeDigits(clean(value)).replace(/,/g, "");
+    if (!text) return null;
+    const match = text.match(/^(\d+(?:\.\d+)?)\s*(万|萬|亿|億|千|k|m)?$/i);
+    if (!match) return null;
+    const number = Number.parseFloat(match[1]);
+    if (!Number.isFinite(number) || number <= 0) return null;
+    const unit = (match[2] || "").toLowerCase();
+    let multiplier = 1;
+    if (unit === "万" || unit === "萬") multiplier = 1e4;
+    else if (unit === "亿" || unit === "億") multiplier = 1e8;
+    else if (unit === "千" || unit === "k") multiplier = 1e3;
+    else if (unit === "m") multiplier = 1e6;
+    return Math.floor(number * multiplier);
+  }
+
+  function formatMinViewsInput(value) {
+    const number = parseCompactNumber(value);
+    return number == null ? "" : String(number);
   }
 
   function parsePublishedText(value) {
@@ -562,6 +669,10 @@
     chip.setAttribute("aria-expanded", String(timePopoverOpen));
     if (!chip.dataset.timeBaseTitle) chip.dataset.timeBaseTitle = chip.getAttribute("title") || clean(chip.textContent);
     chip.title = `${chip.dataset.timeBaseTitle} / 点击选择发布时间`;
+    setTimeFilterValue(document.getElementById("time-filter")?.value || localStorage.getItem(TIME_FILTER_KEY) || "all", {
+      persist: false,
+      update: false,
+    });
   }
 
   function toggleTimePopover(trigger) {
@@ -572,12 +683,13 @@
     const popover = document.getElementById("time-filter-popover");
     if (!popover || !trigger) return;
     const rect = trigger.getBoundingClientRect();
+    const popoverWidth = Math.min(360, window.innerWidth - 16);
     popover.hidden = false;
     popover.style.top = `${Math.round(rect.bottom + 6)}px`;
-    popover.style.left = `${Math.max(8, Math.round(Math.min(rect.left, window.innerWidth - 180)))}px`;
+    popover.style.left = `${Math.max(8, Math.round(Math.min(rect.left, window.innerWidth - popoverWidth - 8)))}px`;
     timePopoverOpen = true;
     trigger.setAttribute("aria-expanded", "true");
-    popover.querySelector("select")?.focus({ preventScroll: true });
+    popover.querySelector(".is-selected, [data-time-filter-value]")?.focus({ preventScroll: true });
   }
 
   function closeTimePopover() {
@@ -597,12 +709,34 @@
     if (event.key === "Escape") closeTimePopover();
   }
 
+  function syncToolbarCollapsed() {
+    document.body.classList.toggle("toolbar-collapsed", toolbarCollapsed);
+    const button = document.getElementById("toggle-toolbar-collapse");
+    if (!button) return;
+    button.textContent = toolbarCollapsed ? "⌄" : "⌃";
+    button.title = toolbarCollapsed ? "展开顶部栏" : "收起顶部栏";
+    button.setAttribute("aria-label", button.title);
+    button.setAttribute("aria-expanded", String(!toolbarCollapsed));
+  }
+
+  function setToolbarCollapsed(collapsed) {
+    toolbarCollapsed = Boolean(collapsed);
+    if (toolbarCollapsed) {
+      closeTimePopover();
+      document.getElementById("close-filters")?.click();
+      document.getElementById("filter-panel")?.classList.remove("is-open");
+      document.getElementById("toggle-filters")?.setAttribute("aria-expanded", "false");
+    }
+    syncToolbarCollapsed();
+  }
+
   function updateDataSummary(eligibleCards) {
     const sourceBar = document.getElementById("source-chip-bar");
     if (!sourceBar) return;
     const countState = currentCountState();
     const hasActiveFilter = Boolean(
       currentTimeLimitMs() != null ||
+        currentMinViews() != null ||
         clean(document.querySelector('[data-state="search"]')?.value) ||
         (countState && countState.visible !== countState.total),
     );
@@ -740,10 +874,12 @@
     style.textContent = `
       .layout-toggle,
       .video-card[data-page-hidden="1"],
-      .video-card[data-time-hidden="1"] {
+      .video-card[data-time-hidden="1"],
+      .video-card[data-view-hidden="1"] {
         display: none !important;
       }
       .external-search-field,
+      .min-views-filter-field,
       .time-filter-field,
       .snapshot-filter-field {
         display: inline-flex !important;
@@ -754,10 +890,23 @@
         max-width: min(360px, 52vw) !important;
       }
       .external-search-field input,
+      .min-views-filter-field input,
       .time-filter-field select,
       .snapshot-filter-field select {
         min-width: 0 !important;
         width: 100% !important;
+      }
+      .min-views-filter-field {
+        flex: 0 0 112px !important;
+        min-width: 104px !important;
+        max-width: 124px !important;
+      }
+      .min-views-filter-field input {
+        height: 30px !important;
+        border-radius: 10px !important;
+        padding: 4px 9px !important;
+        font-size: 13px !important;
+        line-height: 1.1 !important;
       }
       .time-filter-field,
       .snapshot-filter-field {
@@ -774,6 +923,7 @@
       .toolbar-search-row {
         display: flex !important;
         align-items: center !important;
+        gap: 6px !important;
         width: 100% !important;
       }
       .toolbar-search-row .external-search-field {
@@ -785,6 +935,27 @@
       .toolbar-search-row .external-search-field input {
         height: 36px !important;
         border-radius: 10px !important;
+      }
+      .toolbar-collapse-button {
+        flex: 0 0 34px !important;
+        width: 34px !important;
+        height: 34px !important;
+        min-width: 34px !important;
+        border: 1px solid rgba(15, 118, 110, 0.22) !important;
+        border-radius: 10px !important;
+        background: #ffffff !important;
+        color: #0f766e !important;
+        font-size: 19px !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
+        cursor: pointer !important;
+      }
+      body.toolbar-collapsed .toolbar-search-row {
+        justify-content: flex-end !important;
+      }
+      body.toolbar-collapsed .toolbar-search-row > :not(#toggle-toolbar-collapse),
+      body.toolbar-collapsed .toolbar-meta-row {
+        display: none !important;
       }
       .toolbar-meta-row {
         display: flex !important;
@@ -836,6 +1007,7 @@
       }
       .source-summary-chip,
       #active-filter-chips .filter-chip,
+      .min-views-filter-field input,
       .snapshot-filter-field select {
         min-height: 30px !important;
         height: 30px !important;
@@ -876,7 +1048,7 @@
       .time-filter-popover {
         position: fixed;
         z-index: 1000;
-        min-width: 172px;
+        width: min(360px, calc(100vw - 16px));
         padding: 8px;
         border: 1px solid rgba(15, 23, 42, 0.14);
         border-radius: 10px;
@@ -886,14 +1058,27 @@
       .time-filter-popover[hidden] {
         display: none !important;
       }
-      .time-filter-popover select {
-        width: 100%;
+      .time-filter-options {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+      }
+      .time-filter-options button {
+        min-width: 0;
         height: 32px;
         border: 1px solid rgba(15, 23, 42, 0.12);
         border-radius: 8px;
         background: #ffffff;
         color: #172033;
         font: inherit;
+        font-size: 13px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      .time-filter-options button.is-selected {
+        border-color: rgba(15, 118, 110, 0.48);
+        background: #0f766e;
+        color: #ffffff;
       }
       .ranking-pagination {
         display: flex;
@@ -1004,8 +1189,11 @@
       }
       @media (max-width: 760px) {
         .external-search-field {
-          flex: 1 0 100% !important;
+          flex: 1 1 auto !important;
           max-width: 100% !important;
+        }
+        .min-views-filter-field {
+          flex: 0 0 112px !important;
         }
         .time-filter-field,
         .snapshot-filter-field {
