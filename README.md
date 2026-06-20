@@ -153,9 +153,11 @@ reachedBottom, truncatedByLimit, searchableText, collectedAt
 - 缩略图候选全部失败时保留视频卡片并显示占位，不再隐藏整卡，避免 `wF8xrElQoCo` 这类卡片时有时无。
 - 排行增加分页：自动布局每页 99 个；实际两列布局每页 98 个。
 - Web 端锁定自动布局，不再展示 `自动 / 2列 / 3列` 布局切换按钮。
-- 搜索框移到筛选面板外，搜索词不再保存；黑名单仍会保存。
+- 搜索框移到筛选面板外，搜索词不再保存；黑名单仍会保存；工具条只显示输入框和选择框，不额外显示“搜索 / 快照”文字标签。
 - 今日页和本月页增加发布时间筛选，优先使用 `publishedTimestamp`，只在字段缺失时解析 `publishedText`。
 - 直播页增加最近 7 天快照选择，快照由 GitHub Actions 成功抓取后自动保存。
+- 直播页默认屏蔽机器人频道 `そびたんねる / Piero Soubi`，包含历史快照视图。
+- 卡片正文区域统一拉伸，短标题卡和长标题卡在同一行内保持一致高度。
 - 更新入口从多路自动触发收敛到 scheduler 空闲检查后派发主 workflow。
 - 最近一次“8 分钟前抓取失败”的原因不是抓取脚本崩溃，而是 `Validate ranking data` 阶段未达数据量阈值：`today` 只有 40 条非直播视频，低于 240；`month` 只有 100 条非直播视频，低于 300；后续 run 已重新成功。
 
@@ -197,7 +199,7 @@ node scripts/validate-live-snapshots.js
 | `assets/heartbeat-thumb-fallback.js` | 缩略图加载失败后的候选切换 | `markThumbnailUnavailable()` 显示占位，不再隐藏 `.video-card` | 解决坏缩略图和去重脚本互相隐藏/恢复造成的闪动 |
 | `assets/thumbnail-hotfix.js` | 缩略图质量检查和重复卡处理 | `restoreDuplicateCard()` 只恢复 `.is-duplicate-video` | 避免覆盖坏封面、直播清理等其它隐藏状态 |
 | `assets/ux-hotfix.js` | 早期 UI 密度和导出补丁 | `restoreDuplicateCard()` 只恢复本脚本标记的重复卡 | 避免与缩略图 fallback 争抢 `card.hidden` |
-| `assets/ranking-controls.js` | 分页、搜索、时间筛选和快照控制层 | `patchStatePersistence()` 删除持久化搜索词并锁定 auto；`applyTimeFilterAndPagination()` 按时间筛选和分页隐藏卡片；`patchSnapshotFetch()` 加载选中直播快照 | 在四个 HTML 中先于主应用加载，避免侵入重打主 chunk |
+| `assets/ranking-controls.js` | 分页、搜索、时间筛选、快照和默认屏蔽控制层 | `patchStatePersistence()` 删除持久化搜索词并锁定 auto；`filterRankingResponse()` 过滤默认屏蔽频道；`applyTimeFilterAndPagination()` 按时间筛选和分页隐藏卡片；`patchRankingFetch()` 加载选中直播快照 | 在四个 HTML 中先于主应用加载，避免侵入重打主 chunk |
 | `scripts/archive-live-snapshot.js` | 直播快照生成脚本 | `buildSnapshot()` 保存当前 `groups.live`；`pruneSnapshotFiles()` 清理 7 天外快照；`summarizeLiveGroup()` 生成索引摘要 | 主 workflow 成功校验后运行，产出给 `assets/ranking-controls.js` 读取的快照文件 |
 | `scripts/validate-live-snapshots.js` | 直播快照校验脚本 | 校验索引 schema、快照文件、`groups.live.items` 和 7 天保留期 | 本地 `npm run validate:snapshots` 与 GitHub Actions 调用 |
 | `data/live-snapshots/index.json` | 直播快照索引 | 记录快照 id、文件名、展示标签、条目数量和过期时间 | 前端快照下拉框读取 |
@@ -218,6 +220,7 @@ node scripts/validate-live-snapshots.js
 - 时间筛选优先使用 `publishedTimestamp`，以数据生成时间为基准，不按浏览器停留时间漂移。
 - 快照只保留直播页数据，不保存今日和本月历史；7 天保留指当前 main 分支静态文件保留，Git 历史不会自动瘦身。
 - 搜索词是临时状态，刷新会重置；黑名单仍通过 `ytb-ranking-blacklist-v1` 保存。
+- 默认机器人屏蔽在前端数据请求层完成，当前主数据和历史快照展示都会生效。
 - 调度器通过 `GITHUB_TOKEN` 派发主 workflow，不需要提交 GitHub PAT、cookie 或 `.env`。
 
 ### 测试说明
@@ -230,6 +233,9 @@ node scripts/validate-live-snapshots.js
 - `today.html` 和 `month.html` 中没有 `.layout-toggle`，`document.body.dataset.layoutMode === "auto"`。
 - `today.html` 默认最多展示 99 张卡片，点击下一页后展示下一批结果。
 - 搜索框在筛选面板外；输入搜索词后刷新页面，搜索框恢复为空。
+- 工具条不显示“搜索”和“快照”两个文字标签，只保留搜索输入框和快照选择框。
+- `live.html` 中 `そびたんねる` / `Piero Soubi` / `Unmanned Japanese` 不再出现。
+- 同一行卡片高度保持一致，短标题卡不会比相邻卡明显更矮。
 - 黑名单刷新后仍保留。
 - `live.html` 的快照下拉可选择 `data/live-snapshots/index.json` 中的快照。
 - `npm run check`、`node scripts/validate-youtube-ranking.js`、`node scripts/validate-duration-quality.js` 均通过。

@@ -7,6 +7,7 @@
   const PAGE_SIZE = 99;
   const TWO_COLUMN_PAGE_SIZE = 98;
   const TIME_FILTER_KEY = `ytb-ranking-time-filter-v1:${GROUP}`;
+  const DEFAULT_BLOCKED_PATTERNS = ["そびたんねる", "Piero Soubi", "Unmanned Japanese", "niY6C3ag-BY"];
 
   const rawFetch = window.fetch.bind(window);
   const selectedSnapshot = snapshotFromUrl();
@@ -19,7 +20,7 @@
 
   sanitizeState();
   patchStatePersistence();
-  patchSnapshotFetch();
+  patchRankingFetch();
   installStyle();
   ready(boot);
 
@@ -33,6 +34,7 @@
       document.addEventListener(eventName, handleControlEvent, true);
     });
     window.addEventListener("resize", scheduleUpdate, { passive: true });
+    [0, 500, 1500, 3500].forEach((delay) => setTimeout(refreshStyleOrder, delay));
     [250, 800, 1600, 3200, 6400].forEach((delay) => setTimeout(scheduleUpdate, delay));
   }
 
@@ -64,18 +66,82 @@
     };
   }
 
-  function patchSnapshotFetch() {
-    if (GROUP !== "live" || !selectedSnapshot) return;
+  function patchRankingFetch() {
     window.fetch = async (input, init) => {
       const url = typeof input === "string" ? input : input?.url || "";
       if (isRankingRequest(url)) {
-        return rawFetch(`data/live-snapshots/${encodeURIComponent(selectedSnapshot)}.json`, {
+        const rankingUrl =
+          GROUP === "live" && selectedSnapshot
+            ? `data/live-snapshots/${encodeURIComponent(selectedSnapshot)}.json`
+            : input;
+        const response = await rawFetch(rankingUrl, {
           ...(init || {}),
           cache: "no-store",
         });
+        return filterRankingResponse(response);
       }
       return rawFetch(input, init);
     };
+  }
+
+  async function filterRankingResponse(response) {
+    if (!response.ok) return response;
+    try {
+      const data = await response.clone().json();
+      const filtered = filterDefaultBlockedItems(data);
+      const headers = new Headers(response.headers);
+      headers.delete("content-length");
+      headers.delete("content-encoding");
+      return new Response(JSON.stringify(filtered), {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      });
+    } catch {
+      return response;
+    }
+  }
+
+  function filterDefaultBlockedItems(data) {
+    const groups = data?.groups || {};
+    for (const group of Object.values(groups)) {
+      if (!group || typeof group !== "object") continue;
+      if (Array.isArray(group.items)) group.items = group.items.filter((item) => !isDefaultBlockedItem(item));
+      if (group.keywords && typeof group.keywords === "object") {
+        for (const key of Object.keys(group.keywords)) {
+          if (Array.isArray(group.keywords[key])) {
+            group.keywords[key] = group.keywords[key].filter((item) => !isDefaultBlockedItem(item));
+          }
+        }
+      }
+      if (Array.isArray(group.sources)) {
+        group.sources = group.sources.map((source) => {
+          const keyword = source.keyword;
+          const count =
+            keyword && Array.isArray(group.keywords?.[keyword])
+              ? group.keywords[keyword].length
+              : Array.isArray(group.items)
+                ? group.items.length
+                : source.itemCount;
+          return { ...source, itemCount: count };
+        });
+      }
+    }
+    return data;
+  }
+
+  function isDefaultBlockedItem(item) {
+    const haystack = clean(
+      [
+        item?.channelName,
+        item?.channelId,
+        item?.title,
+        item?.videoId,
+        item?.watchUrl,
+        item?.searchableText,
+      ].join(" "),
+    ).toLowerCase();
+    return DEFAULT_BLOCKED_PATTERNS.some((pattern) => haystack.includes(pattern.toLowerCase()));
   }
 
   function installControlBar() {
@@ -103,7 +169,9 @@
     if (!searchInput || !searchLabel || searchLabel.dataset.externalSearch === "1") return;
     searchLabel.dataset.externalSearch = "1";
     searchLabel.classList.add("external-search-field");
+    stripControlCaption(searchLabel);
     searchInput.value = "";
+    searchInput.setAttribute("aria-label", searchInput.getAttribute("aria-label") || "搜索标题、频道、视频 ID");
     toggle.insertAdjacentElement("afterend", searchLabel);
   }
 
@@ -112,7 +180,6 @@
     const label = document.createElement("label");
     label.className = "time-filter-field";
     label.innerHTML = `
-      <span>时间</span>
       <select id="time-filter" aria-label="发布时间筛选">
         ${timeOptions()
           .map((option) => `<option value="${option.value}">${option.label}</option>`)
@@ -135,7 +202,6 @@
     label.className = "snapshot-filter-field";
     label.hidden = true;
     label.innerHTML = `
-      <span>快照</span>
       <select id="snapshot-filter" aria-label="直播快照">
         <option value="">最新直播</option>
       </select>
@@ -148,6 +214,16 @@
       else url.searchParams.delete(SNAPSHOT_PARAM);
       location.href = url.href;
     });
+  }
+
+  function stripControlCaption(label) {
+    for (const node of Array.from(label.childNodes)) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        node.textContent = "";
+      } else if (node.nodeType === Node.ELEMENT_NODE && !/^(INPUT|SELECT|TEXTAREA|BUTTON)$/i.test(node.tagName)) {
+        node.remove();
+      }
+    }
   }
 
   function ensurePagination(sections) {
@@ -483,6 +559,28 @@
         cursor: default;
         opacity: 0.42;
       }
+      .cards {
+        align-items: stretch !important;
+      }
+      .video-card {
+        align-self: stretch !important;
+        grid-template-rows: auto 1fr !important;
+        height: 100% !important;
+      }
+      .video-card .card-body {
+        display: grid !important;
+        grid-template-rows: calc(1.27em * 3) minmax(20px, 1fr) !important;
+        align-content: stretch !important;
+      }
+      .video-card h3 {
+        height: calc(1.27em * 3) !important;
+        min-height: 3.75em !important;
+        max-height: calc(1.27em * 3) !important;
+        line-height: 1.27 !important;
+      }
+      .video-card .channel {
+        align-self: end !important;
+      }
       @media (max-width: 760px) {
         .external-search-field {
           order: 9;
@@ -496,6 +594,11 @@
       }
     `;
     document.head.append(style);
+  }
+
+  function refreshStyleOrder() {
+    const style = document.getElementById("ranking-controls-style");
+    if (style) document.head.append(style);
   }
 
   function escapeHtml(value) {
