@@ -78,39 +78,74 @@
     window.fetch = async (input, init) => {
       const url = typeof input === "string" ? input : input?.url || "";
       if (isRankingRequest(url)) {
-        const rankingUrl = selectedSnapshot ? snapshotDataUrl(selectedSnapshot) : input;
-        let response = await rawFetch(rankingUrl, {
-          ...(init || {}),
-          cache: "no-store",
-        });
-        if (selectedSnapshot && !response.ok) {
-          response = await rawFetch(input, {
-            ...(init || {}),
-            cache: "no-store",
-          });
-        }
-        return filterRankingResponse(response);
+        return fetchSharedRankingResponse(init);
       }
       return rawFetch(input, init);
     };
   }
 
-  async function filterRankingResponse(response) {
-    if (!response.ok) return response;
-    try {
-      const data = await response.clone().json();
-      const filtered = filterDefaultBlockedItems(data);
-      const headers = new Headers(response.headers);
-      headers.delete("content-length");
-      headers.delete("content-encoding");
-      return new Response(JSON.stringify(filtered), {
-        status: response.status,
-        statusText: response.statusText,
-        headers,
-      });
-    } catch {
-      return response;
+  async function fetchSharedRankingResponse(init) {
+    const cacheKey = selectedSnapshot ? `snapshot:${GROUP}:${selectedSnapshot}` : "latest";
+    const store = sharedRankingResponseStore();
+    if (!store.has(cacheKey)) {
+      store.set(cacheKey, loadSharedRankingPayload(init).catch((error) => {
+        store.delete(cacheKey);
+        throw error;
+      }));
     }
+    return responseFromCachedPayload(await store.get(cacheKey));
+  }
+
+  function sharedRankingResponseStore() {
+    if (!(window.__YTB_RANKING_RESPONSE_CACHE__ instanceof Map)) {
+      window.__YTB_RANKING_RESPONSE_CACHE__ = new Map();
+    }
+    return window.__YTB_RANKING_RESPONSE_CACHE__;
+  }
+
+  async function loadSharedRankingPayload(init) {
+    const requestInit = {
+      ...(init || {}),
+      cache: "no-store",
+    };
+    const rankingUrl = selectedSnapshot ? snapshotDataUrl(selectedSnapshot) : DATA_URL;
+    let response = await rawFetch(rankingUrl, requestInit);
+    if (selectedSnapshot && !response.ok) {
+      response = await rawFetch(DATA_URL, requestInit);
+    }
+    return cacheableRankingPayload(response);
+  }
+
+  async function cacheableRankingPayload(response) {
+    const headers = new Headers(response.headers);
+    headers.delete("content-length");
+    headers.delete("content-encoding");
+
+    let text = "";
+    if (response.ok) {
+      try {
+        text = JSON.stringify(filterDefaultBlockedItems(await response.clone().json()));
+      } catch {
+        text = await response.text();
+      }
+    } else {
+      text = await response.text();
+    }
+
+    return {
+      text,
+      status: response.status,
+      statusText: response.statusText,
+      headers: Array.from(headers.entries()),
+    };
+  }
+
+  function responseFromCachedPayload(payload) {
+    return new Response(payload.text, {
+      status: payload.status,
+      statusText: payload.statusText,
+      headers: payload.headers,
+    });
   }
 
   function filterDefaultBlockedItems(data) {
