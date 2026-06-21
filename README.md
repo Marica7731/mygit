@@ -142,6 +142,7 @@ reachedBottom, truncatedByLimit, searchableText, collectedAt
 
 `.github/workflows/youtube-ranking-chain.yml` 支持：
 
+- `schedule`：以 `6,16,26,36,46,56` 分错峰执行同一套空闲检查，作为 scheduler 漏触发时的第二心跳。
 - `workflow_run`：主更新 workflow 完成后等待约 9 分钟，再检查主 workflow 是否空闲、是否仍在失败冷却期；满足条件时派发下一轮。
 - `workflow_dispatch`：手动触发，不受失败冷却限制。
 
@@ -225,7 +226,7 @@ node scripts/validate-live-snapshots.js
 | `assets/final-ui-polish.js`, `assets/corner-readability-hotfix.js`, `assets/heartbeat-corner-transparent.js`, `assets/png-export-hotfix.js` | 最终 UI 清理、角标可读性和 PNG 导出兜底 | `png-export-hotfix.js` 在导出前等待数据索引，并按 `videoId` 主动尝试 `hq720 / maxres / sd / hq / mq / default` 封面候选；其它脚本同步识别新旧默认标题过滤文案，避免内部过滤条件在页面或导出标题中露出 | 页面末尾加载或导出时兜底清理工具条状态 |
 | `scripts/archive-live-snapshot.js` | 三组快照生成脚本 | `archiveGroupSnapshot()` 保存当前 `groups.live / groups.today / groups.month`；`pruneSnapshotFiles()` 清理 7 天外快照；`summarizeGroup()` 生成索引摘要 | 主 workflow 成功校验后运行，产出给 `assets/ranking-controls.js` 读取的快照文件 |
 | `scripts/validate-live-snapshots.js` | 三组快照校验脚本 | 校验索引 schema、快照文件、`groups.<group>.items` 和 7 天保留期 | 本地 `npm run validate:snapshots` 与 GitHub Actions 调用 |
-| `scripts/validate-youtube-ranking.js` | 排行数据质量校验脚本 | 校验三组条目、有效缩略图、直播订阅数和播放量覆盖；对已到页底或达到 limit 的自然低数量结果降为 warning，未完成抓取仍保持 failure | 主 workflow 的初次校验和保守重试后终检都会调用 |
+| `scripts/validate-youtube-ranking.js` | 排行数据质量校验脚本 | 校验三组条目、有效缩略图和播放量覆盖；直播订阅数覆盖不足只记 warning，避免公开订阅数短时不可采时阻断发布；对已到页底或达到 limit 的自然低数量结果降为 warning，未完成抓取仍保持 failure | 主 workflow 的初次校验和保守重试后终检都会调用 |
 | `scripts/fill-duration-details.js` | 非直播视频时长补全脚本 | `targetVideoItems()` 收集今日/本月缺失时长的视频；`YTB_RANKING_DURATION_INCLUDE_LIVE=0` 时跳过直播条目；`enrichWithFetch()` / `enrichWithPlaywright()` 只在仍有缺失时补充 | 主 workflow 在播放量补齐后运行，补出的 `durationText` / `durationSeconds` 供前端和 `validate-duration-quality.js` 使用 |
 | `data/live-snapshots/`, `data/today-snapshots/`, `data/month-snapshots/` | 三组快照数据 | 各自保存某次抓取的单个 `groups.<group>` 和索引 | 选择 `?snapshot=<id>` 时由前端按当前页面组替换主数据请求 |
 | `index.html`, `live.html`, `today.html`, `month.html` | GitHub Pages 页面入口 | 更新修复脚本的 cache-busting query | 保证线上页面加载 `20260621-snapshot1` 版本脚本和样式 |
@@ -251,6 +252,7 @@ node scripts/validate-live-snapshots.js
 - 搜索词是临时状态，刷新会重置；黑名单仍通过 `ytb-ranking-blacklist-v1` 保存。
 - 默认机器人屏蔽在前端数据请求层完成，当前主数据和历史快照展示都会生效。
 - 自动调度失败冷却影响 scheduler 和 chain fallback；需要立即补跑时可手动执行 `Update YouTube ranking` workflow。
+- 直播订阅数只作为排序/展示参考指标；覆盖率不足会在校验日志中告警，但不会阻止新排行发布。播放量覆盖、条目数和缩略图有效性仍会阻止明显坏数据上线。
 - 质量校验仍会阻止明显不完整的数据覆盖线上排行；保守重试只是在同一次 workflow 内再抓一次，不会提交未通过终检的候选数据。
 - `YTB_RANKING_DURATION_INCLUDE_LIVE` 默认为 `0`；只有确实需要在数据层保留直播时长时才应改成 `1`，否则会增加大量 watch 页和 Playwright 请求且最终不在直播页展示。
 - 调度器通过 `GITHUB_TOKEN` 派发主 workflow，不需要提交 GitHub PAT、cookie 或 `.env`。

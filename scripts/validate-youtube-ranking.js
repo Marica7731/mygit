@@ -33,7 +33,7 @@ function main() {
     checkThumbnails(group, items, errors);
   }
 
-  checkLiveSubscribers(getItems(payload, "live"), errors);
+  checkLiveSubscribers(getItems(payload, "live"), errors, warnings);
   for (const group of VIEW_GROUPS) checkViewCoverage(payload, group, getItems(payload, group), errors, warnings);
 
   if (errors.length) {
@@ -112,7 +112,7 @@ function usableThumbnailUrl(value) {
   }
 }
 
-function checkLiveSubscribers(items, errors) {
+function checkLiveSubscribers(items, errors, warnings) {
   if (!items.length) return;
   const liveItems = items.filter((item) => item.statusType === "live" || item.statusType === "upcoming");
   if (!liveItems.length) return;
@@ -120,10 +120,10 @@ function checkLiveSubscribers(items, errors) {
   const subscriberItems = liveItems.filter((item) => positiveNumber(item.subscriberCount));
   const ratio = subscriberItems.length / liveItems.length;
   if (ratio < CONFIG.minLiveSubscriberCoverage) {
-    errors.push(
+    warnings.push(
       `live: subscriber coverage ${subscriberItems.length}/${liveItems.length} (${percent(ratio)}) below ${percent(
         CONFIG.minLiveSubscriberCoverage,
-      )}`,
+      )}; continuing because subscriber metrics are optional for publishing`,
     );
   }
 
