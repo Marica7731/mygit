@@ -1,7 +1,6 @@
 (function () {
   const GROUP = document.body.dataset.sourceGroup || "live";
   const DATA_URL = "data/youtube-ranking.json";
-  const SNAPSHOT_INDEX_URL = "data/live-snapshots/index.json";
   const STATE_PREFIX = "ytb-ranking-state-v1:";
   const SNAPSHOT_PARAM = "snapshot";
   const PAGE_SIZE = 99;
@@ -41,6 +40,7 @@
       document.addEventListener(eventName, handleControlEvent, true);
     });
     document.addEventListener("keydown", handleDocumentKeydown, true);
+    document.addEventListener("ytb-thumbnail-missing", scheduleUpdate, true);
     window.addEventListener("resize", scheduleUpdate, { passive: true });
     [0, 500, 1500, 3500].forEach((delay) => setTimeout(refreshStyleOrder, delay));
     [250, 800, 1600, 3200, 6400].forEach((delay) => setTimeout(scheduleUpdate, delay));
@@ -78,14 +78,17 @@
     window.fetch = async (input, init) => {
       const url = typeof input === "string" ? input : input?.url || "";
       if (isRankingRequest(url)) {
-        const rankingUrl =
-          GROUP === "live" && selectedSnapshot
-            ? `data/live-snapshots/${encodeURIComponent(selectedSnapshot)}.json`
-            : input;
-        const response = await rawFetch(rankingUrl, {
+        const rankingUrl = selectedSnapshot ? snapshotDataUrl(selectedSnapshot) : input;
+        let response = await rawFetch(rankingUrl, {
           ...(init || {}),
           cache: "no-store",
         });
+        if (selectedSnapshot && !response.ok) {
+          response = await rawFetch(input, {
+            ...(init || {}),
+            cache: "no-store",
+          });
+        }
         return filterRankingResponse(response);
       }
       return rawFetch(input, init);
@@ -114,11 +117,11 @@
     const groups = data?.groups || {};
     for (const group of Object.values(groups)) {
       if (!group || typeof group !== "object") continue;
-      if (Array.isArray(group.items)) group.items = group.items.filter((item) => !isDefaultBlockedItem(item));
+      if (Array.isArray(group.items)) group.items = group.items.filter(isDisplayableItem);
       if (group.keywords && typeof group.keywords === "object") {
         for (const key of Object.keys(group.keywords)) {
           if (Array.isArray(group.keywords[key])) {
-            group.keywords[key] = group.keywords[key].filter((item) => !isDefaultBlockedItem(item));
+            group.keywords[key] = group.keywords[key].filter(isDisplayableItem);
           }
         }
       }
@@ -138,6 +141,10 @@
     return data;
   }
 
+  function isDisplayableItem(item) {
+    return !isDefaultBlockedItem(item) && usableThumbnailUrl(item?.thumbnailUrl);
+  }
+
   function isDefaultBlockedItem(item) {
     const haystack = clean(
       [
@@ -150,6 +157,20 @@
       ].join(" "),
     ).toLowerCase();
     return DEFAULT_BLOCKED_PATTERNS.some((pattern) => haystack.includes(pattern.toLowerCase()));
+  }
+
+  function usableThumbnailUrl(value) {
+    const raw = clean(value);
+    if (!raw || /^(?:undefined|null)$/i.test(raw) || raw.startsWith("data:")) return "";
+    try {
+      const url = new URL(raw, location.href);
+      if (!/^https?:$/i.test(url.protocol)) return "";
+      if (/\/(?:undefined|null)(?:[?#]|$)/i.test(url.pathname)) return "";
+      if (!/(?:ytimg|googleusercontent|ggpht)\./i.test(url.hostname)) return "";
+      return url.href;
+    } catch {
+      return "";
+    }
   }
 
   function installControlBar() {
@@ -244,13 +265,13 @@
   }
 
   function installSnapshotFilter(toolbar) {
-    if (GROUP !== "live" || toolbar.querySelector("#snapshot-filter")) return;
+    if (!isSnapshotGroup() || toolbar.querySelector("#snapshot-filter")) return;
     const label = document.createElement("label");
     label.className = "snapshot-filter-field";
     label.hidden = true;
     label.innerHTML = `
-      <select id="snapshot-filter" aria-label="直播快照">
-        <option value="">最新直播</option>
+      <select id="snapshot-filter" aria-label="${snapshotSelectLabel()}">
+        <option value="">${latestSnapshotLabel()}</option>
       </select>
     `;
     toolbar.append(label);
@@ -631,9 +652,9 @@
   }
 
   async function loadSnapshotIndex() {
-    if (GROUP !== "live") return;
+    if (!isSnapshotGroup()) return;
     try {
-      const response = await rawFetch(`${SNAPSHOT_INDEX_URL}?ts=${Date.now()}`, { cache: "no-store" });
+      const response = await rawFetch(`${snapshotIndexUrl()}?ts=${Date.now()}`, { cache: "no-store" });
       if (!response.ok) return;
       snapshotIndex = await response.json();
     } catch {
@@ -642,7 +663,7 @@
   }
 
   function updateSnapshotOptions() {
-    if (GROUP !== "live") return;
+    if (!isSnapshotGroup()) return;
     const label = document.querySelector(".snapshot-filter-field");
     const select = document.getElementById("snapshot-filter");
     const snapshots = Array.isArray(snapshotIndex?.snapshots) ? snapshotIndex.snapshots : [];
@@ -650,7 +671,7 @@
     const options = snapshots
       .map((snapshot) => `<option value="${escapeHtml(snapshot.id)}">${escapeHtml(snapshot.label || snapshot.id)}</option>`)
       .join("");
-    const nextHtml = `<option value="">最新直播</option>${options}`;
+    const nextHtml = `<option value="">${latestSnapshotLabel()}</option>${options}`;
     if (select.innerHTML !== nextHtml) select.innerHTML = nextHtml;
     select.value = selectedSnapshot || "";
     label.hidden = false;
@@ -845,6 +866,36 @@
     return /^[a-z0-9._-]+$/i.test(value) ? value : "";
   }
 
+  function isSnapshotGroup() {
+    return ["live", "today", "month"].includes(GROUP);
+  }
+
+  function snapshotIndexUrl() {
+    return `data/${GROUP}-snapshots/index.json`;
+  }
+
+  function snapshotDataUrl(snapshotId) {
+    return `data/${GROUP}-snapshots/${encodeURIComponent(snapshotId)}.json`;
+  }
+
+  function latestSnapshotLabel() {
+    const labels = {
+      live: "最新直播",
+      today: "最新今日",
+      month: "最新本月",
+    };
+    return labels[GROUP] || "最新";
+  }
+
+  function snapshotSelectLabel() {
+    const labels = {
+      live: "直播快照",
+      today: "今日快照",
+      month: "本月快照",
+    };
+    return labels[GROUP] || "快照";
+  }
+
   function videoIdFromCard(card) {
     const href = card.querySelector('a[href*="watch"],a[href*="/shorts/"],.thumbnail')?.href || "";
     try {
@@ -875,7 +926,8 @@
       .layout-toggle,
       .video-card[data-page-hidden="1"],
       .video-card[data-time-hidden="1"],
-      .video-card[data-view-hidden="1"] {
+      .video-card[data-view-hidden="1"],
+      .video-card.is-thumbnail-missing {
         display: none !important;
       }
       .external-search-field,

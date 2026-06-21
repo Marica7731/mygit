@@ -25,6 +25,7 @@ const CONFIG = {
   channelLimit: parseIntegerEnv("YTB_RANKING_LIVE_POST_CHANNEL_LIMIT", 120),
   delayMs: parseIntegerEnv("YTB_RANKING_LIVE_POST_DELAY_MS", 550),
   navigationTimeoutMs: parseIntegerEnv("YTB_RANKING_LIVE_POST_NAVIGATION_TIMEOUT_MS", 12000),
+  maxRuntimeMs: parseIntegerEnv("YTB_RANKING_LIVE_POST_MAX_RUNTIME_MS", 7 * 60 * 1000),
   headless: parseBooleanEnv("YTB_RANKING_HEADLESS", true),
   chromeExecutable: process.env.YTB_RANKING_CHROME_EXECUTABLE || "",
 };
@@ -312,6 +313,9 @@ async function extractChannelDetails(page) {
 }
 
 async function main() {
+  const startedAt = Date.now();
+  const deadlineAt = startedAt + CONFIG.maxRuntimeMs;
+  let stoppedByRuntimeBudget = false;
   const payload = JSON.parse(await fs.readFile(DATA_FILE, "utf8"));
   const liveItems = uniqueLiveEntries(payload);
   if (!liveItems.length) {
@@ -354,6 +358,11 @@ async function main() {
     const watchTargets = liveItems.filter(needsWatchDetail).slice(0, CONFIG.limit);
     console.log(`[live-post] watch detail targets=${watchTargets.length}, limit=${CONFIG.limit}`);
     for (const item of watchTargets) {
+      if (!hasRuntimeBudget(deadlineAt)) {
+        stoppedByRuntimeBudget = true;
+        console.warn("[live-post] stop watch detail loop: max runtime budget reached");
+        break;
+      }
       try {
         await gotoWithRetry(page, canonicalWatchUrl(item));
         await dismissConsent(page);
@@ -380,6 +389,11 @@ async function main() {
     const channelTargets = Array.from(byChannelUrl.entries()).slice(0, CONFIG.channelLimit);
     console.log(`[live-post] channel detail targets=${channelTargets.length}, limit=${CONFIG.channelLimit}`);
     for (const [detailUrl, items] of channelTargets) {
+      if (!hasRuntimeBudget(deadlineAt)) {
+        stoppedByRuntimeBudget = true;
+        console.warn("[live-post] stop channel detail loop: max runtime budget reached");
+        break;
+      }
       try {
         await gotoWithRetry(page, detailUrl);
         await dismissConsent(page);
@@ -401,6 +415,9 @@ async function main() {
     generatedAt: new Date().toISOString(),
     limit: CONFIG.limit,
     channelLimit: CONFIG.channelLimit,
+    maxRuntimeMs: CONFIG.maxRuntimeMs,
+    elapsedMs: Date.now() - startedAt,
+    stoppedByRuntimeBudget,
     clearedUntrustedLiveViewers: cleared,
     watchChecked,
     watchChanged,
@@ -412,6 +429,11 @@ async function main() {
   console.log(
     `[live-post] cleared=${cleared}, watch=${watchChecked}/${watchChanged}, channel=${channelChecked}/${channelChanged}`,
   );
+}
+
+function hasRuntimeBudget(deadlineAt) {
+  const minimumItemBudgetMs = CONFIG.navigationTimeoutMs * 2 + CONFIG.delayMs + 3500;
+  return Date.now() + minimumItemBudgetMs < deadlineAt;
 }
 
 main().catch((error) => {

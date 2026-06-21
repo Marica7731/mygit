@@ -56,6 +56,7 @@ jobs:
       YTB_RANKING_LIVE_POST_CHANNEL_LIMIT: "120"
       YTB_RANKING_LIVE_POST_DELAY_MS: "550"
       YTB_RANKING_LIVE_POST_NAVIGATION_TIMEOUT_MS: "12000"
+      YTB_RANKING_LIVE_POST_MAX_RUNTIME_MS: "420000"
       YTB_RANKING_DURATION_DETAIL_LIMIT: "500"
       YTB_RANKING_LIVE_DURATION_DETAIL_LIMIT: "120"
       YTB_RANKING_DURATION_FETCH_CONCURRENCY: "4"
@@ -128,15 +129,19 @@ jobs:
           NODE
 
       - name: Enrich live channel metrics
+        timeout-minutes: 10
+        continue-on-error: true
         run: node scripts/enrich-live-details.js
 
       - name: Enrich video view metrics
+        timeout-minutes: 18
         run: node scripts/enrich-video-metrics.js
 
       - name: Recover previous view metrics
         run: node scripts/merge-previous-view-metrics.js
 
       - name: Fill missing durations
+        timeout-minutes: 20
         run: node scripts/fill-duration-details.js
 
       - name: Skip live duration enrichment
@@ -184,7 +189,7 @@ jobs:
       - name: Validate duration data
         run: node scripts/validate-duration-quality.js
 
-      - name: Archive live snapshot
+      - name: Archive ranking snapshots
         run: |
           node scripts/archive-live-snapshot.js
           node scripts/validate-live-snapshots.js
@@ -200,7 +205,7 @@ jobs:
           cp /tmp/youtube-ranking.json data/youtube-ranking.json
           node scripts/archive-live-snapshot.js
           node scripts/validate-live-snapshots.js
-          git add data/youtube-ranking.json data/live-snapshots
+          git add data/youtube-ranking.json data/live-snapshots data/today-snapshots data/month-snapshots
           if git diff --cached --quiet; then
             echo "No data changes to commit."
           else
@@ -212,7 +217,7 @@ jobs:
               cp /tmp/youtube-ranking.json data/youtube-ranking.json
               node scripts/archive-live-snapshot.js
               node scripts/validate-live-snapshots.js
-              git add data/youtube-ranking.json data/live-snapshots
+              git add data/youtube-ranking.json data/live-snapshots data/today-snapshots data/month-snapshots
               git diff --cached --quiet && exit 0
               git commit -m "chore: 更新 YouTube 排行数据"
               git push

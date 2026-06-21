@@ -7,8 +7,8 @@
   aspect-ratio: 16 / 7.4;
 }
 
-.video-card.is-thumbnail-missing .thumbnail {
-  background: #e5ebf3 !important;
+.video-card.is-thumbnail-missing {
+  display: none !important;
 }
 
 body[data-source-group="live"] .rank-metric.metric-live,

@@ -59,20 +59,15 @@
   function markThumbnailUnavailable(img) {
     const card = img.closest(".video-card");
     const thumbnail = img.closest(".thumbnail");
-    if (card) card.classList.add("is-thumbnail-missing");
-    if (!thumbnail) return;
-
-    let placeholder = thumbnail.querySelector(".thumbnail-placeholder");
-    if (!placeholder) {
-      placeholder = document.createElement("span");
-      placeholder.className = "thumbnail-placeholder";
-      placeholder.textContent = "封面";
-      thumbnail.append(placeholder);
-    }
-
     img.hidden = true;
-    thumbnail.classList.add("is-thumbnail-broken");
-    placeholder.hidden = false;
+    thumbnail?.classList.add("is-thumbnail-broken");
+    thumbnail?.querySelector(".thumbnail-placeholder")?.setAttribute("hidden", "");
+    if (card) {
+      card.hidden = true;
+      card.classList.add("is-thumbnail-missing");
+      card.setAttribute("aria-hidden", "true");
+      card.dispatchEvent(new CustomEvent("ytb-thumbnail-missing", { bubbles: true }));
+    }
   }
 
   function getVideoId(img) {

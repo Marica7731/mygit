@@ -1,12 +1,22 @@
 name: Chain YouTube ranking update
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/youtube-ranking-chain.yml"
   workflow_dispatch:
     inputs:
       trigger_run_id:
         description: "Update run id that requested this tick"
         required: false
         type: string
+  workflow_run:
+    workflows:
+      - Update YouTube ranking
+    types:
+      - completed
 
 permissions:
   actions: write
@@ -22,7 +32,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      YTB_RANKING_CHAIN_DELAY_SECONDS: "60"
+      YTB_RANKING_CHAIN_DELAY_SECONDS: "540"
+      YTB_RANKING_FAILURE_COOLDOWN_MINUTES: "30"
       TRIGGER_RUN_ID: ${{ github.event.workflow_run.id || github.event.inputs.trigger_run_id || '' }}
     steps:
       - name: Wait before next update
@@ -37,6 +48,8 @@ jobs:
 
           const repo = process.env.GITHUB_REPOSITORY;
           const triggerRunId = String(process.env.TRIGGER_RUN_ID || '');
+          const eventName = process.env.GITHUB_EVENT_NAME || '';
+          const cooldownMinutes = Number(process.env.YTB_RANKING_FAILURE_COOLDOWN_MINUTES || 30);
           const raw = execFileSync(
             'gh',
             ['api', '--method', 'GET', `repos/${repo}/actions/workflows/youtube-ranking.yml/runs`, '-f', 'per_page=20'],
@@ -61,8 +74,36 @@ jobs:
             process.exit(0);
           }
 
+          const status = readRankingStatus(repo);
+          const failedAt = Date.parse(status?.attemptedAt || '');
+          if (
+            eventName !== 'workflow_dispatch' &&
+            status?.status === 'failed' &&
+            Number.isFinite(failedAt) &&
+            now - failedAt < cooldownMinutes * 60 * 1000
+          ) {
+            const remainingMinutes = Math.ceil((cooldownMinutes * 60 * 1000 - (now - failedAt)) / 60000);
+            console.log(`Skip dispatch: previous failure is cooling down for ${remainingMinutes}m (${status.message || 'previous update failed'}).`);
+            process.exit(0);
+          }
+
           execFileSync('gh', ['workflow', 'run', 'youtube-ranking.yml', '--ref', 'main', '--repo', repo], {
             stdio: 'inherit',
           });
           console.log('Dispatched next YouTube ranking update.');
+
+          function readRankingStatus(repo) {
+            try {
+              const rawStatus = execFileSync(
+                'gh',
+                ['api', '--method', 'GET', `repos/${repo}/contents/data/youtube-ranking-status.json?ref=main`],
+                { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+              );
+              const payload = JSON.parse(rawStatus);
+              const content = String(payload.content || '').replace(/\s+/g, '');
+              return JSON.parse(Buffer.from(content, 'base64').toString('utf8'));
+            } catch {
+              return null;
+            }
+          }
           NODE

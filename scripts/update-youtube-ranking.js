@@ -476,6 +476,23 @@ function dedupeItems(items) {
   return deduped;
 }
 
+function usableThumbnailUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw || /^(?:undefined|null)$/i.test(raw) || raw.startsWith("data:")) return "";
+
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    return "";
+  }
+
+  if (!/^https?:$/i.test(url.protocol)) return "";
+  if (/\/(?:undefined|null)(?:[?#]|$)/i.test(url.pathname)) return "";
+  if (!/(?:ytimg|googleusercontent|ggpht)\./i.test(url.hostname)) return "";
+  return url.href;
+}
+
 async function getScrollState(page) {
   return page.evaluate(() => {
     const scrollingElement = document.scrollingElement || document.documentElement;
@@ -571,6 +588,9 @@ async function scrapeSource(page, source, collectedAt) {
     const viewCount = parseCompactCount(rawItem.viewText);
     const liveViewerCount = parseCompactCount(rawItem.liveViewerText);
     const watchUrl = canonicalWatchUrl(rawItem.watchUrl, rawItem.videoId);
+    const thumbnailUrl =
+      usableThumbnailUrl(rawItem.thumbnailUrl) ||
+      (rawItem.videoId ? `https://i.ytimg.com/vi/${encodeURIComponent(rawItem.videoId)}/hqdefault.jpg` : "");
     const baseItem = {
       rank: index + 1,
       originalRank: index + 1,
@@ -580,9 +600,7 @@ async function scrapeSource(page, source, collectedAt) {
       channelAvatarUrl: rawItem.channelAvatarUrl,
       videoId: rawItem.videoId,
       watchUrl,
-      thumbnailUrl:
-        rawItem.thumbnailUrl ||
-        (rawItem.videoId ? `https://i.ytimg.com/vi/${encodeURIComponent(rawItem.videoId)}/hqdefault.jpg` : ""),
+      thumbnailUrl,
       viewText: rawItem.viewText,
       viewCount,
       liveViewerText: rawItem.liveViewerText,

@@ -140,7 +140,7 @@
       );
     }
     values.push(img.dataset.originalThumbnailSrc, img.getAttribute("src"), img.currentSrc, img.src);
-    return Array.from(new Set(values.map(absoluteUrl).filter(Boolean)));
+    return Array.from(new Set(values.map(absoluteUrl).filter(usableThumbnailUrl)));
   }
 
   function getVideoId(value) {
@@ -158,7 +158,15 @@
 
   function markThumbnailMissing(img) {
     const card = img.closest(".video-card");
-    if (card) card.classList.add("is-thumbnail-missing");
+    const thumbnail = img.closest(".thumbnail");
+    if (thumbnail) thumbnail.classList.add("is-thumbnail-broken");
+    img.hidden = true;
+    if (card) {
+      card.hidden = true;
+      card.classList.add("is-thumbnail-missing");
+      card.setAttribute("aria-hidden", "true");
+      card.dispatchEvent(new CustomEvent("ytb-thumbnail-missing", { bubbles: true }));
+    }
   }
 
   function installStyle() {
@@ -188,6 +196,20 @@
   function absoluteUrl(value) {
     try {
       return new URL(value, location.href).href;
+    } catch {
+      return "";
+    }
+  }
+
+  function usableThumbnailUrl(value) {
+    const raw = String(value || "").trim();
+    if (!raw || /^(?:undefined|null)$/i.test(raw) || raw.startsWith("data:")) return "";
+    try {
+      const url = new URL(raw, location.href);
+      if (!/^https?:$/i.test(url.protocol)) return "";
+      if (/\/(?:undefined|null)(?:[?#]|$)/i.test(url.pathname)) return "";
+      if (!/(?:ytimg|googleusercontent|ggpht)\./i.test(url.hostname)) return "";
+      return url.href;
     } catch {
       return "";
     }

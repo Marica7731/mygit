@@ -488,11 +488,7 @@
       }
     }
 
-    const thumbnail = img.closest(".thumbnail");
-    const placeholder = ensurePlaceholder(thumbnail);
-    img.hidden = true;
-    thumbnail?.classList.add("is-thumbnail-broken");
-    if (placeholder) placeholder.hidden = false;
+    markThumbnailMissing(img);
   }
 
   function parseFallbacks(img) {
@@ -546,10 +542,39 @@
     return values
       .map((value) => absoluteUrl(value))
       .filter((value) => {
-        if (!value || seen.has(value)) return false;
+        if (!usableThumbnailUrl(value) || seen.has(value)) return false;
         seen.add(value);
         return true;
       });
+  }
+
+  function markThumbnailMissing(img) {
+    const thumbnail = img.closest(".thumbnail");
+    const card = img.closest(".video-card");
+    const placeholder = thumbnail?.querySelector(".thumbnail-placeholder");
+    img.hidden = true;
+    thumbnail?.classList.add("is-thumbnail-broken");
+    if (placeholder) placeholder.hidden = true;
+    if (card) {
+      card.hidden = true;
+      card.classList.add("is-thumbnail-missing");
+      card.setAttribute("aria-hidden", "true");
+      card.dispatchEvent(new CustomEvent("ytb-thumbnail-missing", { bubbles: true }));
+    }
+  }
+
+  function usableThumbnailUrl(value) {
+    const raw = String(value || "").trim();
+    if (!raw || /^(?:undefined|null)$/i.test(raw) || raw.startsWith("data:")) return "";
+    try {
+      const url = new URL(raw, window.location.href);
+      if (!/^https?:$/i.test(url.protocol)) return "";
+      if (/\/(?:undefined|null)(?:[?#]|$)/i.test(url.pathname)) return "";
+      if (!/(?:ytimg|googleusercontent|ggpht)\./i.test(url.hostname)) return "";
+      return url.href;
+    } catch {
+      return "";
+    }
   }
 
   function absoluteUrl(value) {

@@ -87,7 +87,7 @@ function checkCollectionSize(payload, group, items, errors, warnings) {
 
 function checkThumbnails(group, items, errors) {
   if (!items.length) return;
-  const missing = items.filter((item) => !clean(item.thumbnailUrl)).length;
+  const missing = items.filter((item) => !usableThumbnailUrl(item.thumbnailUrl)).length;
   const ratio = missing / items.length;
   if (ratio > CONFIG.maxMissingThumbnailRatio) {
     errors.push(
@@ -95,6 +95,20 @@ function checkThumbnails(group, items, errors) {
         CONFIG.maxMissingThumbnailRatio,
       )}`,
     );
+  }
+}
+
+function usableThumbnailUrl(value) {
+  const raw = clean(value);
+  if (!raw || /^(?:undefined|null)$/i.test(raw) || raw.startsWith("data:")) return "";
+  try {
+    const url = new URL(raw);
+    if (!/^https?:$/i.test(url.protocol)) return "";
+    if (/\/(?:undefined|null)(?:[?#]|$)/i.test(url.pathname)) return "";
+    if (!/(?:ytimg|googleusercontent|ggpht)\./i.test(url.hostname)) return "";
+    return url.href;
+  } catch {
+    return "";
   }
 }
 
