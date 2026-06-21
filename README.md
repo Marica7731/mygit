@@ -79,14 +79,17 @@ python3 -m http.server 8080
 ```bash
 npm run snapshot
 npm run validate:snapshots
+node scripts/write-ranking-groups.js
 ```
 
 ## 文件清单
 
 - `scripts/update-youtube-ranking.js`：Playwright 抓取脚本，生成 `data/youtube-ranking.json`。
+- `scripts/write-ranking-groups.js`：从主排行数据生成 `data/youtube-ranking-live.json`、`data/youtube-ranking-today.json`、`data/youtube-ranking-month.json`，减少各页面刷新时下载的数据量。
 - `scripts/archive-live-snapshot.js`：把当前 `groups.live / groups.today / groups.month` 分别写入 `data/<group>-snapshots/`，并清理 7 天以前的快照。
 - `scripts/validate-live-snapshots.js`：校验三组快照索引、文件存在性和保留期。
 - `data/youtube-ranking.json`：前端读取的数据文件，由脚本或 GitHub Actions 更新。
+- `data/youtube-ranking-live.json`, `data/youtube-ranking-today.json`, `data/youtube-ranking-month.json`：三组当前页分组数据，保留主数据 envelope 但只包含对应 `groups.<group>`。
 - `data/live-snapshots/index.json`, `data/today-snapshots/index.json`, `data/month-snapshots/index.json`：三组快照索引，给前端快照下拉框读取。
 - `data/live-snapshots/*.json`, `data/today-snapshots/*.json`, `data/month-snapshots/*.json`：三组历史快照，只保存对应 `groups.<group>`，默认保留 7 天。
 - `index.html`：站点入口，默认展示直播 / 预约排行。
@@ -134,11 +137,11 @@ reachedBottom, truncatedByLimit, searchableText, collectedAt
 
 `.github/workflows/youtube-ranking.yml` 支持：
 
-- `push`：推送到 `main` 且改动抓取脚本、校验脚本或主 workflow 时触发一次抓取。
+- `push`：推送到 `main` 且改动抓取脚本、分组生成脚本、校验脚本或主 workflow 时触发一次抓取。
 - `workflow_dispatch`：手动触发。
 - `concurrency`：同一分支串行执行，不取消正在运行的抓取任务。
-- `permissions: contents: write`：使用 GitHub Actions 自带 `GITHUB_TOKEN` 提交更新后的 `data/youtube-ranking.json`。
-- 成功校验后会运行 `scripts/archive-live-snapshot.js` 和 `scripts/validate-live-snapshots.js`，同一 commit 写入最新主数据和 `data/live-snapshots/`、`data/today-snapshots/`、`data/month-snapshots/`。
+- `permissions: contents: write`：使用 GitHub Actions 自带 `GITHUB_TOKEN` 提交更新后的 `data/youtube-ranking.json` 和 `data/youtube-ranking-<group>.json`。
+- 成功校验后会运行 `scripts/archive-live-snapshot.js`、`scripts/validate-live-snapshots.js` 和 `scripts/write-ranking-groups.js --check`，同一 commit 写入最新主数据、三组分组数据和 `data/live-snapshots/`、`data/today-snapshots/`、`data/month-snapshots/`。
 
 `.github/workflows/youtube-ranking-chain.yml` 支持：
 
@@ -203,6 +206,7 @@ node scripts/validate-youtube-ranking.js
 node scripts/validate-duration-quality.js
 node scripts/archive-live-snapshot.js
 node scripts/validate-live-snapshots.js
+node scripts/write-ranking-groups.js --check
 ```
 
 ### 本次文件清单
@@ -220,20 +224,21 @@ node scripts/validate-live-snapshots.js
 | `assets/heartbeat-thumb-fallback.js` | 缩略图加载失败后的候选切换 | `markThumbnailUnavailable()` 隐藏无可用封面的 `.video-card` | 解决坏缩略图占位卡反复闪烁的问题 |
 | `assets/thumbnail-hotfix.js` | 缩略图质量检查和重复卡处理 | `markThumbnailMissing()` 隐藏无可用封面的卡片；`restoreDuplicateCard()` 只恢复 `.is-duplicate-video` | 避免覆盖坏封面、直播清理等其它隐藏状态 |
 | `assets/ux-hotfix.js` | 早期 UI 密度和导出补丁 | `restoreDuplicateCard()` 只恢复本脚本标记的重复卡 | 避免与缩略图 fallback 争抢 `card.hidden` |
-| `assets/ranking-controls.js` | 分页、搜索、横向滚动工具条、顶部栏折叠、最低播放量筛选、返回顶部、时间筛选、三组快照、默认屏蔽和排行 JSON 单页共享缓存控制层 | `patchRankingFetch()` 按当前页面组读取 `data/<group>-snapshots/<id>.json` 或 `data/youtube-ranking.json`，并通过 `fetchSharedRankingResponse()` 合并同页重复请求；`filterDefaultBlockedItems()` 过滤默认屏蔽频道和无效缩略图 URL；`applyTimeFilterAndPagination()` 按时间、播放量、缩略图状态和分页隐藏卡片 | 在四个 HTML 中先于主应用加载，避免侵入重打主 chunk |
+| `assets/ranking-controls.js` | 分页、搜索、横向滚动工具条、顶部栏折叠、最低播放量筛选、返回顶部、时间筛选、三组快照、默认屏蔽和排行 JSON 单页共享缓存控制层 | `patchRankingFetch()` 按当前页面组读取 `data/youtube-ranking-<group>.json`，选择快照时读取 `data/<group>-snapshots/<id>.json`，失败再回退 `data/youtube-ranking.json`；`fetchSharedRankingResponse()` 合并同页重复请求；`filterDefaultBlockedItems()` 过滤默认屏蔽频道和无效缩略图 URL；`applyTimeFilterAndPagination()` 按时间、播放量、缩略图状态和分页隐藏卡片 | 在四个 HTML 中先于主应用加载，避免侵入重打主 chunk |
 | `assets/ui-overrides.js` | 默认标题过滤、黑白名单 chip、直播指标展示和头像兜底逻辑 | `filterRankingDataByTitle()` 使用内部 `歌枠 / 弾き語` 标题规则并排除韩文；`markThumbnailMissing()` 隐藏无可用封面的卡片；`prepareChannelRows()` 补头像和频道行 | 后置增强卡片 DOM，默认过滤逻辑与 `assets/sort-hotfix.js` 保持一致 |
 | `assets/final-ui-polish.js`, `assets/corner-readability-hotfix.js`, `assets/heartbeat-corner-transparent.js`, `assets/png-export-hotfix.js` | 最终 UI 清理、角标可读性和 PNG 导出兜底 | `png-export-hotfix.js` 在导出前等待数据索引，并按 `videoId` 主动尝试 `hq720 / maxres / sd / hq / mq / default` 封面候选；其它脚本同步识别新旧默认标题过滤文案，避免内部过滤条件在页面或导出标题中露出 | 页面末尾加载或导出时兜底清理工具条状态 |
 | `scripts/archive-live-snapshot.js` | 三组快照生成脚本 | `archiveGroupSnapshot()` 保存当前 `groups.live / groups.today / groups.month`；`pruneSnapshotFiles()` 清理 7 天外快照；`summarizeGroup()` 生成索引摘要 | 主 workflow 成功校验后运行，产出给 `assets/ranking-controls.js` 读取的快照文件 |
+| `scripts/write-ranking-groups.js` | 当前排行分组文件生成脚本 | `groupPayload()` 保留主数据顶层 metadata，只写入对应 `groups.live / groups.today / groups.month`；`--check` 验证分组文件是否与主数据同步 | 主 workflow 归档快照后运行，产出给普通页面默认读取的轻量分组 JSON |
 | `scripts/validate-live-snapshots.js` | 三组快照校验脚本 | 校验索引 schema、快照文件、`groups.<group>.items` 和 7 天保留期 | 本地 `npm run validate:snapshots` 与 GitHub Actions 调用 |
 | `scripts/validate-youtube-ranking.js` | 排行数据质量校验脚本 | 校验三组条目、有效缩略图和播放量覆盖；直播订阅数覆盖不足只记 warning，避免公开订阅数短时不可采时阻断发布；对已到页底或达到 limit 的自然低数量结果降为 warning，未完成抓取仍保持 failure | 主 workflow 的初次校验和保守重试后终检都会调用 |
 | `scripts/fill-duration-details.js` | 非直播视频时长补全脚本 | `targetVideoItems()` 收集今日/本月缺失时长的视频；`YTB_RANKING_DURATION_INCLUDE_LIVE=0` 时跳过直播条目；`enrichWithFetch()` / `enrichWithPlaywright()` 只在仍有缺失时补充 | 主 workflow 在播放量补齐后运行，补出的 `durationText` / `durationSeconds` 供前端和 `validate-duration-quality.js` 使用 |
 | `data/live-snapshots/`, `data/today-snapshots/`, `data/month-snapshots/` | 三组快照数据 | 各自保存某次抓取的单个 `groups.<group>` 和索引 | 选择 `?snapshot=<id>` 时由前端按当前页面组替换主数据请求 |
-| `index.html`, `live.html`, `today.html`, `month.html` | GitHub Pages 页面入口 | 更新修复脚本的 cache-busting query | 保证线上页面加载 `20260621-snapshot1` 版本脚本和样式 |
+| `index.html`, `live.html`, `today.html`, `month.html` | GitHub Pages 页面入口 | 更新修复脚本的 cache-busting query | 保证线上页面加载 `20260622-split1` 版本脚本和样式 |
 | `.github/workflows/youtube-ranking.yml` | 主抓取、补指标、校验、快照和提交数据 workflow | 串行不取消运行中任务；直播频道详情后处理有硬超时并允许继续校验；初次质量校验失败后用保守滚动/并发/超时参数重跑一次；成功后写入三组快照；状态写入后主动派发下一次 chain tick | 由 scheduler、chain fallback 或手动触发 |
 | `.github/workflows/youtube-ranking-scheduler.yml` | GitHub Actions 调度入口 | 每 10 分钟检查空闲后派发主 workflow；若最近失败仍在 30 分钟冷却期内则跳过自动派发，保留 repository_dispatch | 学习 culua_web_h5 的 dispatch 控制方式，减少重复触发和失败噪音 |
 | `.github/workflows/youtube-ranking-chain.yml` | 更新兜底派发器 | 被主 workflow 显式派发或由错峰 schedule 触发后，等待约 9 分钟再检查空闲和失败冷却；手动触发可绕过失败冷却 | 在 GitHub schedule 漏触发时补派下一轮主 workflow |
 | `scripts/check-js-syntax.js` | 跨平台 JS 语法检查 | 遍历 `scripts/` 和 `assets/`，逐个执行 `node --check` | 替换 `package.json` 中 Bash 专用的 `for` 语法 |
-| `package.json` | npm 命令入口 | `npm run check` 调用跨平台检查脚本；`npm run snapshot` / `npm run validate:snapshots` 维护三组快照 | Windows PowerShell 与 Linux runner 都可直接运行 |
+| `package.json` | npm 命令入口 | `npm run check` 调用跨平台检查脚本并执行 `scripts/write-ranking-groups.js --check`；`npm run snapshot` / `npm run validate:snapshots` 维护三组快照 | Windows PowerShell 与 Linux runner 都可直接运行 |
 | `README.md` | 项目说明文档 | 记录本次功能、使用、文件清单、注意事项和测试说明 | 给后续维护者提供交接入口 |
 
 ### 注意事项
@@ -256,7 +261,7 @@ node scripts/validate-live-snapshots.js
 - `YTB_RANKING_DURATION_INCLUDE_LIVE` 默认为 `0`；只有确实需要在数据层保留直播时长时才应改成 `1`，否则会增加大量 watch 页和 Playwright 请求且最终不在直播页展示。
 - 调度器通过 `GITHUB_TOKEN` 派发主 workflow，不需要提交 GitHub PAT、cookie 或 `.env`。
 - 主 workflow 通过 `GITHUB_TOKEN` 显式派发 chain workflow，避免只依赖 GitHub `schedule` 或 `workflow_run` 接力；chain 带 `trigger_run_id` 时仍会遵守失败冷却。
-- `data/youtube-ranking.json` 体积会随快照和排行字段增长；前端依赖 `assets/ranking-controls.js` 的同页共享缓存避免刷新时被多个 hotfix 脚本重复下载和重复解析。
+- `data/youtube-ranking.json` 体积会随排行字段增长；普通页面默认读取 `data/youtube-ranking-<group>.json`，并依赖 `assets/ranking-controls.js` 的同页共享缓存避免刷新时被多个 hotfix 脚本重复下载和重复解析。完整主数据仍保留为兜底和维护入口，提交前应跑 `node scripts/write-ranking-groups.js --check` 防止分组文件过期。
 
 ### 测试说明
 
@@ -284,7 +289,7 @@ node scripts/validate-live-snapshots.js
 - 今日页和本月页卡片中的 `15小时前` 等发布时间文本保持紧凑，不应撑出大块空白。
 - 黑名单刷新后仍保留。
 - `live.html` / `today.html` / `month.html` 的快照下拉可分别选择 `data/live-snapshots/index.json`、`data/today-snapshots/index.json`、`data/month-snapshots/index.json` 中的快照。
-- `npm run check`、`node scripts/validate-youtube-ranking.js`、`node scripts/validate-duration-quality.js` 均通过。
+- `npm run check`、`node scripts/validate-youtube-ranking.js`、`node scripts/validate-duration-quality.js` 均通过，其中 `npm run check` 会同时校验三份 `data/youtube-ranking-<group>.json` 是否与主数据同步。
 - `node scripts/validate-youtube-ranking.js` 会把 `undefined` / `null` / 非公开图片域的 `thumbnailUrl` 计为缺失封面。
 - `node scripts/fill-duration-details.js` 在直播时长默认关闭时应输出 `includeLiveDurations: false`，且 `fetch.checked` / `playwright.checked` 不再随直播缺失数量增长。
 - GitHub Actions 中 `Update YouTube ranking` 若初次 `Validate ranking data` 失败，会出现 `Retry ranking data with conservative settings` step；终检通过才提交数据。

@@ -85,7 +85,7 @@
   }
 
   async function fetchSharedRankingResponse(init) {
-    const cacheKey = selectedSnapshot ? `snapshot:${GROUP}:${selectedSnapshot}` : "latest";
+    const cacheKey = selectedSnapshot ? `snapshot:${GROUP}:${selectedSnapshot}` : `latest:${GROUP}`;
     const store = sharedRankingResponseStore();
     if (!store.has(cacheKey)) {
       store.set(cacheKey, loadSharedRankingPayload(init).catch((error) => {
@@ -108,9 +108,15 @@
       ...(init || {}),
       cache: "no-store",
     };
-    const rankingUrl = selectedSnapshot ? snapshotDataUrl(selectedSnapshot) : DATA_URL;
+    const rankingUrl = selectedSnapshot ? snapshotDataUrl(selectedSnapshot) : groupDataUrl();
     let response = await rawFetch(rankingUrl, requestInit);
     if (selectedSnapshot && !response.ok) {
+      response = await rawFetch(groupDataUrl(), requestInit);
+    }
+    if (selectedSnapshot && !response.ok) {
+      response = await rawFetch(DATA_URL, requestInit);
+    }
+    if (!selectedSnapshot && !response.ok) {
       response = await rawFetch(DATA_URL, requestInit);
     }
     return cacheableRankingPayload(response);
@@ -911,6 +917,10 @@
 
   function snapshotDataUrl(snapshotId) {
     return `data/${GROUP}-snapshots/${encodeURIComponent(snapshotId)}.json`;
+  }
+
+  function groupDataUrl() {
+    return `data/youtube-ranking-${encodeURIComponent(GROUP)}.json`;
   }
 
   function latestSnapshotLabel() {
