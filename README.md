@@ -97,7 +97,7 @@ node scripts/write-ranking-groups.js
 - `today.html`：今日热度排行页面。
 - `month.html`：本月热度排行页面。
 - `assets/youtube-ranking.js`：前端脚本 loader。
-- `assets/youtube-ranking.chunk*.js`：前端搜索、筛选、排序、状态持久化和导出逻辑的拆分脚本块。
+- `assets/youtube-ranking.chunk*.js`：前端搜索、筛选、排序、状态持久化、分批卡片渲染和导出逻辑的拆分脚本块。
 - `assets/ranking-controls.js`：分页、外置搜索框、横向滚动工具条、顶部栏折叠、最低播放量筛选、返回顶部、时间筛选、三组快照选择、排行 JSON 单页共享缓存和自动布局锁定的前端控制层。
 - `assets/styles.css`：页面布局和移动端样式。
 - `assets/ui-overrides.css`：移动端紧凑布局、卡片信息密度和覆盖层样式。
@@ -233,7 +233,7 @@ node scripts/write-ranking-groups.js --check
 | `scripts/validate-youtube-ranking.js` | 排行数据质量校验脚本 | 校验三组条目、有效缩略图和播放量覆盖；直播订阅数覆盖不足只记 warning，避免公开订阅数短时不可采时阻断发布；对已到页底或达到 limit 的自然低数量结果降为 warning，未完成抓取仍保持 failure | 主 workflow 的初次校验和保守重试后终检都会调用 |
 | `scripts/fill-duration-details.js` | 非直播视频时长补全脚本 | `targetVideoItems()` 收集今日/本月缺失时长的视频；`YTB_RANKING_DURATION_INCLUDE_LIVE=0` 时跳过直播条目；`enrichWithFetch()` / `enrichWithPlaywright()` 只在仍有缺失时补充 | 主 workflow 在播放量补齐后运行，补出的 `durationText` / `durationSeconds` 供前端和 `validate-duration-quality.js` 使用 |
 | `data/live-snapshots/`, `data/today-snapshots/`, `data/month-snapshots/` | 三组快照数据 | 各自保存某次抓取的单个 `groups.<group>` 和索引 | 选择 `?snapshot=<id>` 时由前端按当前页面组替换主数据请求 |
-| `index.html`, `live.html`, `today.html`, `month.html` | GitHub Pages 页面入口 | 更新修复脚本的 cache-busting query | 保证线上页面加载 `20260622-split1` 版本脚本和样式 |
+| `index.html`, `live.html`, `today.html`, `month.html` | GitHub Pages 页面入口 | 更新修复脚本的 cache-busting query | 保证线上页面加载 `20260622-split3` 版本脚本和样式 |
 | `.github/workflows/youtube-ranking.yml` | 主抓取、补指标、校验、快照和提交数据 workflow | 串行不取消运行中任务；直播频道详情后处理有硬超时并允许继续校验；初次质量校验失败后用保守滚动/并发/超时参数重跑一次；成功后写入三组快照；状态写入后主动派发下一次 chain tick | 由 scheduler、chain fallback 或手动触发 |
 | `.github/workflows/youtube-ranking-scheduler.yml` | GitHub Actions 调度入口 | 每 10 分钟检查空闲后派发主 workflow；若最近失败仍在 30 分钟冷却期内则跳过自动派发，保留 repository_dispatch | 学习 culua_web_h5 的 dispatch 控制方式，减少重复触发和失败噪音 |
 | `.github/workflows/youtube-ranking-chain.yml` | 更新兜底派发器 | 被主 workflow 显式派发或由错峰 schedule 触发后，等待约 9 分钟再检查空闲和失败冷却；手动触发可绕过失败冷却 | 在 GitHub schedule 漏触发时补派下一轮主 workflow |

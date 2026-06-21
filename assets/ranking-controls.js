@@ -41,9 +41,15 @@
     });
     document.addEventListener("keydown", handleDocumentKeydown, true);
     document.addEventListener("ytb-thumbnail-missing", scheduleUpdate, true);
+    document.addEventListener("ytb-ranking-cards-appended", handleCardsAppended, true);
     window.addEventListener("resize", scheduleUpdate, { passive: true });
     [0, 500, 1500, 3500].forEach((delay) => setTimeout(refreshStyleOrder, delay));
     [250, 800, 1600, 3200, 6400].forEach((delay) => setTimeout(scheduleUpdate, delay));
+  }
+
+  function handleCardsAppended() {
+    scheduleUpdate();
+    setTimeout(scheduleUpdate, 80);
   }
 
   function sanitizeState() {
@@ -432,7 +438,11 @@
   function applyTimeFilterAndPagination() {
     if (!controlsReady) return;
     const cards = Array.from(document.querySelectorAll(".video-card"));
-    if (!cards.length) return;
+    if (!cards.length) {
+      renderPagination(0, 1, PAGE_SIZE);
+      updateDataSummary([]);
+      return;
+    }
 
     for (const card of cards) {
       delete card.dataset.pageHidden;
@@ -454,7 +464,8 @@
 
     const eligibleCards = cards.filter(isPaginationEligible);
     const pageSize = pageSizeForCards(eligibleCards);
-    const pageCount = Math.max(1, Math.ceil(eligibleCards.length / pageSize));
+    const totalItems = paginationTotal(eligibleCards);
+    const pageCount = Math.max(1, Math.ceil(totalItems / pageSize));
     currentPage = Math.min(Math.max(1, currentPage), pageCount);
 
     eligibleCards.forEach((card, index) => {
@@ -462,8 +473,14 @@
       if (pageIndex !== currentPage) card.dataset.pageHidden = "1";
     });
 
-    renderPagination(eligibleCards.length, pageCount, pageSize);
+    renderPagination(totalItems, pageCount, pageSize);
     updateDataSummary(eligibleCards);
+  }
+
+  function paginationTotal(eligibleCards) {
+    const countState = currentCountState();
+    if (countState?.visible != null) return Math.max(countState.visible, eligibleCards.length);
+    return eligibleCards.length;
   }
 
   function renderPagination(total, pageCount, pageSize) {
@@ -472,7 +489,8 @@
     if (total <= pageSize) {
       roots.forEach((root) => {
         root.hidden = true;
-        root.innerHTML = "";
+        if (root.innerHTML) root.innerHTML = "";
+        delete root.dataset.paginationMarkup;
       });
       return;
     }
@@ -481,11 +499,14 @@
     const end = Math.min(total, currentPage * pageSize);
     roots.forEach((root) => {
       root.hidden = false;
-      root.innerHTML = `
+      const markup = `
         <button type="button" data-page-action="prev" ${currentPage <= 1 ? "disabled" : ""}>上一页</button>
         <span>${start}-${end} / ${total}</span>
         <button type="button" data-page-action="next" ${currentPage >= pageCount ? "disabled" : ""}>下一页</button>
       `;
+      if (root.dataset.paginationMarkup === markup) return;
+      root.dataset.paginationMarkup = markup;
+      root.innerHTML = markup;
       root.querySelector('[data-page-action="prev"]')?.addEventListener("click", () => {
         currentPage -= 1;
         scheduleUpdate();
