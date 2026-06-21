@@ -1235,6 +1235,8 @@
         align-self: stretch !important;
         grid-template-rows: auto 1fr !important;
         height: 100% !important;
+        content-visibility: auto !important;
+        contain-intrinsic-size: 260px 220px !important;
       }
       .video-card .card-body {
         display: flex !important;
