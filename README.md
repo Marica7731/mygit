@@ -85,11 +85,11 @@ node scripts/write-ranking-groups.js
 ## 文件清单
 
 - `scripts/update-youtube-ranking.js`：Playwright 抓取脚本，生成 `data/youtube-ranking.json`。
-- `scripts/write-ranking-groups.js`：从主排行数据生成 `data/youtube-ranking-live.json`、`data/youtube-ranking-today.json`、`data/youtube-ranking-month.json`，减少各页面刷新时下载的数据量。
+- `scripts/write-ranking-groups.js`：从主排行数据生成 `data/youtube-ranking-live.json`、`data/youtube-ranking-today.json`、`data/youtube-ranking-month.json`，并裁掉前端可即时重建的冗余字段，减少各页面刷新时下载的数据量。
 - `scripts/archive-live-snapshot.js`：把当前 `groups.live / groups.today / groups.month` 分别写入 `data/<group>-snapshots/`，并清理 7 天以前的快照。
 - `scripts/validate-live-snapshots.js`：校验三组快照索引、文件存在性和保留期。
 - `data/youtube-ranking.json`：前端读取的数据文件，由脚本或 GitHub Actions 更新。
-- `data/youtube-ranking-live.json`, `data/youtube-ranking-today.json`, `data/youtube-ranking-month.json`：三组当前页分组数据，保留主数据 envelope 但只包含对应 `groups.<group>`。
+- `data/youtube-ranking-live.json`, `data/youtube-ranking-today.json`, `data/youtube-ranking-month.json`：三组当前页分组数据，保留主数据 envelope 但只包含对应 `groups.<group>`；前端版会省略 `searchableText`，搜索改用标题、频道、视频 ID 和 URL 即时拼接。
 - `data/live-snapshots/index.json`, `data/today-snapshots/index.json`, `data/month-snapshots/index.json`：三组快照索引，给前端快照下拉框读取。
 - `data/live-snapshots/*.json`, `data/today-snapshots/*.json`, `data/month-snapshots/*.json`：三组历史快照，只保存对应 `groups.<group>`，默认保留 7 天。
 - `index.html`：站点入口，默认展示直播 / 预约排行。
@@ -124,6 +124,7 @@ reachedBottom, truncatedByLimit, searchableText, collectedAt
 ```
 
 `rank` 和 `originalRank` 表示 YouTube 搜索结果原始顺序；前端筛选或排序后只更新视图中的 `visibleRank`。
+三组前端分组 JSON 会省略 `searchableText` 以减小体积；主数据和快照仍可保留该字段。
 
 ## GitHub Actions
 
