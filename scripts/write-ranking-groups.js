@@ -11,7 +11,7 @@ function readJson(filePath) {
 }
 
 function stringifyJson(value) {
-  return `${JSON.stringify(value, null, 2)}\n`;
+  return `${JSON.stringify(value)}\n`;
 }
 
 function writeJson(filePath, text) {
