@@ -143,8 +143,7 @@ reachedBottom, truncatedByLimit, searchableText, collectedAt
 `.github/workflows/youtube-ranking-chain.yml` 支持：
 
 - `schedule`：以 `6,16,26,36,46,56` 分错峰执行同一套空闲检查，作为 scheduler 漏触发时的第二心跳。
-- `workflow_run`：主更新 workflow 完成后等待约 9 分钟，再检查主 workflow 是否空闲、是否仍在失败冷却期；满足条件时派发下一轮。
-- `workflow_dispatch`：手动触发，不受失败冷却限制。
+- `workflow_dispatch`：主更新 workflow 完成状态写入后会主动派发该入口，等待约 9 分钟后检查主 workflow 是否空闲、是否仍在失败冷却期；手动触发且未传 `trigger_run_id` 时不受失败冷却限制。
 
 如需更稳定的直播量化指标，在仓库 Settings -> Secrets and variables -> Actions 中新增 `YOUTUBE_API_KEY`。该值只在 GitHub Actions 运行时注入，不要写入仓库文件。
 
@@ -215,7 +214,7 @@ node scripts/validate-live-snapshots.js
 | `assets/sort-hotfix.js` | 前端排序、主指标和缩略图兜底修正 | `getPrimaryMetric()` 去掉 DOM 播放量 fallback；`markThumbnailMissing()` 在候选全部失败后隐藏整卡 | 先于主 chunk 加载，影响后续卡片角标和排序展示 |
 | `assets/sort-hotfix.css` | 排序和缩略图状态样式 | `.video-card.is-thumbnail-missing` 直接隐藏 | 配合各缩略图 fallback 脚本剔除无封面卡 |
 | `assets/heartbeat-hotfix-v2.js` | 早期卡片压缩、指标和元信息补丁 | `upsertMeta()` 在 live 页移除时间跨度，`restoreDuplicateCard()` 只恢复本脚本标记的重复卡 | 与 `heartbeat-corner-layout.js`、`final-ui-polish.js` 共同处理卡片外观 |
-| `assets/heartbeat-corner-layout.js` | 缩略图角标和卡片元信息布局 | `writeBodyMeta()` live 页不渲染时间；`metricLabel()` 不再继承 DOM 旧指标；`durationLabel()` live 页不回填时长 | 最终写入缩略图上的 rank、metric、keyword、time 角标 |
+| `assets/heartbeat-corner-layout.js` | 缩略图角标和卡片元信息布局 | `observeCardChanges()` 监听主应用延迟渲染、分页和筛选变化；`writeBodyMeta()` live 页不渲染时间；`metricLabel()` 不再继承 DOM 旧指标；`durationLabel()` live 页不回填时长 | 最终写入缩略图上的 rank、metric、keyword、time 角标 |
 | `assets/heartbeat-chip-compact.js` | 紧凑布局和 meta 文本整理 | `normalizeMetaRows()` live 页删除 `.hb-meta` | 防止后置整理脚本重新显示直播时间 |
 | `assets/final-ui-polish.js` | 最终 UI 清理和频道链接补齐 | `scrubBodyDuplicates()` 和 `ensureCornerTime()` live 页删除时间相关节点 | 页面末尾加载，兜底覆盖早期热补丁残留 |
 | `assets/heartbeat-thumb-fallback.js` | 缩略图加载失败后的候选切换 | `markThumbnailUnavailable()` 隐藏无可用封面的 `.video-card` | 解决坏缩略图占位卡反复闪烁的问题 |
@@ -230,9 +229,9 @@ node scripts/validate-live-snapshots.js
 | `scripts/fill-duration-details.js` | 非直播视频时长补全脚本 | `targetVideoItems()` 收集今日/本月缺失时长的视频；`YTB_RANKING_DURATION_INCLUDE_LIVE=0` 时跳过直播条目；`enrichWithFetch()` / `enrichWithPlaywright()` 只在仍有缺失时补充 | 主 workflow 在播放量补齐后运行，补出的 `durationText` / `durationSeconds` 供前端和 `validate-duration-quality.js` 使用 |
 | `data/live-snapshots/`, `data/today-snapshots/`, `data/month-snapshots/` | 三组快照数据 | 各自保存某次抓取的单个 `groups.<group>` 和索引 | 选择 `?snapshot=<id>` 时由前端按当前页面组替换主数据请求 |
 | `index.html`, `live.html`, `today.html`, `month.html` | GitHub Pages 页面入口 | 更新修复脚本的 cache-busting query | 保证线上页面加载 `20260621-snapshot1` 版本脚本和样式 |
-| `.github/workflows/youtube-ranking.yml` | 主抓取、补指标、校验、快照和提交数据 workflow | 串行不取消运行中任务；直播频道详情后处理有硬超时并允许继续校验；初次质量校验失败后用保守滚动/并发/超时参数重跑一次；成功后写入三组快照 | 由 scheduler、chain fallback 或手动触发 |
+| `.github/workflows/youtube-ranking.yml` | 主抓取、补指标、校验、快照和提交数据 workflow | 串行不取消运行中任务；直播频道详情后处理有硬超时并允许继续校验；初次质量校验失败后用保守滚动/并发/超时参数重跑一次；成功后写入三组快照；状态写入后主动派发下一次 chain tick | 由 scheduler、chain fallback 或手动触发 |
 | `.github/workflows/youtube-ranking-scheduler.yml` | GitHub Actions 调度入口 | 每 10 分钟检查空闲后派发主 workflow；若最近失败仍在 30 分钟冷却期内则跳过自动派发，保留 repository_dispatch | 学习 culua_web_h5 的 dispatch 控制方式，减少重复触发和失败噪音 |
-| `.github/workflows/youtube-ranking-chain.yml` | 更新兜底派发器 | 主 workflow 完成后等待约 9 分钟再检查空闲和失败冷却；也支持手动触发 | 在 GitHub schedule 漏触发时补派下一轮主 workflow |
+| `.github/workflows/youtube-ranking-chain.yml` | 更新兜底派发器 | 被主 workflow 显式派发或由错峰 schedule 触发后，等待约 9 分钟再检查空闲和失败冷却；手动触发可绕过失败冷却 | 在 GitHub schedule 漏触发时补派下一轮主 workflow |
 | `scripts/check-js-syntax.js` | 跨平台 JS 语法检查 | 遍历 `scripts/` 和 `assets/`，逐个执行 `node --check` | 替换 `package.json` 中 Bash 专用的 `for` 语法 |
 | `package.json` | npm 命令入口 | `npm run check` 调用跨平台检查脚本；`npm run snapshot` / `npm run validate:snapshots` 维护三组快照 | Windows PowerShell 与 Linux runner 都可直接运行 |
 | `README.md` | 项目说明文档 | 记录本次功能、使用、文件清单、注意事项和测试说明 | 给后续维护者提供交接入口 |
@@ -256,6 +255,7 @@ node scripts/validate-live-snapshots.js
 - 质量校验仍会阻止明显不完整的数据覆盖线上排行；保守重试只是在同一次 workflow 内再抓一次，不会提交未通过终检的候选数据。
 - `YTB_RANKING_DURATION_INCLUDE_LIVE` 默认为 `0`；只有确实需要在数据层保留直播时长时才应改成 `1`，否则会增加大量 watch 页和 Playwright 请求且最终不在直播页展示。
 - 调度器通过 `GITHUB_TOKEN` 派发主 workflow，不需要提交 GitHub PAT、cookie 或 `.env`。
+- 主 workflow 通过 `GITHUB_TOKEN` 显式派发 chain workflow，避免只依赖 GitHub `schedule` 或 `workflow_run` 接力；chain 带 `trigger_run_id` 时仍会遵守失败冷却。
 
 ### 测试说明
 

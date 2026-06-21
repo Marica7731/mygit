@@ -262,3 +262,12 @@ jobs:
               git push
             }
           fi
+
+      - name: Dispatch next chain tick
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run youtube-ranking-chain.yml --ref main --repo "$GITHUB_REPOSITORY" -f trigger_run_id="$GITHUB_RUN_ID" || {
+            echo "::warning::Failed to dispatch chain workflow; scheduler fallback remains active."
+          }

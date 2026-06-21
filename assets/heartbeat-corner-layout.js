@@ -5,6 +5,7 @@
 
   ready(() => {
     installStyle();
+    observeCardChanges();
     fetch(`data/youtube-ranking.json?corner=${Date.now()}`, { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
@@ -19,6 +20,8 @@
     document.addEventListener("click", scheduleRefresh, true);
     document.addEventListener("change", scheduleRefresh, true);
     document.addEventListener("input", scheduleRefresh, true);
+    document.addEventListener("ytb-thumbnail-missing", scheduleRefresh, true);
+    window.addEventListener("resize", scheduleRefresh, { passive: true });
   });
 
   let refreshTimer = 0;
@@ -26,6 +29,31 @@
     clearTimeout(refreshTimer);
     refreshTimer = setTimeout(refresh, 180);
     setTimeout(refresh, 700);
+  }
+
+  function observeCardChanges() {
+    const root = document.getElementById("app") || document.body;
+    if (!root) return;
+    const observer = new MutationObserver((mutations) => {
+      if (mutations.some(shouldRefreshForMutation)) scheduleRefresh();
+    });
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class", "hidden", "style", "data-page-hidden", "data-time-hidden", "data-view-hidden"],
+    });
+  }
+
+  function shouldRefreshForMutation(mutation) {
+    if (mutation.type === "childList") {
+      return Array.from(mutation.addedNodes).some((node) => {
+        if (node.nodeType !== Node.ELEMENT_NODE) return false;
+        return node.matches?.(".video-card,.cards,#ranking-sections") || node.querySelector?.(".video-card");
+      });
+    }
+    const target = mutation.target;
+    return target?.classList?.contains("video-card") || target?.closest?.(".video-card,.cards,#ranking-sections");
   }
 
   function refresh() {

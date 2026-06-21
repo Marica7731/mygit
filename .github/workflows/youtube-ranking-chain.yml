@@ -14,11 +14,6 @@ on:
         description: "Update run id that requested this tick"
         required: false
         type: string
-  workflow_run:
-    workflows:
-      - Update YouTube ranking
-    types:
-      - completed
 
 permissions:
   actions: write
@@ -30,7 +25,6 @@ concurrency:
 
 jobs:
   dispatch-next:
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion != 'cancelled' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -51,6 +45,7 @@ jobs:
           const repo = process.env.GITHUB_REPOSITORY;
           const triggerRunId = String(process.env.TRIGGER_RUN_ID || '');
           const eventName = process.env.GITHUB_EVENT_NAME || '';
+          const isManualDispatch = eventName === 'workflow_dispatch' && !triggerRunId;
           const cooldownMinutes = Number(process.env.YTB_RANKING_FAILURE_COOLDOWN_MINUTES || 30);
           const raw = execFileSync(
             'gh',
@@ -79,7 +74,7 @@ jobs:
           const status = readRankingStatus(repo);
           const failedAt = Date.parse(status?.attemptedAt || '');
           if (
-            eventName !== 'workflow_dispatch' &&
+            !isManualDispatch &&
             status?.status === 'failed' &&
             Number.isFinite(failedAt) &&
             now - failedAt < cooldownMinutes * 60 * 1000
