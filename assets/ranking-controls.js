@@ -1292,16 +1292,18 @@
         line-height: 1.08 !important;
       }
       .video-card .channel-metric-row {
+        align-items: center !important;
         align-self: stretch !important;
         gap: 3px !important;
         margin: 0 !important;
         min-height: 0 !important;
       }
       .video-card .channel {
-        align-self: start !important;
+        align-self: center !important;
         min-height: 0 !important;
         margin: 0 !important;
         line-height: 1.12 !important;
+        text-align: left !important;
       }
       .video-card .channel-avatar {
         width: 20px !important;
