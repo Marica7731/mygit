@@ -1,48 +1,33 @@
 {
-  "status": "failed",
-  "attemptedAt": "2026-06-24T12:09:28.263Z",
-  "runId": "28096448521",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/28096448521",
+  "status": "success",
+  "attemptedAt": "2026-06-24T13:19:21.262Z",
+  "runId": "28100810613",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/28100810613",
   "eventName": "workflow_dispatch",
-  "headSha": "ddf167795b74c91d6115ab19bb265c0566a5b4e4",
-  "message": "Validate duration data failed",
-  "failedStep": "Validate duration data",
-  "lastSuccessfulGeneratedAt": "2026-06-24T11:35:02.287Z",
+  "headSha": "b02e15bb9abadbf9f14ec9bcdc3d253360522abb",
+  "message": "ranking update passed",
+  "failedStep": "",
+  "lastSuccessfulGeneratedAt": "2026-06-24T13:11:30.796Z",
   "liveDetailPostProcess": {
-    "generatedAt": "2026-06-24T11:41:30.722Z",
+    "generatedAt": "2026-06-24T13:18:16.699Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 215040,
+    "elapsedMs": 230205,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 126,
+    "clearedUntrustedLiveViewers": 141,
     "watchChecked": 120,
-    "watchChanged": 128,
+    "watchChanged": 123,
     "channelChecked": 0,
     "channelChanged": 0
   },
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
     "clearedLiveDurationItems": 0,
-    "removedExplicitDirtyLiveItems": 2,
-    "removedExplicitDirtyLiveSamples": [
-      {
-        "videoId": "Q549p5qmepE",
-        "title": "【 Karaoke #歌枠 】元プロが歌う24時間配信へようこそ🍊 #作業用BGM 【 #vtuber #vsinger 】",
-        "channelName": "みかんとボーカルノート",
-        "durationText": "",
-        "durationSeconds": null
-      },
-      {
-        "videoId": "Q549p5qmepE",
-        "title": "【 Karaoke #歌枠 】元プロが歌う24時間配信へようこそ🍊 #作業用BGM 【 #vtuber #vsinger 】",
-        "channelName": "みかんとボーカルノート",
-        "durationText": "",
-        "durationSeconds": null
-      }
-    ],
+    "removedExplicitDirtyLiveItems": 0,
+    "removedExplicitDirtyLiveSamples": [],
     "recoveredSubscriberItems": 0,
     "subscriberItemsAfterClean": 128,
-    "processedAt": "2026-06-24T11:42:16.754Z"
+    "processedAt": "2026-06-24T13:19:01.924Z"
   }
 }
