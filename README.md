@@ -147,7 +147,7 @@ reachedBottom, truncatedByLimit, searchableText, collectedAt
 `.github/workflows/youtube-ranking-chain.yml` 支持：
 
 - `schedule`：以 `6,16,26,36,46,56` 分错峰执行同一套空闲检查，作为 scheduler 漏触发时的第二心跳。
-- `workflow_dispatch`：主更新 workflow 完成状态写入后会主动派发该入口，等待约 9 分钟后检查主 workflow 是否空闲、是否仍在失败冷却期；手动触发且未传 `trigger_run_id` 时不受失败冷却限制。
+- `workflow_dispatch`：主更新 workflow 完成状态写入后会主动派发该入口，按上次主更新启动时间补足约 10 分钟后检查主 workflow 是否空闲、是否仍在失败冷却期；如果主更新本身已运行超过 10 分钟，则几乎立即检查；手动触发且未传 `trigger_run_id` 时不受失败冷却限制。
 
 如需更稳定的直播量化指标，在仓库 Settings -> Secrets and variables -> Actions 中新增 `YOUTUBE_API_KEY`。该值只在 GitHub Actions 运行时注入，不要写入仓库文件。
 
@@ -237,7 +237,7 @@ node scripts/write-ranking-groups.js --check
 | `index.html`, `live.html`, `today.html`, `month.html` | GitHub Pages 页面入口 | 更新修复脚本的 cache-busting query | 保证线上页面加载 `20260622-channel1` 版本控制层脚本和 `20260622-split4` 版本主排行脚本 |
 | `.github/workflows/youtube-ranking.yml` | 主抓取、补指标、校验、快照和提交数据 workflow | 串行不取消运行中任务；直播频道详情后处理有硬超时并允许继续校验；初次质量校验失败后用保守滚动/并发/超时参数重跑一次；成功后写入三组快照；状态写入后主动派发下一次 chain tick | 由 scheduler、chain fallback 或手动触发 |
 | `.github/workflows/youtube-ranking-scheduler.yml` | GitHub Actions 调度入口 | 每 10 分钟检查空闲后派发主 workflow；若最近失败仍在 30 分钟冷却期内则跳过自动派发，保留 repository_dispatch | 学习 culua_web_h5 的 dispatch 控制方式，减少重复触发和失败噪音 |
-| `.github/workflows/youtube-ranking-chain.yml` | 更新兜底派发器 | 被主 workflow 显式派发或由错峰 schedule 触发后，等待约 9 分钟再检查空闲和失败冷却；如果失败仍在冷却期内，会等到冷却结束后复查一次；手动触发可绕过失败冷却 | 在 GitHub schedule 漏触发时补派下一轮主 workflow |
+| `.github/workflows/youtube-ranking-chain.yml` | 更新兜底派发器 | 被主 workflow 显式派发后，按上次主更新启动时间补足约 10 分钟再检查空闲和失败冷却；主更新耗时已超过 10 分钟时立即检查；由错峰 schedule 触发时立即兜底检查；如果失败仍在冷却期内，会等到冷却结束后复查一次；手动触发可绕过失败冷却 | 在 GitHub schedule 漏触发时补派下一轮主 workflow |
 | `scripts/check-js-syntax.js` | 跨平台 JS 语法检查 | 遍历 `scripts/` 和 `assets/`，逐个执行 `node --check` | 替换 `package.json` 中 Bash 专用的 `for` 语法 |
 | `package.json` | npm 命令入口 | `npm run check` 调用跨平台检查脚本并执行 `scripts/write-ranking-groups.js --check`；`npm run snapshot` / `npm run validate:snapshots` 维护三组快照 | Windows PowerShell 与 Linux runner 都可直接运行 |
 | `README.md` | 项目说明文档 | 记录本次功能、使用、文件清单、注意事项和测试说明 | 给后续维护者提供交接入口 |

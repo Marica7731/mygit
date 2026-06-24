@@ -28,14 +28,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      YTB_RANKING_CHAIN_DELAY_SECONDS: "540"
+      YTB_RANKING_CHAIN_TARGET_INTERVAL_SECONDS: "600"
+      YTB_RANKING_CHAIN_FALLBACK_DELAY_SECONDS: "0"
       YTB_RANKING_FAILURE_COOLDOWN_MINUTES: "30"
       YTB_RANKING_FAILURE_COOLDOWN_BUFFER_SECONDS: "30"
       TRIGGER_RUN_ID: ${{ github.event.workflow_run.id || github.event.inputs.trigger_run_id || '' }}
     steps:
-      - name: Wait before next update
-        run: sleep "$YTB_RANKING_CHAIN_DELAY_SECONDS"
-
       - name: Dispatch update when idle
         env:
           GH_TOKEN: ${{ github.token }}
@@ -47,6 +45,8 @@ jobs:
           const triggerRunId = String(process.env.TRIGGER_RUN_ID || '');
           const eventName = process.env.GITHUB_EVENT_NAME || '';
           const isManualDispatch = eventName === 'workflow_dispatch' && !triggerRunId;
+          const targetIntervalMs = Number(process.env.YTB_RANKING_CHAIN_TARGET_INTERVAL_SECONDS || 600) * 1000;
+          const fallbackDelayMs = Number(process.env.YTB_RANKING_CHAIN_FALLBACK_DELAY_SECONDS || 0) * 1000;
           const cooldownMinutes = Number(process.env.YTB_RANKING_FAILURE_COOLDOWN_MINUTES || 30);
           const cooldownBufferMs = Number(process.env.YTB_RANKING_FAILURE_COOLDOWN_BUFFER_SECONDS || 30) * 1000;
 
@@ -56,7 +56,26 @@ jobs:
           });
 
           async function main() {
-            await dispatchWhenIdle({ allowCooldownWait: !isManualDispatch });
+            await waitBeforeIdleCheck();
+            await dispatchWhenIdle({ allowCooldownWait: Boolean(triggerRunId) && !isManualDispatch });
+          }
+
+          async function waitBeforeIdleCheck() {
+            const delayMs = triggerRunId ? triggerDelayMs() : fallbackDelayMs;
+            if (delayMs <= 0) {
+              console.log('No chain delay needed before idle check.');
+              return;
+            }
+
+            console.log(`Waiting ${Math.ceil(delayMs / 1000)}s before idle check.`);
+            await sleep(delayMs);
+          }
+
+          function triggerDelayMs() {
+            const run = readRun(repo, triggerRunId);
+            const startedAt = Date.parse(run?.run_started_at || run?.created_at || '');
+            if (!Number.isFinite(startedAt)) return Math.max(0, fallbackDelayMs);
+            return Math.max(0, startedAt + targetIntervalMs - Date.now());
           }
 
           async function dispatchWhenIdle({ allowCooldownWait }) {
@@ -112,6 +131,19 @@ jobs:
               { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
             );
             return JSON.parse(raw).workflow_runs || [];
+          }
+
+          function readRun(repo, runId) {
+            try {
+              const raw = execFileSync(
+                'gh',
+                ['api', '--method', 'GET', `repos/${repo}/actions/runs/${runId}`],
+                { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+              );
+              return JSON.parse(raw);
+            } catch {
+              return null;
+            }
           }
 
           function sleep(ms) {
