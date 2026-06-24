@@ -181,7 +181,7 @@ reachedBottom, truncatedByLimit, searchableText, collectedAt
 - 主 workflow 在排行质量校验失败时会自动用更保守的滚动、超时和并发参数重试一次，降低 YouTube 短时加载不足导致的失败率。
 - scheduler 会读取 `data/youtube-ranking-status.json`，最近一次失败仍在 30 分钟冷却期内时跳过自动派发，避免每 10 分钟重复刷失败状态；手动触发不受冷却限制。
 - 最近 24 小时内的抓取失败集中在 `Validate ranking data`，不是 runner、安装、Node、Playwright 或推送崩溃。最近一次失败样例为 `today` 非直播 190/240、`month` 非直播 246/300、`today` 有播放量 170/240；因此改为同一 run 内保守重试，并对失败自动派发做冷却。
-- 非直播视频时长仍会补全并校验；直播页不展示时长，`scripts/fill-duration-details.js` 默认跳过直播条目，避免随后被 `clear-live-duration-fields.js` 清掉的无效 fetch / Playwright 工作拖慢更新。
+- 非直播视频时长仍会补全并校验；`scripts/fill-duration-details.js` 会先按 `videoId` 从上一批线上数据继承已有时长，再对真正缺失的新视频做 API / fetch / Playwright 补全，避免 YouTube watch 页临时 429 时把月榜时长覆盖率打穿。直播页不展示时长，默认跳过直播条目，避免随后被 `clear-live-duration-fields.js` 清掉的无效 fetch / Playwright 工作拖慢更新。
 - 直播频道详情后处理增加脚本级运行预算和 workflow 硬超时；该补充步骤超时后继续进入后续校验，避免单个 YouTube 页面请求把整条更新链路卡到 job 超时。
 
 ### 使用方法
@@ -232,12 +232,12 @@ node scripts/write-ranking-groups.js --check
 | `scripts/write-ranking-groups.js` | 当前排行分组文件生成脚本 | `groupPayload()` 保留主数据顶层 metadata，只写入对应 `groups.live / groups.today / groups.month`；`--check` 验证分组文件是否与主数据同步；分组文件使用紧凑 JSON 降低下载后解析体积 | 主 workflow 归档快照后运行，产出给普通页面默认读取的轻量分组 JSON |
 | `scripts/validate-live-snapshots.js` | 三组快照校验脚本 | 校验索引 schema、快照文件、`groups.<group>.items` 和 7 天保留期 | 本地 `npm run validate:snapshots` 与 GitHub Actions 调用 |
 | `scripts/validate-youtube-ranking.js` | 排行数据质量校验脚本 | 校验三组条目、有效缩略图和播放量覆盖；直播订阅数覆盖不足只记 warning，避免公开订阅数短时不可采时阻断发布；对已到页底或达到 limit 的自然低数量结果降为 warning，未完成抓取仍保持 failure | 主 workflow 的初次校验和保守重试后终检都会调用 |
-| `scripts/fill-duration-details.js` | 非直播视频时长补全脚本 | `targetVideoItems()` 收集今日/本月缺失时长的视频；`YTB_RANKING_DURATION_INCLUDE_LIVE=0` 时跳过直播条目；`enrichWithFetch()` / `enrichWithPlaywright()` 只在仍有缺失时补充 | 主 workflow 在播放量补齐后运行，补出的 `durationText` / `durationSeconds` 供前端和 `validate-duration-quality.js` 使用 |
+| `scripts/fill-duration-details.js` | 非直播视频时长补全脚本 | `mergePreviousDurations()` 先从 `YTB_RANKING_PREVIOUS_DATA` 按 `videoId` 恢复旧时长；`targetVideoItems()` 收集今日/本月缺失时长的视频；`YTB_RANKING_DURATION_INCLUDE_LIVE=0` 时跳过直播条目；`YTB_RANKING_DURATION_API_LIMIT` 单独控制 API 批量补全上限 | 主 workflow 在播放量补齐后运行，补出的 `durationText` / `durationSeconds` 供前端和 `validate-duration-quality.js` 使用 |
 | `data/live-snapshots/`, `data/today-snapshots/`, `data/month-snapshots/` | 三组快照数据 | 各自保存某次抓取的单个 `groups.<group>` 和索引 | 选择 `?snapshot=<id>` 时由前端按当前页面组替换主数据请求 |
 | `index.html`, `live.html`, `today.html`, `month.html` | GitHub Pages 页面入口 | 更新修复脚本的 cache-busting query | 保证线上页面加载 `20260622-channel1` 版本控制层脚本和 `20260622-split4` 版本主排行脚本 |
 | `.github/workflows/youtube-ranking.yml` | 主抓取、补指标、校验、快照和提交数据 workflow | 串行不取消运行中任务；直播频道详情后处理有硬超时并允许继续校验；初次质量校验失败后用保守滚动/并发/超时参数重跑一次；成功后写入三组快照；状态写入后主动派发下一次 chain tick | 由 scheduler、chain fallback 或手动触发 |
 | `.github/workflows/youtube-ranking-scheduler.yml` | GitHub Actions 调度入口 | 每 10 分钟检查空闲后派发主 workflow；若最近失败仍在 30 分钟冷却期内则跳过自动派发，保留 repository_dispatch | 学习 culua_web_h5 的 dispatch 控制方式，减少重复触发和失败噪音 |
-| `.github/workflows/youtube-ranking-chain.yml` | 更新兜底派发器 | 被主 workflow 显式派发或由错峰 schedule 触发后，等待约 9 分钟再检查空闲和失败冷却；手动触发可绕过失败冷却 | 在 GitHub schedule 漏触发时补派下一轮主 workflow |
+| `.github/workflows/youtube-ranking-chain.yml` | 更新兜底派发器 | 被主 workflow 显式派发或由错峰 schedule 触发后，等待约 9 分钟再检查空闲和失败冷却；如果失败仍在冷却期内，会等到冷却结束后复查一次；手动触发可绕过失败冷却 | 在 GitHub schedule 漏触发时补派下一轮主 workflow |
 | `scripts/check-js-syntax.js` | 跨平台 JS 语法检查 | 遍历 `scripts/` 和 `assets/`，逐个执行 `node --check` | 替换 `package.json` 中 Bash 专用的 `for` 语法 |
 | `package.json` | npm 命令入口 | `npm run check` 调用跨平台检查脚本并执行 `scripts/write-ranking-groups.js --check`；`npm run snapshot` / `npm run validate:snapshots` 维护三组快照 | Windows PowerShell 与 Linux runner 都可直接运行 |
 | `README.md` | 项目说明文档 | 记录本次功能、使用、文件清单、注意事项和测试说明 | 给后续维护者提供交接入口 |
@@ -259,7 +259,7 @@ node scripts/write-ranking-groups.js --check
 - 自动调度失败冷却影响 scheduler 和 chain fallback；需要立即补跑时可手动执行 `Update YouTube ranking` workflow。
 - 直播订阅数只作为排序/展示参考指标；覆盖率不足会在校验日志中告警，但不会阻止新排行发布。播放量覆盖、条目数和缩略图有效性仍会阻止明显坏数据上线。
 - 质量校验仍会阻止明显不完整的数据覆盖线上排行；保守重试只是在同一次 workflow 内再抓一次，不会提交未通过终检的候选数据。
-- `YTB_RANKING_DURATION_INCLUDE_LIVE` 默认为 `0`；只有确实需要在数据层保留直播时长时才应改成 `1`，否则会增加大量 watch 页和 Playwright 请求且最终不在直播页展示。
+- `YTB_RANKING_DURATION_INCLUDE_LIVE` 默认为 `0`；只有确实需要在数据层保留直播时长时才应改成 `1`，否则会增加大量 watch 页和 Playwright 请求且最终不在直播页展示。`YTB_RANKING_DURATION_API_LIMIT` 只影响 YouTube Data API 批量补时长，不会放大无 API key 时的 watch 页请求量。
 - 调度器通过 `GITHUB_TOKEN` 派发主 workflow，不需要提交 GitHub PAT、cookie 或 `.env`。
 - 主 workflow 通过 `GITHUB_TOKEN` 显式派发 chain workflow，避免只依赖 GitHub `schedule` 或 `workflow_run` 接力；chain 带 `trigger_run_id` 时仍会遵守失败冷却。
 - `data/youtube-ranking.json` 体积会随排行字段增长；普通页面默认读取 `data/youtube-ranking-<group>.json`，并依赖 `assets/ranking-controls.js` 的同页共享缓存避免刷新时被多个 hotfix 脚本重复下载和重复解析。完整主数据仍保留为兜底和维护入口，提交前应跑 `node scripts/write-ranking-groups.js --check` 防止分组文件过期。

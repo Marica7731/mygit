@@ -5,10 +5,12 @@ const path = require("node:path");
 const { chromium } = require("playwright");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
-const DATA_FILE = path.join(ROOT_DIR, "data", "youtube-ranking.json");
+const DATA_FILE = process.env.YTB_RANKING_DATA_FILE || path.join(ROOT_DIR, "data", "youtube-ranking.json");
+const PREVIOUS_FILE = process.env.YTB_RANKING_PREVIOUS_DATA || "/tmp/youtube-ranking-previous.json";
 
 const CONFIG = {
   limit: intEnv("YTB_RANKING_DURATION_DETAIL_LIMIT", 500),
+  apiLimit: intEnv("YTB_RANKING_DURATION_API_LIMIT", 1600),
   liveLimit: intEnv("YTB_RANKING_LIVE_DURATION_DETAIL_LIMIT", 120),
   fetchConcurrency: intEnv("YTB_RANKING_DURATION_FETCH_CONCURRENCY", 4),
   fetchTimeoutMs: intEnv("YTB_RANKING_DURATION_FETCH_TIMEOUT_MS", 10000),
@@ -68,6 +70,15 @@ function parseIsoDuration(value) {
   const [, days = "0", hours = "0", minutes = "0", seconds = "0"] = match;
   const total = Number(days) * 86400 + Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
   return Number.isFinite(total) && total > 0 ? total : null;
+}
+
+function parseDurationText(value) {
+  const match = clean(value).match(/\b(?:\d{1,2}:)?\d{1,2}:\d{2}\b/);
+  if (!match) return null;
+  const parts = match[0].split(":").map((part) => Number.parseInt(part, 10));
+  if (parts.some((part) => !Number.isFinite(part))) return null;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  return parts[0] * 60 + parts[1];
 }
 
 function elapsedFromTimestamp(value, now = Date.now()) {
@@ -137,12 +148,31 @@ function targetLiveItems(payload) {
   );
 }
 
+async function readJsonIfExists(file) {
+  try {
+    return JSON.parse(await fs.readFile(file, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
 function mapByVideoId(payload) {
   const map = new Map();
   for (const item of allItems(payload)) {
     if (!item.videoId) continue;
     if (!map.has(item.videoId)) map.set(item.videoId, []);
     map.get(item.videoId).push(item);
+  }
+  return map;
+}
+
+function previousDurationsByVideoId(previousPayload) {
+  const map = new Map();
+  for (const item of allItems(previousPayload || {})) {
+    if (!item.videoId || map.has(item.videoId)) continue;
+    const seconds = Number(item.durationSeconds) || parseDurationText(item.durationText);
+    if (!Number.isFinite(seconds) || seconds <= 0) continue;
+    map.set(item.videoId, seconds);
   }
   return map;
 }
@@ -200,6 +230,30 @@ function chunk(values, size) {
   const chunks = [];
   for (let index = 0; index < values.length; index += size) chunks.push(values.slice(index, index + size));
   return chunks;
+}
+
+async function mergePreviousDurations(payload) {
+  const previousPayload = await readJsonIfExists(PREVIOUS_FILE);
+  if (!previousPayload) {
+    return { checked: 0, changed: 0, skipped: `previous data not available at ${PREVIOUS_FILE}` };
+  }
+
+  const previous = previousDurationsByVideoId(previousPayload);
+  let checked = 0;
+  let changed = 0;
+
+  for (const item of targetVideoItems(payload)) {
+    checked += 1;
+    const seconds = previous.get(item.videoId);
+    if (!seconds) continue;
+    if (mergeDuration(item, seconds, "previousRun")) changed += 1;
+  }
+
+  return {
+    previousGeneratedAt: previousPayload.generatedAt || "",
+    checked,
+    changed,
+  };
 }
 
 async function fetchYoutubeApi(pathname, params) {
@@ -434,9 +488,11 @@ async function main() {
   const beforeVideoMissing = targetVideoItems(payload).length;
   const beforeLiveMissing = targetLiveItems(payload).length;
   const liveTargets = CONFIG.includeLiveDurations ? targetLiveItems(payload).slice(0, CONFIG.liveLimit) : [];
+  const previous = await mergePreviousDurations(payload);
+  const afterPreviousVideoMissing = targetVideoItems(payload).length;
 
   const apiTargets = [
-    ...targetVideoItems(payload).slice(0, CONFIG.limit),
+    ...targetVideoItems(payload).slice(0, CONFIG.apiLimit),
     ...liveTargets,
   ];
   const api = await enrichWithYoutubeApi(payload, apiTargets).catch((error) => {
@@ -457,14 +513,17 @@ async function main() {
   payload.durationDetailPostProcess = {
     generatedAt: new Date().toISOString(),
     limit: CONFIG.limit,
+    apiLimit: CONFIG.apiLimit,
     liveLimit: CONFIG.liveLimit,
     includeLiveDurations: CONFIG.includeLiveDurations,
     beforeVideoMissing,
+    afterPreviousVideoMissing,
     afterVideoMissing,
     beforeLiveMissing,
     afterLiveMissing,
     skippedLiveMissing: CONFIG.includeLiveDurations ? 0 : beforeLiveMissing,
     youtubeDataApiConfigured: Boolean(CONFIG.youtubeApiKey),
+    previous,
     api,
     fetch: fetchResult,
     playwright: playwrightResult,
@@ -472,7 +531,7 @@ async function main() {
 
   await fs.writeFile(DATA_FILE, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
   console.log(
-    `[duration-post] video missing ${beforeVideoMissing} -> ${afterVideoMissing}; live missing ${beforeLiveMissing} -> ${afterLiveMissing}`,
+    `[duration-post] video missing ${beforeVideoMissing} -> ${afterPreviousVideoMissing} -> ${afterVideoMissing}; live missing ${beforeLiveMissing} -> ${afterLiveMissing}`,
   );
 }
 

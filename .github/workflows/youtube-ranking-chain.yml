@@ -21,15 +21,16 @@ permissions:
 
 concurrency:
   group: youtube-ranking-chain
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   dispatch-next:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     env:
       YTB_RANKING_CHAIN_DELAY_SECONDS: "540"
       YTB_RANKING_FAILURE_COOLDOWN_MINUTES: "30"
+      YTB_RANKING_FAILURE_COOLDOWN_BUFFER_SECONDS: "30"
       TRIGGER_RUN_ID: ${{ github.event.workflow_run.id || github.event.inputs.trigger_run_id || '' }}
     steps:
       - name: Wait before next update
@@ -47,47 +48,75 @@ jobs:
           const eventName = process.env.GITHUB_EVENT_NAME || '';
           const isManualDispatch = eventName === 'workflow_dispatch' && !triggerRunId;
           const cooldownMinutes = Number(process.env.YTB_RANKING_FAILURE_COOLDOWN_MINUTES || 30);
-          const raw = execFileSync(
-            'gh',
-            ['api', '--method', 'GET', `repos/${repo}/actions/workflows/youtube-ranking.yml/runs`, '-f', 'per_page=20'],
-            { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
-          );
-          const runs = JSON.parse(raw).workflow_runs || [];
-          const activeStatuses = new Set(['queued', 'in_progress', 'waiting', 'requested', 'pending']);
-          const active = runs.find((run) => activeStatuses.has(run.status));
-          if (active) {
-            console.log(`Skip dispatch: update run #${active.run_number} is ${active.status}.`);
-            process.exit(0);
-          }
+          const cooldownBufferMs = Number(process.env.YTB_RANKING_FAILURE_COOLDOWN_BUFFER_SECONDS || 30) * 1000;
 
-          const now = Date.now();
-          const recentOther = runs.find((run) => {
-            if (String(run.id) === triggerRunId) return false;
-            const activityAt = Date.parse(run.updated_at || run.run_started_at || run.created_at || '');
-            return Number.isFinite(activityAt) && now - activityAt < 90 * 1000;
+          main().catch((error) => {
+            console.error(error);
+            process.exit(1);
           });
-          if (recentOther) {
-            console.log(`Skip dispatch: another update run #${recentOther.run_number} changed recently at ${recentOther.updated_at}.`);
-            process.exit(0);
+
+          async function main() {
+            await dispatchWhenIdle({ allowCooldownWait: !isManualDispatch });
           }
 
-          const status = readRankingStatus(repo);
-          const failedAt = Date.parse(status?.attemptedAt || '');
-          if (
-            !isManualDispatch &&
-            status?.status === 'failed' &&
-            Number.isFinite(failedAt) &&
-            now - failedAt < cooldownMinutes * 60 * 1000
-          ) {
-            const remainingMinutes = Math.ceil((cooldownMinutes * 60 * 1000 - (now - failedAt)) / 60000);
-            console.log(`Skip dispatch: previous failure is cooling down for ${remainingMinutes}m (${status.message || 'previous update failed'}).`);
-            process.exit(0);
+          async function dispatchWhenIdle({ allowCooldownWait }) {
+            const runs = readUpdateRuns(repo);
+            const activeStatuses = new Set(['queued', 'in_progress', 'waiting', 'requested', 'pending']);
+            const active = runs.find((run) => activeStatuses.has(run.status));
+            if (active) {
+              console.log(`Skip dispatch: update run #${active.run_number} is ${active.status}.`);
+              return;
+            }
+
+            const now = Date.now();
+            const recentOther = runs.find((run) => {
+              if (String(run.id) === triggerRunId) return false;
+              const activityAt = Date.parse(run.updated_at || run.run_started_at || run.created_at || '');
+              return Number.isFinite(activityAt) && now - activityAt < 90 * 1000;
+            });
+            if (recentOther) {
+              console.log(`Skip dispatch: another update run #${recentOther.run_number} changed recently at ${recentOther.updated_at}.`);
+              return;
+            }
+
+            const status = readRankingStatus(repo);
+            const failedAt = Date.parse(status?.attemptedAt || '');
+            const cooldownMs = cooldownMinutes * 60 * 1000;
+            const remainingMs = Number.isFinite(failedAt) ? cooldownMs - (now - failedAt) : 0;
+            if (!isManualDispatch && status?.status === 'failed' && Number.isFinite(failedAt) && remainingMs > 0) {
+              const remainingMinutes = Math.ceil(remainingMs / 60000);
+              if (!allowCooldownWait) {
+                console.log(`Skip dispatch: previous failure is still cooling down for ${remainingMinutes}m (${status.message || 'previous update failed'}).`);
+                return;
+              }
+
+              const waitMs = remainingMs + cooldownBufferMs;
+              console.log(
+                `Previous failure is cooling down for ${remainingMinutes}m; rechecking after ${Math.ceil(waitMs / 1000)}s (${status.message || 'previous update failed'}).`,
+              );
+              await sleep(waitMs);
+              await dispatchWhenIdle({ allowCooldownWait: false });
+              return;
+            }
+
+            execFileSync('gh', ['workflow', 'run', 'youtube-ranking.yml', '--ref', 'main', '--repo', repo], {
+              stdio: 'inherit',
+            });
+            console.log('Dispatched next YouTube ranking update.');
           }
 
-          execFileSync('gh', ['workflow', 'run', 'youtube-ranking.yml', '--ref', 'main', '--repo', repo], {
-            stdio: 'inherit',
-          });
-          console.log('Dispatched next YouTube ranking update.');
+          function readUpdateRuns(repo) {
+            const raw = execFileSync(
+              'gh',
+              ['api', '--method', 'GET', `repos/${repo}/actions/workflows/youtube-ranking.yml/runs`, '-f', 'per_page=20'],
+              { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
+            );
+            return JSON.parse(raw).workflow_runs || [];
+          }
+
+          function sleep(ms) {
+            return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
+          }
 
           function readRankingStatus(repo) {
             try {
