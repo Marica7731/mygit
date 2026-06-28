@@ -22,6 +22,8 @@
   let timePopoverOpen = false;
   let toolbarCollapsed = false;
   let backTopButton = null;
+  let cardsCache = [];
+  let cardsCacheDirty = true;
 
   sanitizeState();
   patchStatePersistence();
@@ -48,6 +50,7 @@
   }
 
   function handleCardsAppended() {
+    markCardsDirty();
     scheduleUpdate();
     setTimeout(scheduleUpdate, 80);
   }
@@ -413,6 +416,18 @@
   function handleControlEvent(event) {
     const target = event.target;
     const isPager = target?.closest?.(".ranking-pagination");
+    const pageButton = target?.closest?.("[data-page-action], [data-page-target]");
+    if (isPager && pageButton && event.type === "click") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (pageButton.disabled) return;
+      const nextPage = pageFromButton(pageButton);
+      if (nextPage === currentPage) return;
+      currentPage = nextPage;
+      scheduleUpdate();
+      scrollToTopOfCards();
+      return;
+    }
     const collapseButton = target?.closest?.("#toggle-toolbar-collapse");
     if (collapseButton && event.type === "click") {
       event.preventDefault();
@@ -437,29 +452,19 @@
 
   function applyTimeFilterAndPagination() {
     if (!controlsReady) return;
-    const cards = Array.from(document.querySelectorAll(".video-card"));
+    const cards = rankingCards();
     if (!cards.length) {
       renderPagination(0, 1, PAGE_SIZE);
       updateDataSummary([]);
       return;
     }
 
-    for (const card of cards) {
-      delete card.dataset.pageHidden;
-      delete card.dataset.timeHidden;
-      delete card.dataset.viewHidden;
-    }
-
     const maxAgeMs = currentTimeLimitMs();
     const minViews = currentMinViews();
     for (const card of cards) {
-      const item = itemByVideoId.get(videoIdFromCard(card));
-      if (maxAgeMs != null && !matchesTimeFilter(item, maxAgeMs)) {
-        card.dataset.timeHidden = "1";
-      }
-      if (minViews != null && !matchesMinViewsFilter(item, minViews)) {
-        card.dataset.viewHidden = "1";
-      }
+      const item = itemForCard(card);
+      setDataFlag(card, "timeHidden", maxAgeMs != null && !matchesTimeFilter(item, maxAgeMs));
+      setDataFlag(card, "viewHidden", minViews != null && !matchesMinViewsFilter(item, minViews));
     }
 
     const eligibleCards = cards.filter(isPaginationEligible);
@@ -470,16 +475,41 @@
 
     eligibleCards.forEach((card, index) => {
       const pageIndex = Math.floor(index / pageSize) + 1;
-      if (pageIndex !== currentPage) card.dataset.pageHidden = "1";
+      setDataFlag(card, "pageHidden", pageIndex !== currentPage);
     });
+    const eligibleSet = new Set(eligibleCards);
+    for (const card of cards) {
+      if (card.dataset.timeHidden === "1" || card.dataset.viewHidden === "1" || !eligibleSet.has(card)) {
+        setDataFlag(card, "pageHidden", false);
+      }
+    }
 
     renderPagination(totalItems, pageCount, pageSize);
     updateDataSummary(eligibleCards);
   }
 
+  function rankingCards() {
+    if (cardsCacheDirty || !cardsCache.length) {
+      cardsCache = Array.from(document.querySelectorAll(".video-card"));
+      cardsCacheDirty = false;
+    }
+    return cardsCache;
+  }
+
+  function markCardsDirty() {
+    cardsCacheDirty = true;
+  }
+
+  function setDataFlag(node, key, enabled) {
+    if (!node) return;
+    if (enabled) {
+      if (node.dataset[key] !== "1") node.dataset[key] = "1";
+      return;
+    }
+    if (node.dataset[key] === "1") delete node.dataset[key];
+  }
+
   function paginationTotal(eligibleCards) {
-    const countState = currentCountState();
-    if (countState?.visible != null) return Math.max(countState.visible, eligibleCards.length);
     return eligibleCards.length;
   }
 
@@ -497,37 +527,68 @@
 
     const start = (currentPage - 1) * pageSize + 1;
     const end = Math.min(total, currentPage * pageSize);
+    const pageItems = paginationItems(currentPage, pageCount);
     roots.forEach((root) => {
       root.hidden = false;
       const markup = `
         <button type="button" data-page-action="prev" ${currentPage <= 1 ? "disabled" : ""}>上一页</button>
-        <span>${start}-${end} / ${total}</span>
+        <span class="pagination-range">${start}-${end} / ${total}</span>
+        <span class="pagination-pages" aria-label="页码">
+          ${pageItems
+            .map((item, index) =>
+              item === "gap"
+                ? `<span class="pagination-ellipsis" aria-hidden="true" data-gap-index="${index}">…</span>`
+                : `<button type="button" class="pagination-page${item === currentPage ? " is-current" : ""}" data-page-target="${item}" ${item === currentPage ? 'aria-current="page"' : ""}>${item}</button>`,
+            )
+            .join("")}
+        </span>
         <button type="button" data-page-action="next" ${currentPage >= pageCount ? "disabled" : ""}>下一页</button>
       `;
       if (root.dataset.paginationMarkup === markup) return;
       root.dataset.paginationMarkup = markup;
       root.innerHTML = markup;
-      root.querySelector('[data-page-action="prev"]')?.addEventListener("click", () => {
-        currentPage -= 1;
-        scheduleUpdate();
-        scrollToTopOfCards();
-      });
-      root.querySelector('[data-page-action="next"]')?.addEventListener("click", () => {
-        currentPage += 1;
-        scheduleUpdate();
-        scrollToTopOfCards();
-      });
     });
+  }
+
+  function paginationItems(page, pageCount) {
+    const maxNumeric = window.innerWidth < 640 ? 5 : 9;
+    if (pageCount <= maxNumeric) return Array.from({ length: pageCount }, (_, index) => index + 1);
+    const side = window.innerWidth < 640 ? 1 : 2;
+    const pages = new Set([1, pageCount]);
+    for (let value = page - side; value <= page + side; value += 1) {
+      if (value > 1 && value < pageCount) pages.add(value);
+    }
+    const sorted = Array.from(pages).sort((a, b) => a - b);
+    const items = [];
+    for (const value of sorted) {
+      const previous = items[items.length - 1];
+      if (typeof previous === "number" && value - previous > 1) items.push("gap");
+      items.push(value);
+    }
+    return items;
+  }
+
+  function pageFromButton(button) {
+    const target = Number(button.dataset.pageTarget);
+    if (Number.isFinite(target) && target > 0) return Math.floor(target);
+    const action = button.dataset.pageAction;
+    if (action === "prev") return Math.max(1, currentPage - 1);
+    if (action === "next") return currentPage + 1;
+    return currentPage;
   }
 
   function isPaginationEligible(card) {
     if (card.dataset.timeHidden === "1") return false;
     if (card.dataset.viewHidden === "1") return false;
-    if (card.hidden || card.classList.contains("is-duplicate-video") || card.classList.contains("is-live-duration-dirty")) {
+    if (
+      card.hidden ||
+      card.classList.contains("is-duplicate-video") ||
+      card.classList.contains("is-live-duration-dirty") ||
+      card.classList.contains("is-thumbnail-missing")
+    ) {
       return false;
     }
-    const style = getComputedStyle(card);
-    return style.display !== "none" && style.visibility !== "hidden";
+    return true;
   }
 
   function matchesTimeFilter(item, maxAgeMs) {
@@ -829,7 +890,7 @@
     ]);
     for (const card of eligibleCards || []) {
       if (!hasActiveFilter) break;
-      const item = itemByVideoId.get(videoIdFromCard(card));
+      const item = itemForCard(card);
       const keyword = normalizedKeyword(item?.keyword || item?.group || card.textContent);
       if (!counts.has(keyword)) continue;
       counts.set(keyword, counts.get(keyword) + 1);
@@ -882,7 +943,10 @@
 
   function observeApp() {
     const root = document.getElementById("app") || document.body;
-    new MutationObserver(scheduleUpdate).observe(root, {
+    new MutationObserver((mutations) => {
+      if (mutations.some((mutation) => mutation.type === "childList")) markCardsDirty();
+      scheduleUpdate();
+    }).observe(root, {
       childList: true,
       subtree: true,
       attributes: true,
@@ -963,13 +1027,20 @@
   }
 
   function videoIdFromCard(card) {
+    if (card?.dataset?.rankingVideoId) return card.dataset.rankingVideoId;
     const href = card.querySelector('a[href*="watch"],a[href*="/shorts/"],.thumbnail')?.href || "";
     try {
       const url = new URL(href, location.href);
-      return url.searchParams.get("v") || url.pathname.match(/\/(?:shorts|embed|vi|vi_webp)\/([^/?#]+)/)?.[1] || "";
+      const id = url.searchParams.get("v") || url.pathname.match(/\/(?:shorts|embed|vi|vi_webp)\/([^/?#]+)/)?.[1] || "";
+      if (id && card?.dataset) card.dataset.rankingVideoId = id;
+      return id;
     } catch {
       return "";
     }
+  }
+
+  function itemForCard(card) {
+    return itemByVideoId.get(videoIdFromCard(card));
   }
 
   function readState(key) {
@@ -1202,7 +1273,8 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 10px;
+        gap: 7px;
+        flex-wrap: wrap;
         margin: 8px 0 10px;
         color: #526173;
         font-size: 13px;
@@ -1212,7 +1284,7 @@
         display: none !important;
       }
       .ranking-pagination button {
-        min-width: 68px;
+        min-width: 58px;
         border: 1px solid rgba(15, 23, 42, 0.12);
         border-radius: 8px;
         background: #ffffff;
@@ -1224,6 +1296,45 @@
       .ranking-pagination button:disabled {
         cursor: default;
         opacity: 0.42;
+      }
+      .pagination-range {
+        flex: 0 0 auto;
+        padding: 0 2px;
+        color: #526173;
+        white-space: nowrap;
+      }
+      .pagination-pages {
+        display: inline-flex;
+        flex: 0 1 auto;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        min-width: 0;
+        max-width: min(100%, 460px);
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+      }
+      .pagination-pages::-webkit-scrollbar {
+        display: none;
+      }
+      .ranking-pagination .pagination-page {
+        min-width: 32px;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border-radius: 999px;
+      }
+      .ranking-pagination .pagination-page.is-current {
+        border-color: rgba(15, 118, 110, 0.55);
+        background: #0f766e;
+        color: #ffffff;
+        cursor: default;
+      }
+      .pagination-ellipsis {
+        min-width: 18px;
+        text-align: center;
+        color: #7a8795;
       }
       #ranking-pagination-bottom {
         margin: 14px 0 2px;
@@ -1320,6 +1431,27 @@
         .time-filter-field,
         .snapshot-filter-field {
           flex: 0 0 132px !important;
+        }
+        .ranking-pagination {
+          gap: 6px;
+          margin: 6px 0 8px;
+        }
+        .ranking-pagination button {
+          min-width: 56px;
+          padding: 5px 8px;
+        }
+        .pagination-range {
+          order: -1;
+          flex-basis: 100%;
+          text-align: center;
+        }
+        .pagination-pages {
+          max-width: calc(100vw - 170px);
+        }
+        .ranking-pagination .pagination-page {
+          min-width: 30px;
+          width: 30px;
+          height: 30px;
         }
       }
     `;
