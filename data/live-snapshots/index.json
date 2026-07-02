@@ -2,11 +2,30 @@
   "schemaVersion": 1,
   "snapshotType": "live",
   "group": "live",
-  "generatedAt": "2026-07-02T20:35:12.545Z",
+  "generatedAt": "2026-07-02T20:47:44.342Z",
   "retentionDays": 7,
   "retainedDays": 7,
-  "latestSnapshotId": "20260702T202905Z",
+  "latestSnapshotId": "20260702T204324Z",
   "snapshots": [
+    {
+      "id": "20260702T204324Z",
+      "file": "20260702T204324Z.json",
+      "path": "data/live-snapshots/20260702T204324Z.json",
+      "group": "live",
+      "snapshotType": "live",
+      "generatedAt": "2026-07-02T20:43:24.725Z",
+      "capturedAt": "2026-07-02T20:43:24.725Z",
+      "expiresAt": "2026-07-09T20:43:24.725Z",
+      "label": "2026-07-03 04:43",
+      "itemCount": 58,
+      "videoCount": 0,
+      "liveCount": 58,
+      "upcomingCount": 0,
+      "keywords": {
+        "歌枠": 51,
+        "弾き語り": 7
+      }
+    },
     {
       "id": "20260702T202905Z",
       "file": "20260702T202905Z.json",
@@ -11955,44 +11974,6 @@
       "upcomingCount": 0,
       "keywords": {
         "歌枠": 51,
-        "弾き語り": 4
-      }
-    },
-    {
-      "id": "20260625T204739Z",
-      "file": "20260625T204739Z.json",
-      "path": "data/live-snapshots/20260625T204739Z.json",
-      "group": "live",
-      "snapshotType": "live",
-      "generatedAt": "2026-06-25T20:47:39.988Z",
-      "capturedAt": "2026-06-25T20:47:39.988Z",
-      "expiresAt": "2026-07-02T20:47:39.988Z",
-      "label": "2026-06-26 04:47",
-      "itemCount": 50,
-      "videoCount": 0,
-      "liveCount": 50,
-      "upcomingCount": 0,
-      "keywords": {
-        "歌枠": 46,
-        "弾き語り": 4
-      }
-    },
-    {
-      "id": "20260625T203718Z",
-      "file": "20260625T203718Z.json",
-      "path": "data/live-snapshots/20260625T203718Z.json",
-      "group": "live",
-      "snapshotType": "live",
-      "generatedAt": "2026-06-25T20:37:18.692Z",
-      "capturedAt": "2026-06-25T20:37:18.692Z",
-      "expiresAt": "2026-07-02T20:37:18.692Z",
-      "label": "2026-06-26 04:37",
-      "itemCount": 49,
-      "videoCount": 0,
-      "liveCount": 49,
-      "upcomingCount": 0,
-      "keywords": {
-        "歌枠": 45,
         "弾き語り": 4
       }
     }
