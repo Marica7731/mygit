@@ -199,35 +199,41 @@ jobs:
           node scripts/write-ranking-groups.js --check
 
       - name: Commit updated data
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           cp data/youtube-ranking.json /tmp/youtube-ranking.json
+          node scripts/update-ranking-status.js
+          cp data/youtube-ranking-status.json /tmp/youtube-ranking-status.json
           git fetch origin main
           git reset --hard origin/main
           mkdir -p data
           cp /tmp/youtube-ranking.json data/youtube-ranking.json
+          cp /tmp/youtube-ranking-status.json data/youtube-ranking-status.json
           node scripts/archive-live-snapshot.js
           node scripts/validate-live-snapshots.js
           node scripts/write-ranking-groups.js
           node scripts/write-ranking-groups.js --check
-          git add data/youtube-ranking.json data/youtube-ranking-live.json data/youtube-ranking-today.json data/youtube-ranking-month.json data/live-snapshots data/today-snapshots data/month-snapshots
+          git add data/youtube-ranking.json data/youtube-ranking-live.json data/youtube-ranking-today.json data/youtube-ranking-month.json data/youtube-ranking-status.json data/live-snapshots data/today-snapshots data/month-snapshots
           if git diff --cached --quiet; then
             echo "No data changes to commit."
           else
-            git commit -m "chore: 更新 YouTube 排行数据"
+            git commit -m "chore: 更新 YouTube 排行数据和状态"
             git push || {
               git fetch origin main
               git reset --hard origin/main
               mkdir -p data
               cp /tmp/youtube-ranking.json data/youtube-ranking.json
+              cp /tmp/youtube-ranking-status.json data/youtube-ranking-status.json
               node scripts/archive-live-snapshot.js
               node scripts/validate-live-snapshots.js
               node scripts/write-ranking-groups.js
               node scripts/write-ranking-groups.js --check
-              git add data/youtube-ranking.json data/youtube-ranking-live.json data/youtube-ranking-today.json data/youtube-ranking-month.json data/live-snapshots data/today-snapshots data/month-snapshots
+              git add data/youtube-ranking.json data/youtube-ranking-live.json data/youtube-ranking-today.json data/youtube-ranking-month.json data/youtube-ranking-status.json data/live-snapshots data/today-snapshots data/month-snapshots
               git diff --cached --quiet && exit 0
-              git commit -m "chore: 更新 YouTube 排行数据"
+              git commit -m "chore: 更新 YouTube 排行数据和状态"
               git push
             }
           fi
@@ -236,7 +242,7 @@ jobs:
         run: echo "previous ranking step" > /tmp/youtube-ranking-run-failed
 
       - name: Update run status
-        if: always()
+        if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

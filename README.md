@@ -178,6 +178,7 @@ reachedBottom, truncatedByLimit, searchableText, collectedAt
 - PNG 导出会主动按视频 ID 拉取前 100 张封面候选，减少未滚动加载导致的 `No thumbnail`。
 - 抓取脚本会清理 `undefined` / `null` / 非公开图片域的 `thumbnailUrl`，并回退到 YouTube 默认缩略图候选；数据校验会把这类无效封面按缺失封面处理。
 - 更新入口以 scheduler 空闲检查后派发主 workflow 为主，并由 chain workflow 在主任务完成后延迟补派，避免 GitHub schedule 漏触发造成长时间不更新。
+- 主 workflow 成功时会把排行数据、快照、分组 JSON 和抓取状态合并成一次提交，避免同一轮更新触发两次 GitHub Pages build、造成部署取消和线上刷新延迟。
 - 主 workflow 在排行质量校验失败时会自动用更保守的滚动、超时和并发参数重试一次，降低 YouTube 短时加载不足导致的失败率。
 - scheduler 会读取 `data/youtube-ranking-status.json`，最近一次失败仍在 30 分钟冷却期内时跳过自动派发，避免每 10 分钟重复刷失败状态；手动触发不受冷却限制。
 - 最近 24 小时内的抓取失败集中在 `Validate ranking data`，不是 runner、安装、Node、Playwright 或推送崩溃。最近一次失败样例为 `today` 非直播 190/240、`month` 非直播 246/300、`today` 有播放量 170/240；因此改为同一 run 内保守重试，并对失败自动派发做冷却。
