@@ -245,9 +245,39 @@
         line-height: 1.2 !important;
         white-space: nowrap !important;
       }
-      .video-card .channel-metric-row,
-      .video-card .channel {
+      .video-card .channel-metric-row {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        align-items: center !important;
+        justify-content: stretch !important;
+        justify-items: start !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
         min-height: 0 !important;
+        text-align: left !important;
+      }
+      .video-card .channel-metric-row.has-avatar {
+        grid-template-columns: 20px minmax(0, 1fr) !important;
+      }
+      .video-card .channel-metric-row:not(.has-avatar),
+      .video-card .channel-metric-row:has(.channel-avatar[hidden]),
+      .video-card .channel-metric-row:has(.channel-avatar.is-empty-avatar) {
+        grid-template-columns: minmax(0, 1fr) !important;
+      }
+      .video-card .channel,
+      .video-card .channel a {
+        display: block !important;
+        justify-self: stretch !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+        text-align: left !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
       }
       .thumbnail.corner-layout-ready .corner-badge {
         background: transparent !important;
