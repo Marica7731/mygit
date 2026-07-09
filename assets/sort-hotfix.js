@@ -104,6 +104,7 @@
     }
 
     const order = getSortOrder();
+    items = items.map(normalizeItemMetrics);
     items = items.filter((item) => matchesSortMetric(item, order));
     const sorted = sortItems(items, order).map((item, index) => ({ ...item, visibleRank: index + 1 }));
     group.items = sorted;
@@ -200,6 +201,53 @@
       if (bValue == null) return -1;
       return (aValue - bValue) * direction || originalOrder(a, b);
     }
+  }
+
+  function normalizeItemMetrics(item) {
+    if (!item || typeof item !== "object" || sourceGroup() === "live") return item;
+
+    const parsedViews = parseViewCountText(item.viewText);
+    if (parsedViews == null) return item;
+
+    const currentViews = Number(item.viewCount);
+    if (!Number.isFinite(currentViews) || currentViews <= 0) {
+      return { ...item, viewCount: parsedViews };
+    }
+
+    const delta = Math.abs(currentViews - parsedViews);
+    const ratio = Math.max(currentViews, parsedViews) / Math.max(1, Math.min(currentViews, parsedViews));
+    if (delta >= 1000 && ratio >= 10) {
+      return { ...item, viewCount: parsedViews };
+    }
+
+    return item;
+  }
+
+  function parseViewCountText(text) {
+    const value = normalize(text);
+    if (!value || !hasViewMetricText(value)) return null;
+    const match = value.match(
+      /([0-9０-９][0-9０-９,，.．]*(?:\s*(?:億|亿|万|萬|千|K|M|B))?)\s*(?:回視聴|視聴回数|views?|次观看|次觀看|播放)/i,
+    );
+    if (!match) return null;
+    return parseMetricNumber(match[1]);
+  }
+
+  function parseMetricNumber(value) {
+    const text = normalizeNumber(value).replace(/[,\s，]/g, "");
+    const match = text.match(/^(\d+(?:\.\d+)?)(億|亿|万|萬|千|K|M|B)?$/i);
+    if (!match) return null;
+    const number = Number.parseFloat(match[1]);
+    if (!Number.isFinite(number) || number < 0) return null;
+    const unit = match[2] || "";
+    let multiplier = 1;
+    if (unit === "億" || unit === "亿") multiplier = 100000000;
+    else if (unit === "万" || unit === "萬") multiplier = 10000;
+    else if (unit === "千") multiplier = 1000;
+    else if (/^k$/i.test(unit)) multiplier = 1000;
+    else if (/^m$/i.test(unit)) multiplier = 1000000;
+    else if (/^b$/i.test(unit)) multiplier = 1000000000;
+    return Math.round(number * multiplier);
   }
 
   function localizeCards() {
