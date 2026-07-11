@@ -133,6 +133,8 @@ const BLOCKED_TEXT_TERMS = [
   "羽芝扉扉",
   "厄伦蒂儿",
   "厄倫蒂兒",
+  "Earendel",
+  "エアレンデル",
   ...TAIWAN_VTUBER_BLOCKED_TERMS,
 ];
 
