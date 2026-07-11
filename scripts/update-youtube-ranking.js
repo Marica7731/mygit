@@ -28,6 +28,18 @@ const KEYWORDS = [
   },
 ];
 
+const BLOCKED_TEXT_TERMS = [
+  "羽芝扉扉",
+  "厄伦蒂儿",
+  "厄倫蒂兒",
+];
+
+const TAIWAN_VTUBER_PATTERNS = [
+  /(?:^|[\s#｜|【】\[\]()（）、,，/／])台\s*v(?:tuber)?(?:$|[\s#｜|【】\[\]()（）、,，/／])/i,
+  /台[灣湾]\s*(?:個人勢|个人势)?\s*v\s*tuber/i,
+  /台[灣湾]\s*(?:個人勢|个人势)\s*v/i,
+];
+
 const SOURCE_GROUPS = {
   live: {
     label: "直播 / 预约",
@@ -246,6 +258,40 @@ function buildSearchableText(item) {
       .filter(Boolean)
       .join(" "),
   );
+}
+
+function blockedItemText(item) {
+  return normalizeWhitespace(
+    [
+      item.title,
+      item.channelName,
+      item.channelId,
+      item.channelUrl,
+      item.videoId,
+      item.watchUrl,
+      item.viewText,
+      item.liveViewerText,
+      item.subscriberText,
+      item.likeText,
+      item.publishedText,
+      item.durationText,
+      item.statusText,
+      item.searchableText,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  )
+    .normalize("NFKC")
+    .toLowerCase();
+}
+
+function isBlockedRankingItem(item) {
+  const haystack = blockedItemText(item);
+  if (!haystack) return false;
+  if (BLOCKED_TEXT_TERMS.some((term) => haystack.includes(normalizeWhitespace(term).toLowerCase()))) {
+    return true;
+  }
+  return TAIWAN_VTUBER_PATTERNS.some((pattern) => pattern.test(haystack));
 }
 
 async function dismissConsent(page) {
@@ -467,6 +513,7 @@ function dedupeItems(items) {
   const deduped = [];
 
   for (const item of items) {
+    if (isBlockedRankingItem(item)) continue;
     const key = item.videoId || item.watchUrl;
     if (!key || seen.has(key)) continue;
     seen.add(key);

@@ -216,7 +216,7 @@ node scripts/write-ranking-groups.js --check
 | 文件路径 | 文件用途 | 主要函数或模块职责 | 与其他文件的关系 |
 | --- | --- | --- | --- |
 | `scripts/enrich-video-metrics.js` | 抓取后补充视频播放量、点赞和频道链接 | `mergeMetric()` 只在缺失播放量或 YouTube Data API 返回时覆盖 `viewCount` | 在 `.github/workflows/youtube-ranking.yml` 中运行，产出给前端读取的 `data/youtube-ranking.json` |
-| `scripts/update-youtube-ranking.js` | Playwright 抓取脚本 | `usableThumbnailUrl()` 清理无效缩略图 URL，避免 `undefined` 写入主数据 | 主 workflow 首步生成 `data/youtube-ranking.json` |
+| `scripts/update-youtube-ranking.js` | Playwright 抓取脚本 | `usableThumbnailUrl()` 清理无效缩略图 URL，避免 `undefined` 写入主数据；`isBlockedRankingItem()` 在去重阶段过滤点名频道和明确台 V 自标识，避免这些条目进入主数据和分组数据 | 主 workflow 首步生成 `data/youtube-ranking.json` |
 | `assets/sort-hotfix.js` | 前端排序、主指标和缩略图兜底修正 | `getPrimaryMetric()` 去掉 DOM 播放量 fallback；`markThumbnailMissing()` 在候选全部失败后隐藏整卡 | 先于主 chunk 加载，影响后续卡片角标和排序展示 |
 | `assets/sort-hotfix.css` | 排序和缩略图状态样式 | `.video-card.is-thumbnail-missing` 直接隐藏 | 配合各缩略图 fallback 脚本剔除无封面卡 |
 | `assets/heartbeat-hotfix-v2.js` | 早期卡片压缩、指标和元信息补丁 | `upsertMeta()` 在 live 页移除时间跨度，`restoreDuplicateCard()` 只恢复本脚本标记的重复卡 | 与 `heartbeat-corner-layout.js`、`final-ui-polish.js` 共同处理卡片外观 |
@@ -226,7 +226,7 @@ node scripts/write-ranking-groups.js --check
 | `assets/heartbeat-thumb-fallback.js` | 缩略图加载失败后的候选切换 | `markThumbnailUnavailable()` 隐藏无可用封面的 `.video-card` | 解决坏缩略图占位卡反复闪烁的问题 |
 | `assets/thumbnail-hotfix.js` | 缩略图质量检查和重复卡处理 | `markThumbnailMissing()` 隐藏无可用封面的卡片；`restoreDuplicateCard()` 只恢复 `.is-duplicate-video` | 避免覆盖坏封面、直播清理等其它隐藏状态 |
 | `assets/ux-hotfix.js` | 早期 UI 密度和导出补丁 | `restoreDuplicateCard()` 只恢复本脚本标记的重复卡 | 避免与缩略图 fallback 争抢 `card.hidden` |
-| `assets/ranking-controls.js` | 分页、搜索、横向滚动工具条、顶部栏折叠、最低播放量筛选、返回顶部、时间筛选、三组快照、默认屏蔽和排行 JSON 单页共享缓存控制层 | `patchRankingFetch()` 按当前页面组读取 `data/youtube-ranking-<group>.json`，选择快照时读取 `data/<group>-snapshots/<id>.json`，失败再回退 `data/youtube-ranking.json`；`fetchSharedRankingResponse()` 合并同页重复请求；`filterDefaultBlockedItems()` 过滤默认屏蔽频道和无效缩略图 URL；`applyTimeFilterAndPagination()` 按时间、播放量、缩略图状态和分页隐藏卡片；`.video-card` 使用 `content-visibility: auto` 降低离屏卡片首次渲染成本 | 在四个 HTML 中先于主应用加载，避免侵入重打主 chunk |
+| `assets/ranking-controls.js` | 分页、搜索、横向滚动工具条、顶部栏折叠、最低播放量筛选、返回顶部、时间筛选、三组快照、默认屏蔽和排行 JSON 单页共享缓存控制层 | `patchRankingFetch()` 按当前页面组读取 `data/youtube-ranking-<group>.json`，选择快照时读取 `data/<group>-snapshots/<id>.json`，失败再回退 `data/youtube-ranking.json`；`fetchSharedRankingResponse()` 合并同页重复请求；`filterDefaultBlockedItems()` 过滤默认屏蔽频道、明确台 V 自标识和无效缩略图 URL；`applyTimeFilterAndPagination()` 按时间、播放量、缩略图状态和分页隐藏卡片；`.video-card` 使用 `content-visibility: auto` 降低离屏卡片首次渲染成本 | 在四个 HTML 中先于主应用加载，避免侵入重打主 chunk |
 | `assets/ui-overrides.js` | 默认标题过滤、黑白名单 chip、直播指标展示和头像兜底逻辑 | `filterRankingDataByTitle()` 使用内部 `歌枠 / 弾き語` 标题规则并排除韩文；`markThumbnailMissing()` 隐藏无可用封面的卡片；`prepareChannelRows()` 补头像和频道行 | 后置增强卡片 DOM，默认过滤逻辑与 `assets/sort-hotfix.js` 保持一致 |
 | `assets/final-ui-polish.js`, `assets/corner-readability-hotfix.js`, `assets/heartbeat-corner-transparent.js`, `assets/png-export-hotfix.js` | 最终 UI 清理、角标可读性和 PNG 导出兜底 | `png-export-hotfix.js` 在导出前等待数据索引，并按 `videoId` 主动尝试 `hq720 / maxres / sd / hq / mq / default` 封面候选；其它脚本同步识别新旧默认标题过滤文案，避免内部过滤条件在页面或导出标题中露出 | 页面末尾加载或导出时兜底清理工具条状态 |
 | `scripts/archive-live-snapshot.js` | 三组快照生成脚本 | `archiveGroupSnapshot()` 保存当前 `groups.live / groups.today / groups.month`；`pruneSnapshotFiles()` 清理 7 天外快照；`summarizeGroup()` 生成索引摘要 | 主 workflow 成功校验后运行，产出给 `assets/ranking-controls.js` 读取的快照文件 |

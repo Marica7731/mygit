@@ -7,7 +7,21 @@
   const TWO_COLUMN_PAGE_SIZE = 98;
   const TIME_FILTER_KEY = `ytb-ranking-time-filter-v1:${GROUP}`;
   const MIN_VIEWS_FILTER_KEY = `ytb-ranking-min-views-v1:${GROUP}`;
-  const DEFAULT_BLOCKED_PATTERNS = ["そびたんねる", "Piero Soubi", "Unmanned Japanese", "niY6C3ag-BY", "きよき一瓢"];
+  const DEFAULT_BLOCKED_PATTERNS = [
+    "そびたんねる",
+    "Piero Soubi",
+    "Unmanned Japanese",
+    "niY6C3ag-BY",
+    "きよき一瓢",
+    "羽芝扉扉",
+    "厄伦蒂儿",
+    "厄倫蒂兒",
+  ];
+  const DEFAULT_BLOCKED_REGEXPS = [
+    /(?:^|[\s#｜|【】\[\]()（）、,，/／])台\s*v(?:tuber)?(?:$|[\s#｜|【】\[\]()（）、,，/／])/i,
+    /台[灣湾]\s*(?:個人勢|个人势)?\s*v\s*tuber/i,
+    /台[灣湾]\s*(?:個人勢|个人势)\s*v/i,
+  ];
 
   const rawFetch = window.fetch.bind(window);
   const selectedSnapshot = snapshotFromUrl();
@@ -196,7 +210,7 @@
   }
 
   function isDefaultBlockedItem(item) {
-    const haystack = clean(
+    const haystack = normalizeBlockedText(
       [
         item?.channelName,
         item?.channelId,
@@ -205,8 +219,15 @@
         item?.watchUrl,
         item?.searchableText,
       ].join(" "),
-    ).toLowerCase();
-    return DEFAULT_BLOCKED_PATTERNS.some((pattern) => haystack.includes(pattern.toLowerCase()));
+    );
+    return (
+      DEFAULT_BLOCKED_PATTERNS.some((pattern) => haystack.includes(normalizeBlockedText(pattern))) ||
+      DEFAULT_BLOCKED_REGEXPS.some((pattern) => pattern.test(haystack))
+    );
+  }
+
+  function normalizeBlockedText(value) {
+    return clean(value).normalize("NFKC").toLowerCase();
   }
 
   function usableThumbnailUrl(value) {
