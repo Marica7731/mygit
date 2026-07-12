@@ -8,6 +8,7 @@
   let itemByVideoId = new Map();
   let orderByVideoId = new Map();
   const thumbnailCheckCache = new Map();
+  const thumbnailFailedSrcByImage = new WeakMap();
   const thumbnailScanSrc = new WeakMap();
   let thumbnailSweepQueued = false;
 
@@ -43,7 +44,10 @@
     }
     window.addEventListener("scroll", scheduleThumbnailSweep, { passive: true });
     const root = document.getElementById("ranking-sections") || document.body;
-    new MutationObserver(scheduleLocalizeCards).observe(root, {
+    new MutationObserver(() => {
+      scheduleLocalizeCards();
+      scheduleThumbnailSweep();
+    }).observe(root, {
       childList: true,
       subtree: true,
     });
@@ -398,10 +402,15 @@
       document.querySelectorAll(".thumbnail img").forEach((img) => {
         if (!(img instanceof HTMLImageElement) || !isNearViewport(img)) return;
         const src = absoluteUrl(img.currentSrc || img.src);
-        if (!src || thumbnailScanSrc.get(img) === src) return;
+        if (!src) return;
+        if (!img.complete) {
+          thumbnailScanSrc.delete(img);
+          return;
+        }
+        if (thumbnailScanSrc.get(img) === src) return;
         thumbnailScanSrc.set(img, src);
-        if (img.complete && img.naturalWidth === 0) useNextThumbnail(img);
-        else if (img.complete) scheduleThumbnailPlaceholderCheck(img);
+        if (img.naturalWidth === 0) useNextThumbnail(img);
+        else scheduleThumbnailPlaceholderCheck(img);
       });
     });
   }
@@ -425,15 +434,25 @@
     const src = absoluteUrl(img.currentSrc || img.src);
     if (!src) return;
 
+    if (isDefinitelyMissingThumbnail(img, src)) {
+      markThumbnailCandidateFailed(img, src);
+      useNextThumbnail(img);
+      return;
+    }
+
     const cached = thumbnailCheckCache.get(src);
     if (cached === "missing") {
+      markThumbnailCandidateFailed(img, src);
       useNextThumbnail(img);
       return;
     }
     if (cached === "ok") return;
     if (cached && typeof cached.then === "function") {
       cached.then((isPlaceholder) => {
-        if (isPlaceholder && absoluteUrl(img.currentSrc || img.src) === src) useNextThumbnail(img);
+        if (isPlaceholder && absoluteUrl(img.currentSrc || img.src) === src) {
+          markThumbnailCandidateFailed(img, src);
+          useNextThumbnail(img);
+        }
       });
       return;
     }
@@ -446,7 +465,10 @@
       thumbnailCheckCache.set(src, checkPromise);
       checkPromise.then((isPlaceholder) => {
         thumbnailCheckCache.set(src, isPlaceholder ? "missing" : "ok");
-        if (isPlaceholder && absoluteUrl(img.currentSrc || img.src) === src) useNextThumbnail(img);
+        if (isPlaceholder && absoluteUrl(img.currentSrc || img.src) === src) {
+          markThumbnailCandidateFailed(img, src);
+          useNextThumbnail(img);
+        }
       });
     };
     if ("requestIdleCallback" in window) window.requestIdleCallback(run, { timeout: 900 });
@@ -515,12 +537,57 @@
     const current = absoluteUrl(img.currentSrc || img.src);
     const currentIndex = Math.max(0, candidates.findIndex((candidate) => absoluteUrl(candidate) === current));
     for (let index = currentIndex + 1; index < candidates.length; index += 1) {
-      if (absoluteUrl(candidates[index]) !== current) {
-        img.src = candidates[index];
+      const next = absoluteUrl(candidates[index]);
+      if (next && next !== current && !isKnownMissingThumbnailCandidate(img, next)) {
+        thumbnailScanSrc.delete(img);
+        img.dataset.placeholderCheckedSrc = "";
+        img.dataset.thumbnailFinal = "";
+        img.src = next;
+        scheduleThumbnailRecheck(img);
         return;
       }
     }
     markThumbnailMissing(img);
+  }
+
+  function scheduleThumbnailRecheck(img) {
+    for (const delay of [180, 600, 1400]) {
+      setTimeout(() => {
+        if (!(img instanceof HTMLImageElement) || !img.isConnected) return;
+        if (img.complete) scheduleThumbnailPlaceholderCheck(img);
+        else thumbnailScanSrc.delete(img);
+      }, delay);
+    }
+  }
+
+  function markThumbnailCandidateFailed(img, src) {
+    const normalized = absoluteUrl(src);
+    if (!normalized) return;
+    const failed = thumbnailFailedSrcByImage.get(img) || new Set();
+    failed.add(normalized);
+    thumbnailFailedSrcByImage.set(img, failed);
+    thumbnailCheckCache.set(normalized, "missing");
+  }
+
+  function isKnownMissingThumbnailCandidate(img, src) {
+    const normalized = absoluteUrl(src);
+    if (!normalized) return true;
+    if (thumbnailCheckCache.get(normalized) === "missing") return true;
+    return thumbnailFailedSrcByImage.get(img)?.has(normalized) || false;
+  }
+
+  function isDefinitelyMissingThumbnail(img, src) {
+    if (!img.complete || !img.naturalWidth || !img.naturalHeight) return false;
+    try {
+      const path = new URL(src, location.href).pathname;
+      return (
+        /\/(?:hq720|maxresdefault|sddefault)\.(?:jpg|webp)$/i.test(path) &&
+        img.naturalWidth <= 120 &&
+        img.naturalHeight <= 90
+      );
+    } catch {
+      return false;
+    }
   }
 
   function getThumbnailCandidates(img) {

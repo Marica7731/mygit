@@ -494,6 +494,22 @@ async function extractSearchItems(page) {
       return firstSrcsetUrl && !firstSrcsetUrl.startsWith("data:") ? firstSrcsetUrl : "";
     };
 
+    const usableThumbnailUrl = (value) => {
+      const raw = String(value || "").trim();
+      if (!raw || /^(?:undefined|null)$/i.test(raw) || raw.startsWith("data:")) return "";
+
+      try {
+        const url = new URL(raw, location.href);
+        if (!/^https?:$/i.test(url.protocol)) return "";
+        if (/\/(?:undefined|null)(?:[?#]|$)/i.test(url.pathname)) return "";
+        if (!/(?:^|\.)ytimg\.com$/i.test(url.hostname)) return "";
+        if (!/\/vi(?:_webp)?\/[^/]+\//i.test(url.pathname)) return "";
+        return url.href;
+      } catch {
+        return "";
+      }
+    };
+
     const renderers = Array.from(
       document.querySelectorAll(
         [
