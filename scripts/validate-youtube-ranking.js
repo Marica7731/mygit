@@ -105,7 +105,8 @@ function usableThumbnailUrl(value) {
     const url = new URL(raw);
     if (!/^https?:$/i.test(url.protocol)) return "";
     if (/\/(?:undefined|null)(?:[?#]|$)/i.test(url.pathname)) return "";
-    if (!/(?:ytimg|googleusercontent|ggpht)\./i.test(url.hostname)) return "";
+    if (!/(?:^|\.)ytimg\.com$/i.test(url.hostname)) return "";
+    if (!/\/vi(?:_webp)?\/[^/]+\//i.test(url.pathname)) return "";
     return url.href;
   } catch {
     return "";

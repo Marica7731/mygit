@@ -176,7 +176,7 @@ reachedBottom, truncatedByLimit, searchableText, collectedAt
 - 今日页和本月页的发布时间 meta 使用自然高度，不再撑高整张卡片。
 - 分页控件同时出现在列表顶部和底部；长列表滚动后右下角显示小型返回顶部按钮。
 - PNG 导出会主动按视频 ID 拉取前 100 张封面候选，减少未滚动加载导致的 `No thumbnail`。
-- 抓取脚本会清理 `undefined` / `null` / 非公开图片域的 `thumbnailUrl`，并回退到 YouTube 默认缩略图候选；数据校验会把这类无效封面按缺失封面处理。
+- 抓取脚本只把 `ytimg.com/vi...` / `ytimg.com/vi_webp...` 作为视频 `thumbnailUrl`，频道头像保存在 `channelAvatarUrl`；无有效视频封面时回退到 YouTube 默认缩略图候选，避免频道头像先渲染再被前端兜底替换造成闪烁。
 - 更新入口以 scheduler 空闲检查后派发主 workflow 为主，并由 chain workflow 在主任务完成后延迟补派，避免 GitHub schedule 漏触发造成长时间不更新。
 - 主 workflow 成功时会把排行数据、快照、分组 JSON 和抓取状态合并成一次提交，避免同一轮更新触发两次 GitHub Pages build、造成部署取消和线上刷新延迟。
 - 主 workflow 在排行质量校验失败时会自动用更保守的滚动、超时和并发参数重试一次，降低 YouTube 短时加载不足导致的失败率。
@@ -216,18 +216,18 @@ node scripts/write-ranking-groups.js --check
 | 文件路径 | 文件用途 | 主要函数或模块职责 | 与其他文件的关系 |
 | --- | --- | --- | --- |
 | `scripts/enrich-video-metrics.js` | 抓取后补充视频播放量、点赞和频道链接 | `mergeMetric()` 只在缺失播放量或 YouTube Data API 返回时覆盖 `viewCount` | 在 `.github/workflows/youtube-ranking.yml` 中运行，产出给前端读取的 `data/youtube-ranking.json` |
-| `scripts/update-youtube-ranking.js` | Playwright 抓取脚本 | `usableThumbnailUrl()` 清理无效缩略图 URL，避免 `undefined` 写入主数据；`isBlockedRankingItem()` 在去重阶段过滤点名频道、公开台 V 名单中的具体频道名和明确台 V 自标识，避免这些条目进入主数据和分组数据 | 主 workflow 首步生成 `data/youtube-ranking.json` |
+| `scripts/update-youtube-ranking.js` | Playwright 抓取脚本 | `usableThumbnailUrl()` 只接受 `/vi/` 或 `/vi_webp/` 视频缩略图 URL，避免频道头像写入 `thumbnailUrl`；`isBlockedRankingItem()` 在去重阶段过滤点名频道、公开台 V 名单中的具体频道名和明确台 V 自标识，避免这些条目进入主数据和分组数据 | 主 workflow 首步生成 `data/youtube-ranking.json` |
 | `assets/sort-hotfix.js` | 前端排序、主指标和缩略图兜底修正 | `getPrimaryMetric()` 去掉 DOM 播放量 fallback；`markThumbnailMissing()` 在候选全部失败后隐藏整卡 | 先于主 chunk 加载，影响后续卡片角标和排序展示 |
 | `assets/sort-hotfix.css` | 排序和缩略图状态样式 | `.video-card.is-thumbnail-missing` 直接隐藏 | 配合各缩略图 fallback 脚本剔除无封面卡 |
 | `assets/heartbeat-hotfix-v2.js` | 早期卡片压缩、指标和元信息补丁 | `upsertMeta()` 在 live 页移除时间跨度，`restoreDuplicateCard()` 只恢复本脚本标记的重复卡 | 与 `heartbeat-corner-layout.js`、`final-ui-polish.js` 共同处理卡片外观 |
 | `assets/heartbeat-corner-layout.js` | 缩略图角标和卡片元信息布局 | `observeCardChanges()` 监听主应用延迟渲染、分页和筛选变化；`writeBodyMeta()` live 页不渲染时间；`metricLabel()` 不再继承 DOM 旧指标；`durationLabel()` live 页不回填时长 | 最终写入缩略图上的 rank、metric、keyword、time 角标 |
 | `assets/heartbeat-chip-compact.js` | 紧凑布局和 meta 文本整理 | `normalizeMetaRows()` live 页删除 `.hb-meta` | 防止后置整理脚本重新显示直播时间 |
 | `assets/final-ui-polish.js` | 最终 UI 清理和频道链接补齐 | `scrubBodyDuplicates()` 和 `ensureCornerTime()` live 页删除时间相关节点 | 页面末尾加载，兜底覆盖早期热补丁残留 |
-| `assets/heartbeat-thumb-fallback.js` | 缩略图加载失败后的候选切换 | `markThumbnailUnavailable()` 隐藏无可用封面的 `.video-card` | 解决坏缩略图占位卡反复闪烁的问题 |
-| `assets/thumbnail-hotfix.js` | 缩略图质量检查和重复卡处理 | `markThumbnailMissing()` 隐藏无可用封面的卡片；`restoreDuplicateCard()` 只恢复 `.is-duplicate-video` | 避免覆盖坏封面、直播清理等其它隐藏状态 |
+| `assets/heartbeat-thumb-fallback.js` | 缩略图加载失败后的候选切换 | `isStableThumbnail()` 只把视频缩略图 URL 且尺寸有效的图片标记为最终成功；`markThumbnailUnavailable()` 隐藏无可用封面的 `.video-card` | 解决坏缩略图或频道头像占位卡反复闪烁的问题 |
+| `assets/thumbnail-hotfix.js` | 缩略图质量检查和重复卡处理 | `isStableThumbnail()` 防止频道头像被当作视频封面；`markThumbnailMissing()` 隐藏无可用封面的卡片；`restoreDuplicateCard()` 只恢复 `.is-duplicate-video` | 避免覆盖坏封面、直播清理等其它隐藏状态 |
 | `assets/ux-hotfix.js` | 早期 UI 密度和导出补丁 | `restoreDuplicateCard()` 只恢复本脚本标记的重复卡 | 避免与缩略图 fallback 争抢 `card.hidden` |
 | `assets/ranking-controls.js` | 分页、搜索、横向滚动工具条、顶部栏折叠、最低播放量筛选、返回顶部、时间筛选、三组快照、默认屏蔽和排行 JSON 单页共享缓存控制层 | `patchRankingFetch()` 按当前页面组读取 `data/youtube-ranking-<group>.json`，选择快照时读取 `data/<group>-snapshots/<id>.json`，失败再回退 `data/youtube-ranking.json`；`fetchSharedRankingResponse()` 合并同页重复请求；`filterDefaultBlockedItems()` 过滤默认屏蔽频道、公开台 V 名单中的具体频道名、明确台 V 自标识和无效缩略图 URL；`applyTimeFilterAndPagination()` 按时间、播放量、缩略图状态和分页隐藏卡片；`.video-card` 使用 `content-visibility: auto` 降低离屏卡片首次渲染成本 | 在四个 HTML 中先于主应用加载，避免侵入重打主 chunk |
-| `assets/ui-overrides.js` | 默认标题过滤、黑白名单 chip、直播指标展示和头像兜底逻辑 | `filterRankingDataByTitle()` 使用内部 `歌枠 / 弾き語` 标题规则并排除韩文；`markThumbnailMissing()` 隐藏无可用封面的卡片；`prepareChannelRows()` 补头像和频道行 | 后置增强卡片 DOM，默认过滤逻辑与 `assets/sort-hotfix.js` 保持一致 |
+| `assets/ui-overrides.js` | 默认标题过滤、黑白名单 chip、直播指标展示和头像兜底逻辑 | `filterRankingDataByTitle()` 使用内部 `歌枠 / 弾き語` 标题规则并排除韩文；`prepareThumbnails()` 不再主动把已存在封面切到 `hq720`，只在无效封面时走候选；`prepareChannelRows()` 补头像和频道行 | 后置增强卡片 DOM，默认过滤逻辑与 `assets/sort-hotfix.js` 保持一致 |
 | `assets/final-ui-polish.js`, `assets/corner-readability-hotfix.js`, `assets/heartbeat-corner-transparent.js`, `assets/png-export-hotfix.js` | 最终 UI 清理、角标可读性和 PNG 导出兜底 | `png-export-hotfix.js` 在导出前等待数据索引，并按 `videoId` 主动尝试 `hq720 / maxres / sd / hq / mq / default` 封面候选；其它脚本同步识别新旧默认标题过滤文案，避免内部过滤条件在页面或导出标题中露出 | 页面末尾加载或导出时兜底清理工具条状态 |
 | `scripts/archive-live-snapshot.js` | 三组快照生成脚本 | `archiveGroupSnapshot()` 保存当前 `groups.live / groups.today / groups.month`；`pruneSnapshotFiles()` 清理 7 天外快照；`summarizeGroup()` 生成索引摘要 | 主 workflow 成功校验后运行，产出给 `assets/ranking-controls.js` 读取的快照文件 |
 | `scripts/write-ranking-groups.js` | 当前排行分组文件生成脚本 | `groupPayload()` 保留主数据顶层 metadata，只写入对应 `groups.live / groups.today / groups.month`；`--check` 验证分组文件是否与主数据同步；分组文件使用紧凑 JSON 降低下载后解析体积 | 主 workflow 归档快照后运行，产出给普通页面默认读取的轻量分组 JSON |
@@ -292,7 +292,7 @@ node scripts/write-ranking-groups.js --check
 - 黑名单刷新后仍保留。
 - `live.html` / `today.html` / `month.html` 的快照下拉可分别选择 `data/live-snapshots/index.json`、`data/today-snapshots/index.json`、`data/month-snapshots/index.json` 中的快照。
 - `npm run check`、`node scripts/validate-youtube-ranking.js`、`node scripts/validate-duration-quality.js` 均通过，其中 `npm run check` 会同时校验三份 `data/youtube-ranking-<group>.json` 是否与主数据同步。
-- `node scripts/validate-youtube-ranking.js` 会把 `undefined` / `null` / 非公开图片域的 `thumbnailUrl` 计为缺失封面。
+- `node scripts/validate-youtube-ranking.js` 会把 `undefined` / `null` / 非 `ytimg.com/vi...` 视频缩略图路径的 `thumbnailUrl` 计为缺失封面；频道头像不能作为视频封面通过校验。
 - `node scripts/fill-duration-details.js` 在直播时长默认关闭时应输出 `includeLiveDurations: false`，且 `fetch.checked` / `playwright.checked` 不再随直播缺失数量增长。
 - GitHub Actions 中 `Update YouTube ranking` 若初次 `Validate ranking data` 失败，会出现 `Retry ranking data with conservative settings` step；终检通过才提交数据。
 - GitHub Actions 中 `Dispatch YouTube ranking update` 若处于失败冷却期，应输出 `Skip dispatch: previous failure is cooling down...`。

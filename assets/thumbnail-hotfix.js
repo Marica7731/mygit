@@ -108,10 +108,15 @@
   function isBadLoadedImage(img) {
     if (!img.complete) return false;
     if (!img.naturalWidth || !img.naturalHeight) return true;
-    return img.naturalWidth < 160 || img.naturalHeight < 90;
+    if (isStableThumbnail(img)) {
+      img.dataset.thumbnailFinal = "1";
+      return false;
+    }
+    return true;
   }
 
   function tryNextThumbnail(img) {
+    if (img.dataset.thumbnailFinal === "1" && isStableThumbnail(img)) return;
     const current = absoluteUrl(img.currentSrc || img.src);
     const failed = failedByImage.get(img) || new Set();
     if (current) failed.add(current);
@@ -124,6 +129,7 @@
     }
 
     img.removeAttribute("srcset");
+    img.dataset.thumbnailFinal = "";
     img.src = next;
   }
 
@@ -213,5 +219,14 @@
     } catch {
       return "";
     }
+  }
+
+  function isStableThumbnail(img) {
+    return Boolean(
+      img.complete &&
+        img.naturalWidth >= 120 &&
+        img.naturalHeight >= 90 &&
+        /\/vi(?:_webp)?\/[^/]+\//i.test(new URL(img.currentSrc || img.src, location.href).pathname),
+    );
   }
 })();

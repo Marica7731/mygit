@@ -19,10 +19,14 @@
         img.dataset.hbThumbFallbackReady = "1";
         img.addEventListener("error", () => fallback(img));
         img.addEventListener("load", () => {
-          if (img.naturalWidth > 8 && img.naturalHeight > 8) img.dataset.hbThumbOk = "1";
+          if (isStableThumbnail(img)) {
+            img.dataset.hbThumbOk = "1";
+            img.dataset.thumbnailFinal = "1";
+          }
         });
       }
-      if (img.complete && !img.dataset.hbThumbOk && (img.naturalWidth <= 8 || img.naturalHeight <= 8)) {
+      if (img.dataset.thumbnailFinal === "1" && isStableThumbnail(img)) return;
+      if (img.complete && !img.dataset.hbThumbOk && !isStableThumbnail(img)) {
         fallback(img);
       }
     });
@@ -52,6 +56,7 @@
 
     img.dataset.hbThumbFallbackIndex = String(index + 1);
     img.dataset.hbThumbOk = "";
+    img.dataset.thumbnailFinal = "";
     img.src = candidates[index];
     img.removeAttribute("srcset");
   }
@@ -94,6 +99,19 @@
 
   function stripQuery(value) {
     return String(value || "").split("?")[0];
+  }
+
+  function isStableThumbnail(img) {
+    try {
+      return Boolean(
+        img.complete &&
+          img.naturalWidth >= 120 &&
+          img.naturalHeight >= 90 &&
+          /\/vi(?:_webp)?\/[^/]+\//i.test(new URL(img.currentSrc || img.src, location.href).pathname),
+      );
+    } catch {
+      return false;
+    }
   }
 
   function ready(fn) {

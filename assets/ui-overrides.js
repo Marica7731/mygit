@@ -237,12 +237,10 @@
         img.dataset.thumbnailFallbacks = serializedCandidates;
       }
       if (!img.dataset.thumbnailPrepared) {
-        img.dataset.thumbnailIndex = "0";
         img.dataset.thumbnailPrepared = "1";
-        const preferred = candidates[0] || "";
-        if (preferred && absoluteUrl(img.currentSrc || img.src) !== absoluteUrl(preferred)) {
-          img.src = preferred;
-        }
+        const current = absoluteUrl(img.currentSrc || img.src);
+        const currentIndex = candidates.findIndex((candidate) => absoluteUrl(candidate) === current);
+        img.dataset.thumbnailIndex = String(Math.max(0, currentIndex));
       }
       img.referrerPolicy = "no-referrer";
       img.decoding = "async";
@@ -252,7 +250,9 @@
       if (placeholder) placeholder.hidden = true;
       img.hidden = false;
 
-      if (img.complete && img.naturalWidth === 0) {
+      if (isStableThumbnail(img)) {
+        img.dataset.thumbnailFinal = "1";
+      } else if (img.complete && img.naturalWidth === 0) {
         useNextThumbnail(img);
       }
     });
@@ -476,6 +476,7 @@
   }
 
   function useNextThumbnail(img) {
+    if (img.dataset.thumbnailFinal === "1" && isStableThumbnail(img)) return;
     const candidates = parseFallbacks(img);
     const currentIndex = Number(img.dataset.thumbnailIndex || "0");
     const currentSrc = absoluteUrl(img.currentSrc || img.src);
@@ -483,12 +484,22 @@
     for (let index = currentIndex + 1; index < candidates.length; index += 1) {
       if (absoluteUrl(candidates[index]) !== currentSrc) {
         img.dataset.thumbnailIndex = String(index);
+        img.dataset.thumbnailFinal = "";
         img.src = candidates[index];
         return;
       }
     }
 
     markThumbnailMissing(img);
+  }
+
+  function isStableThumbnail(img) {
+    return Boolean(
+      img.complete &&
+        img.naturalWidth >= 120 &&
+        img.naturalHeight >= 90 &&
+        isVideoThumbnailUrl(img.currentSrc || img.src),
+    );
   }
 
   function parseFallbacks(img) {
@@ -574,6 +585,14 @@
       return url.href;
     } catch {
       return "";
+    }
+  }
+
+  function isVideoThumbnailUrl(value) {
+    try {
+      return /\/vi(?:_webp)?\/[^/]+\//i.test(new URL(value, window.location.href).pathname);
+    } catch {
+      return false;
     }
   }
 

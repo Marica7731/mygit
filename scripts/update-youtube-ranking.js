@@ -535,9 +535,7 @@ async function extractSearchItems(page) {
         const thumbnailUrl =
           imageNodes
             .map(imageUrl)
-            .find((src) => src && !src.startsWith("data:") && /ytimg|googleusercontent|ggpht/.test(src)) ||
-          imageNodes.map(imageUrl).find((src) => src && !src.startsWith("data:")) ||
-          "";
+            .find((src) => usableThumbnailUrl(src)) || "";
 
         const channelAvatarNode =
           renderer.querySelector("a#avatar-link img") ||
@@ -640,8 +638,12 @@ function usableThumbnailUrl(value) {
 
   if (!/^https?:$/i.test(url.protocol)) return "";
   if (/\/(?:undefined|null)(?:[?#]|$)/i.test(url.pathname)) return "";
-  if (!/(?:ytimg|googleusercontent|ggpht)\./i.test(url.hostname)) return "";
+  if (!isVideoThumbnailUrl(url)) return "";
   return url.href;
+}
+
+function isVideoThumbnailUrl(url) {
+  return /(?:^|\.)ytimg\.com$/i.test(url.hostname) && /\/vi(?:_webp)?\/[^/]+\//i.test(url.pathname);
 }
 
 async function getScrollState(page) {
