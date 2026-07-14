@@ -7,163 +7,13 @@
   const TWO_COLUMN_PAGE_SIZE = 98;
   const TIME_FILTER_KEY = `ytb-ranking-time-filter-v1:${GROUP}`;
   const MIN_VIEWS_FILTER_KEY = `ytb-ranking-min-views-v1:${GROUP}`;
-  const TAIWAN_VTUBER_BLOCKED_TERMS = [
-    "Uchi Fifi",
-    "烟花蹦蹦蹦",
-    "煙花蹦蹦蹦",
-    "杏仁ミル",
-    "Ms.林鈴",
-    "貓田万奈",
-    "佐特 Zote",
-    "祿菈唄爾",
-    "楓神汰一",
-    "奈繪川",
-    "新兎タイムリリー",
-    "汐 Seki",
-    "璐洛洛",
-    "稻乙緹",
-    "李聽",
-    "Rumi 懶貓子",
-    "懶貓子",
-    "浠 Mizuki",
-    "熙歌",
-    "涅默",
-    "埃穆亞",
-    "森森鈴蘭",
-    "瑪格麗特・諾爾絲",
-    "瑪格麗特·諾爾絲",
-    "瑪格麗特・諾爾斯",
-    "諾爾絲",
-    "希翁",
-    "大合虎子",
-    "蕾兒 Rayer",
-    "綾音 Ring",
-    "露恰露恰",
-    "歐妲 Olda",
-    "祈菈",
-    "祈菈・貝希毛絲",
-    "祈菈‧貝希毛絲",
-    "雲隙光",
-    "冰霧",
-    "白白虹",
-    "幻月",
-    "光逸幸",
-    "Kouitu Sin",
-    "黑銀夜烏",
-    "繆・索緹絲",
-    "繆·索緹絲",
-    "庫路路",
-    "史黛菈",
-    "Stella Eleanor",
-    "克蕾 Cray",
-    "火野貝",
-    "汐海黑兔",
-    "香草奈若",
-    "Vanilla Nyoro",
-    "菜姬",
-    "希靈",
-    "高維爾",
-    "朵璃安",
-    "Dorian Vtuber",
-    "須多夜花",
-    "秋芽",
-    "ChillYa",
-    "夢寐愛姆",
-    "名雪薇薇",
-    "牧乃柯寧",
-    "布雷諾",
-    "彌里玖",
-    "響 Hibiki",
-    "煌 Kirali",
-    "澪 Rei",
-    "橙 Yuzumi",
-    "帕蘿妮",
-    "Paroniie",
-    "詩雨蔻達",
-    "Shiu Coda",
-    "神無月鹿比",
-    "Kannazuki Lubee",
-    "利卡洛斯",
-    "LiKaRuZ",
-    "艾琳妮雅",
-    "Arrynia Vaeri",
-    "姬城三千華",
-    "Himegi Michika",
-    "瓦西瓦瓦",
-    "Vaswawa",
-    "希妮·亞里絲",
-    "Sinnie Aris",
-    "酒樂霧子",
-    "依可露",
-    "Ekorru",
-    "結月莉莉奈",
-    "愛喵 Andi",
-    "若櫻依兔",
-    "Wakasa Ito",
-    "露熙妲",
-    "Luxida",
-    "涅菈",
-    "星璃",
-    "蘿貝塔",
-    "Robetta",
-    // Synced from Marica7731/daily-song-list/assets/source-filter.js.
-    // Keep these channel-specific; do not add broad region/role aliases here.
-    "LutraLutra",
-    "Lutralutra",
-    "歐妲",
-    "欧妲",
-    "Olda",
-    "埃穆亚",
-    "Oumua",
-    "Kumosuki",
-    "Eisnebel",
-    "Xxhacucoxx",
-    "Moondogs",
-    "Karasu",
-    "Sotis",
-    "Kururun",
-    "史黛菈 埃蕾諾亞",
-    "Cray Ch.",
-    "凝川眠",
-    "蘇米",
-    "苏米",
-    "Sumi Ch.",
-    "CheukCat",
-    "CheukCat Ch.",
-    "綽貓喵",
-    "绰猫喵",
-    // User-confirmed Taiwan VTuber channels.
-    "小雪Yukichan Ch.",
-    "小雪Yukichan",
-    "Yukichan Ch.",
-    "@yukichanch",
-    "yukichanch",
-    "youtube.com/@yukichanch",
-    "UCQymE4njJ-t9oahwX9-iC8w",
-    "羅妲 Rhoda",
-    "羅妲",
-    "@rhoda1126",
-    "rhoda1126",
-    "youtube.com/@rhoda1126",
-    "UC3zo1jR17JMM53_Ru7yDjfA",
-  ];
+  const REGIONAL_VTUBER_BLOCKLIST = window.BlockedVtuberChannels || { entries: [], blocklistHash: "", listVersion: "" };
   const DEFAULT_BLOCKED_PATTERNS = [
     "そびたんねる",
     "Piero Soubi",
     "Unmanned Japanese",
     "niY6C3ag-BY",
     "きよき一瓢",
-    "羽芝扉扉",
-    "厄伦蒂儿",
-    "厄倫蒂兒",
-    "Earendel",
-    "エアレンデル",
-    ...TAIWAN_VTUBER_BLOCKED_TERMS,
-  ];
-  const DEFAULT_BLOCKED_REGEXPS = [
-    /(?:^|[\s#｜|【】\[\]()（）、,，/／])台\s*v(?:tuber)?(?:$|[\s#｜|【】\[\]()（）、,，/／])/i,
-    /台[灣湾]\s*(?:個人勢|个人势)?\s*v\s*tuber/i,
-    /台[灣湾]\s*(?:個人勢|个人势)\s*v/i,
   ];
 
   const rawFetch = window.fetch.bind(window);
@@ -353,6 +203,7 @@
   }
 
   function isDefaultBlockedItem(item) {
+    if (matchBlockedRegionalVtuberSource(item)) return true;
     const haystack = normalizeBlockedText(
       [
         item?.channelName,
@@ -364,10 +215,99 @@
         item?.searchableText,
       ].join(" "),
     );
-    return (
-      DEFAULT_BLOCKED_PATTERNS.some((pattern) => haystack.includes(normalizeBlockedText(pattern))) ||
-      DEFAULT_BLOCKED_REGEXPS.some((pattern) => pattern.test(haystack))
+    return DEFAULT_BLOCKED_PATTERNS.some((pattern) => haystack.includes(normalizeBlockedText(pattern)));
+  }
+
+  function matchBlockedRegionalVtuberSource(item) {
+    const entries = (REGIONAL_VTUBER_BLOCKLIST.entries || []).filter((entry) => entry.status === "blocked");
+    const channelIds = new Set(uniqueStrings([item?.channelId, item?.authorChannelId, item?.ownerChannelId]));
+    const handles = new Set(
+      uniqueStrings([
+        item?.channelHandle,
+        item?.handle,
+        item?.ownerHandle,
+        ...channelUrlValues(item)
+          .map(normalizeChannelUrl)
+          .filter((value) => value.startsWith("@")),
+      ])
+        .map(normalizeHandle)
+        .filter(Boolean),
     );
+    const channelUrls = new Set(channelUrlValues(item).map(normalizeChannelUrl).filter(Boolean));
+    const channelNames = new Set(uniqueStrings([item?.channelName, item?.ownerText, item?.longBylineText, item?.shortBylineText]).map(normalizeChannelAlias));
+    const title = normalizeChannelAlias(item?.title || "");
+
+    for (const entry of entries) {
+      for (const channelId of entry.channelIds || []) {
+        if (channelIds.has(channelId)) return { entryId: entry.id, name: entry.name, matchedField: "channelId", matchedValue: channelId };
+      }
+      for (const handle of entry.handles || []) {
+        if (handles.has(normalizeHandle(handle))) return { entryId: entry.id, name: entry.name, matchedField: "handle", matchedValue: handle };
+      }
+      for (const url of entry.channelUrls || []) {
+        const normalized = normalizeChannelUrl(url);
+        if (channelUrls.has(normalized)) return { entryId: entry.id, name: entry.name, matchedField: "channelUrl", matchedValue: url };
+      }
+      for (const alias of [entry.name, ...(entry.aliases || [])]) {
+        if (channelNames.has(normalizeChannelAlias(alias))) {
+          return { entryId: entry.id, name: entry.name, matchedField: "channelName", matchedValue: alias };
+        }
+      }
+      for (const alias of entry.titleAliases || []) {
+        const normalizedAlias = normalizeChannelAlias(alias);
+        if (normalizedAlias && title.includes(normalizedAlias)) {
+          return { entryId: entry.id, name: entry.name, matchedField: "title", matchedValue: alias };
+        }
+      }
+    }
+    return null;
+  }
+
+  function channelUrlValues(item) {
+    return uniqueStrings([item?.channelUrl, item?.authorUrl, item?.ownerUrl]);
+  }
+
+  function normalizeChannelAlias(value) {
+    return clean(value).normalize("NFKC").toLowerCase();
+  }
+
+  function normalizeHandle(value) {
+    const cleaned = clean(value)
+      .replace(/^https?:\/\/(?:www\.)?youtube\.com\//iu, "")
+      .replace(/^\/+/u, "")
+      .split(/[/?#]/u)[0]
+      .replace(/^@/u, "")
+      .trim();
+    return /^[A-Za-z0-9._-]+$/u.test(cleaned) ? cleaned.toLowerCase() : "";
+  }
+
+  function normalizeChannelUrl(value) {
+    const raw = clean(value);
+    if (!raw) return "";
+    try {
+      const url = new URL(raw, location.href);
+      const host = url.hostname.replace(/^www\./iu, "").toLowerCase();
+      if (!["youtube.com", "m.youtube.com"].includes(host)) return "";
+      const segments = url.pathname.split("/").filter(Boolean);
+      if (!segments.length) return "";
+      if (segments[0].startsWith("@")) return `@${normalizeHandle(segments[0])}`;
+      if (segments[0] === "channel" && segments[1]) return segments[1];
+      return `/${segments.slice(0, 2).join("/")}`.toLowerCase();
+    } catch {
+      return "";
+    }
+  }
+
+  function uniqueStrings(values) {
+    const seen = new Set();
+    const result = [];
+    for (const raw of values || []) {
+      const value = clean(raw);
+      if (!value || seen.has(value)) continue;
+      seen.add(value);
+      result.push(value);
+    }
+    return result;
   }
 
   function normalizeBlockedText(value) {

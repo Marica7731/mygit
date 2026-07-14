@@ -3,6 +3,7 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { chromium } = require("playwright");
+const { matchBlockedSource } = require("./blocked-vtuber-matcher");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const DATA_FILE = path.join(ROOT_DIR, "data", "youtube-ranking.json");
@@ -28,160 +29,12 @@ const KEYWORDS = [
   },
 ];
 
-const TAIWAN_VTUBER_BLOCKED_TERMS = [
-  "Uchi Fifi",
-  "烟花蹦蹦蹦",
-  "煙花蹦蹦蹦",
-  "杏仁ミル",
-  "Ms.林鈴",
-  "貓田万奈",
-  "佐特 Zote",
-  "祿菈唄爾",
-  "楓神汰一",
-  "奈繪川",
-  "新兎タイムリリー",
-  "汐 Seki",
-  "璐洛洛",
-  "稻乙緹",
-  "李聽",
-  "Rumi 懶貓子",
-  "懶貓子",
-  "浠 Mizuki",
-  "熙歌",
-  "涅默",
-  "埃穆亞",
-  "森森鈴蘭",
-  "瑪格麗特・諾爾絲",
-  "瑪格麗特·諾爾絲",
-  "瑪格麗特・諾爾斯",
-  "諾爾絲",
-  "希翁",
-  "大合虎子",
-  "蕾兒 Rayer",
-  "綾音 Ring",
-  "露恰露恰",
-  "歐妲 Olda",
-  "祈菈",
-  "祈菈・貝希毛絲",
-  "祈菈‧貝希毛絲",
-  "雲隙光",
-  "冰霧",
-  "白白虹",
-  "幻月",
-  "光逸幸",
-  "Kouitu Sin",
-  "黑銀夜烏",
-  "繆・索緹絲",
-  "繆·索緹絲",
-  "庫路路",
-  "史黛菈",
-  "Stella Eleanor",
-  "克蕾 Cray",
-  "火野貝",
-  "汐海黑兔",
-  "香草奈若",
-  "Vanilla Nyoro",
-  "菜姬",
-  "希靈",
-  "高維爾",
-  "朵璃安",
-  "Dorian Vtuber",
-  "須多夜花",
-  "秋芽",
-  "ChillYa",
-  "夢寐愛姆",
-  "名雪薇薇",
-  "牧乃柯寧",
-  "布雷諾",
-  "彌里玖",
-  "響 Hibiki",
-  "煌 Kirali",
-  "澪 Rei",
-  "橙 Yuzumi",
-  "帕蘿妮",
-  "Paroniie",
-  "詩雨蔻達",
-  "Shiu Coda",
-  "神無月鹿比",
-  "Kannazuki Lubee",
-  "利卡洛斯",
-  "LiKaRuZ",
-  "艾琳妮雅",
-  "Arrynia Vaeri",
-  "姬城三千華",
-  "Himegi Michika",
-  "瓦西瓦瓦",
-  "Vaswawa",
-  "希妮·亞里絲",
-  "Sinnie Aris",
-  "酒樂霧子",
-  "依可露",
-  "Ekorru",
-  "結月莉莉奈",
-  "愛喵 Andi",
-  "若櫻依兔",
-  "Wakasa Ito",
-  "露熙妲",
-  "Luxida",
-  "涅菈",
-  "星璃",
-  "蘿貝塔",
-  "Robetta",
-  // Synced from Marica7731/daily-song-list/assets/source-filter.js.
-  // Keep these channel-specific; do not add broad region/role aliases here.
-  "LutraLutra",
-  "Lutralutra",
-  "歐妲",
-  "欧妲",
-  "Olda",
-  "埃穆亚",
-  "Oumua",
-  "Kumosuki",
-  "Eisnebel",
-  "Xxhacucoxx",
-  "Moondogs",
-  "Karasu",
-  "Sotis",
-  "Kururun",
-  "史黛菈 埃蕾諾亞",
-  "Cray Ch.",
-  "凝川眠",
-  "蘇米",
-  "苏米",
-  "Sumi Ch.",
-  "CheukCat",
-  "CheukCat Ch.",
-  "綽貓喵",
-  "绰猫喵",
-  // User-confirmed Taiwan VTuber channels.
-  "小雪Yukichan Ch.",
-  "小雪Yukichan",
-  "Yukichan Ch.",
-  "@yukichanch",
-  "yukichanch",
-  "youtube.com/@yukichanch",
-  "UCQymE4njJ-t9oahwX9-iC8w",
-  "羅妲 Rhoda",
-  "羅妲",
-  "@rhoda1126",
-  "rhoda1126",
-  "youtube.com/@rhoda1126",
-  "UC3zo1jR17JMM53_Ru7yDjfA",
-];
-
 const BLOCKED_TEXT_TERMS = [
-  "羽芝扉扉",
-  "厄伦蒂儿",
-  "厄倫蒂兒",
-  "Earendel",
-  "エアレンデル",
-  ...TAIWAN_VTUBER_BLOCKED_TERMS,
-];
-
-const TAIWAN_VTUBER_PATTERNS = [
-  /(?:^|[\s#｜|【】\[\]()（）、,，/／])台\s*v(?:tuber)?(?:$|[\s#｜|【】\[\]()（）、,，/／])/i,
-  /台[灣湾]\s*(?:個人勢|个人势)?\s*v\s*tuber/i,
-  /台[灣湾]\s*(?:個人勢|个人势)\s*v/i,
+  "そびたんねる",
+  "Piero Soubi",
+  "Unmanned Japanese",
+  "niY6C3ag-BY",
+  "きよき一瓢",
 ];
 
 const SOURCE_GROUPS = {
@@ -430,12 +283,10 @@ function blockedItemText(item) {
 }
 
 function isBlockedRankingItem(item) {
+  if (matchBlockedSource(item)) return true;
   const haystack = blockedItemText(item);
   if (!haystack) return false;
-  if (BLOCKED_TEXT_TERMS.some((term) => haystack.includes(normalizeWhitespace(term).toLowerCase()))) {
-    return true;
-  }
-  return TAIWAN_VTUBER_PATTERNS.some((pattern) => pattern.test(haystack));
+  return BLOCKED_TEXT_TERMS.some((term) => haystack.includes(normalizeWhitespace(term).toLowerCase()));
 }
 
 async function dismissConsent(page) {
