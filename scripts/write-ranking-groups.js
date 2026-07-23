@@ -15,6 +15,10 @@ function stringifyJson(value) {
   return `${JSON.stringify(value)}\n`;
 }
 
+function normalizeJsonFileText(value) {
+  return String(value || "").replace(/\r\n?/g, "\n");
+}
+
 function writeJson(filePath, text) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, text, "utf8");
@@ -70,7 +74,7 @@ function main() {
 
     if (CHECK_ONLY) {
       const existing = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, "utf8") : "";
-      if (existing !== text) {
+      if (normalizeJsonFileText(existing) !== text) {
         throw new Error(`${relativePath} is not up to date; run node scripts/write-ranking-groups.js`);
       }
       checked += 1;
