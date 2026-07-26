@@ -13,6 +13,7 @@ const {
 } = require("./blocked-vtuber-utils");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
+const HTML_FILES = ["index.html", "live.html", "today.html", "month.html"];
 
 function main() {
   const sourcePath = path.resolve(ROOT_DIR, parseArg("--source") || DEFAULT_BLOCKLIST_PATH);
@@ -41,7 +42,27 @@ function main() {
 `;
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, body, "utf8");
-  console.log(`BLOCKLIST_GENERATE_OK entries=${canonical.entries.length} hash=${hash} out=${path.relative(ROOT_DIR, outPath)}`);
+  const htmlUpdated = synchronizeHtmlAssetVersions(hash);
+  console.log(
+    `BLOCKLIST_GENERATE_OK entries=${canonical.entries.length} hash=${hash} out=${path.relative(ROOT_DIR, outPath)} htmlUpdated=${htmlUpdated}`,
+  );
+}
+
+function synchronizeHtmlAssetVersions(hash) {
+  const expectedAsset = `assets/blocked-vtuber-channels.js?v=${hash.slice(0, 12)}`;
+  let updatedCount = 0;
+  for (const fileName of HTML_FILES) {
+    const filePath = path.join(ROOT_DIR, fileName);
+    if (!fs.existsSync(filePath)) fail(`${fileName} is missing`);
+    const html = fs.readFileSync(filePath, "utf8");
+    const updated = html.replace(/assets\/blocked-vtuber-channels\.js(?:\?v=[^"'\\s>]*)?/gu, expectedAsset);
+    if (!updated.includes(expectedAsset)) fail(`${fileName} missing assets/blocked-vtuber-channels.js reference`);
+    if (updated !== html) {
+      fs.writeFileSync(filePath, updated, "utf8");
+      updatedCount += 1;
+    }
+  }
+  return updatedCount;
 }
 
 function parseArg(name) {
