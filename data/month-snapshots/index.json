@@ -2,11 +2,30 @@
   "schemaVersion": 1,
   "snapshotType": "month",
   "group": "month",
-  "generatedAt": "2026-08-05T21:02:33.199Z",
+  "generatedAt": "2026-08-05T21:15:35.532Z",
   "retentionDays": 7,
   "retainedDays": 7,
-  "latestSnapshotId": "20260805T205651Z",
+  "latestSnapshotId": "20260805T211040Z",
   "snapshots": [
+    {
+      "id": "20260805T211040Z",
+      "file": "20260805T211040Z.json",
+      "path": "data/month-snapshots/20260805T211040Z.json",
+      "group": "month",
+      "snapshotType": "month",
+      "generatedAt": "2026-08-05T21:10:40.852Z",
+      "capturedAt": "2026-08-05T21:10:40.852Z",
+      "expiresAt": "2026-08-12T21:10:40.852Z",
+      "label": "2026-08-06 05:10",
+      "itemCount": 1000,
+      "videoCount": 1000,
+      "liveCount": 0,
+      "upcomingCount": 0,
+      "keywords": {
+        "歌枠": 500,
+        "弾き語り": 500
+      }
+    },
     {
       "id": "20260805T205651Z",
       "file": "20260805T205651Z.json",
@@ -12082,44 +12101,6 @@
       "capturedAt": "2026-07-29T21:25:49.036Z",
       "expiresAt": "2026-08-05T21:25:49.036Z",
       "label": "2026-07-30 05:25",
-      "itemCount": 1000,
-      "videoCount": 1000,
-      "liveCount": 0,
-      "upcomingCount": 0,
-      "keywords": {
-        "歌枠": 500,
-        "弾き語り": 500
-      }
-    },
-    {
-      "id": "20260729T211532Z",
-      "file": "20260729T211532Z.json",
-      "path": "data/month-snapshots/20260729T211532Z.json",
-      "group": "month",
-      "snapshotType": "month",
-      "generatedAt": "2026-07-29T21:15:32.885Z",
-      "capturedAt": "2026-07-29T21:15:32.885Z",
-      "expiresAt": "2026-08-05T21:15:32.885Z",
-      "label": "2026-07-30 05:15",
-      "itemCount": 1000,
-      "videoCount": 1000,
-      "liveCount": 0,
-      "upcomingCount": 0,
-      "keywords": {
-        "歌枠": 500,
-        "弾き語り": 500
-      }
-    },
-    {
-      "id": "20260729T210446Z",
-      "file": "20260729T210446Z.json",
-      "path": "data/month-snapshots/20260729T210446Z.json",
-      "group": "month",
-      "snapshotType": "month",
-      "generatedAt": "2026-07-29T21:04:46.969Z",
-      "capturedAt": "2026-07-29T21:04:46.969Z",
-      "expiresAt": "2026-08-05T21:04:46.969Z",
-      "label": "2026-07-30 05:04",
       "itemCount": 1000,
       "videoCount": 1000,
       "liveCount": 0,
