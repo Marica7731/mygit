@@ -1,34 +1,41 @@
 {
   "status": "success",
-  "attemptedAt": "2026-08-09T12:31:03.301Z",
-  "runId": "31312852885",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/31312852885",
+  "attemptedAt": "2026-08-09T12:46:46.791Z",
+  "runId": "31313507001",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/31313507001",
   "eventName": "workflow_dispatch",
-  "headSha": "28fb5e62431bf65816787161dcb825147e6dad64",
+  "headSha": "a2849cd0ba3c15227c838df2d8fb6bb3c4a66a01",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-08-09T12:22:32.283Z",
+  "lastSuccessfulGeneratedAt": "2026-08-09T12:38:11.893Z",
   "liveDetailPostProcess": {
-    "generatedAt": "2026-08-09T12:30:08.060Z",
+    "generatedAt": "2026-08-09T12:45:46.440Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 270219,
+    "elapsedMs": 269871,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 120,
-    "watchChecked": 119,
-    "watchChanged": 125,
+    "clearedUntrustedLiveViewers": 124,
+    "watchChecked": 120,
+    "watchChanged": 126,
     "channelChecked": 0,
     "channelChanged": 0
   },
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
     "clearedLiveDurationItems": 0,
-    "removedExplicitDirtyLiveItems": 2,
+    "removedExplicitDirtyLiveItems": 4,
     "removedExplicitDirtyLiveSamples": [
       {
         "videoId": "B1-gi4CbX3g",
         "title": "【 Karaoke #歌枠 】元プロが歌う24時間配信へようこそ🍊 #作業用BGM 【 #vtuber #vsinger 】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      },
+      {
+        "videoId": "F8PdgD-XqNM",
+        "title": "【#歌枠】復活歌枠！歌の質問も大歓迎🍊【ボイトレVTuber / みかん先生】",
         "channelName": "みかんとボーカルノート",
         "durationText": "",
         "durationSeconds": null
@@ -39,10 +46,17 @@
         "channelName": "みかんとボーカルノート",
         "durationText": "",
         "durationSeconds": null
+      },
+      {
+        "videoId": "F8PdgD-XqNM",
+        "title": "【#歌枠】復活歌枠！歌の質問も大歓迎🍊【ボイトレVTuber / みかん先生】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
       }
     ],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 124,
-    "processedAt": "2026-08-09T12:30:43.770Z"
+    "subscriberItemsAfterClean": 127,
+    "processedAt": "2026-08-09T12:46:27.298Z"
   }
 }
