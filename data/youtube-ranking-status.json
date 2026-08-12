@@ -1,34 +1,41 @@
 {
   "status": "success",
-  "attemptedAt": "2026-08-12T15:13:40.739Z",
-  "runId": "31609518605",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/31609518605",
+  "attemptedAt": "2026-08-12T15:29:42.927Z",
+  "runId": "31611190473",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/31611190473",
   "eventName": "workflow_dispatch",
-  "headSha": "dc2fbd029ed43671531dd43ac1789de424342d29",
+  "headSha": "da05284f79ae5b3d6c0b28c8c6d26e023e201311",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-08-12T15:04:34.466Z",
+  "lastSuccessfulGeneratedAt": "2026-08-12T15:21:28.669Z",
   "liveDetailPostProcess": {
-    "generatedAt": "2026-08-12T15:12:38.932Z",
+    "generatedAt": "2026-08-12T15:28:46.425Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 303339,
+    "elapsedMs": 258949,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 125,
+    "clearedUntrustedLiveViewers": 121,
     "watchChecked": 120,
-    "watchChanged": 122,
+    "watchChanged": 120,
     "channelChecked": 0,
     "channelChanged": 0
   },
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
     "clearedLiveDurationItems": 0,
-    "removedExplicitDirtyLiveItems": 2,
+    "removedExplicitDirtyLiveItems": 4,
     "removedExplicitDirtyLiveSamples": [
       {
         "videoId": "B1-gi4CbX3g",
         "title": "【 Karaoke #歌枠 】元プロが歌う24時間配信へようこそ🍊 #作業用BGM 【 #vtuber #vsinger 】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      },
+      {
+        "videoId": "i1vIHjQaG4I",
+        "title": "【#歌枠】水曜日のちょっぴり大人な歌謡ショー始まります【ボイトレVTuber / みかん先生】",
         "channelName": "みかんとボーカルノート",
         "durationText": "",
         "durationSeconds": null
@@ -39,10 +46,17 @@
         "channelName": "みかんとボーカルノート",
         "durationText": "",
         "durationSeconds": null
+      },
+      {
+        "videoId": "i1vIHjQaG4I",
+        "title": "【#歌枠】水曜日のちょっぴり大人な歌謡ショー始まります【ボイトレVTuber / みかん先生】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
       }
     ],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 121,
-    "processedAt": "2026-08-12T15:13:19.237Z"
+    "subscriberItemsAfterClean": 120,
+    "processedAt": "2026-08-12T15:29:24.950Z"
   }
 }
