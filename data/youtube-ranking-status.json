@@ -1,34 +1,41 @@
 {
   "status": "success",
-  "attemptedAt": "2026-08-15T12:17:00.680Z",
-  "runId": "31883488530",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/31883488530",
+  "attemptedAt": "2026-08-15T12:32:57.869Z",
+  "runId": "31884233617",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/31884233617",
   "eventName": "workflow_dispatch",
-  "headSha": "f6bc982abaa5a356ce98c7bd3c5b3e991ec205e6",
+  "headSha": "d784374b4a179cb9e4cee70278c45353d6f1499d",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-08-15T12:07:55.873Z",
+  "lastSuccessfulGeneratedAt": "2026-08-15T12:25:32.003Z",
   "liveDetailPostProcess": {
-    "generatedAt": "2026-08-15T12:15:59.674Z",
+    "generatedAt": "2026-08-15T12:32:21.847Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 298728,
+    "elapsedMs": 293303,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 120,
+    "clearedUntrustedLiveViewers": 135,
     "watchChecked": 120,
-    "watchChanged": 122,
-    "channelChecked": 1,
+    "watchChanged": 121,
+    "channelChecked": 0,
     "channelChanged": 0
   },
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
     "clearedLiveDurationItems": 0,
-    "removedExplicitDirtyLiveItems": 2,
+    "removedExplicitDirtyLiveItems": 4,
     "removedExplicitDirtyLiveSamples": [
       {
         "videoId": "B1-gi4CbX3g",
         "title": "【 Karaoke #歌枠 】元プロが歌う24時間配信へようこそ🍊 #作業用BGM 【 #vtuber #vsinger 】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      },
+      {
+        "videoId": "HpAGgP9h-lc",
+        "title": "【#歌枠】夏の夜に、平和を願う歌枠【ボイトレVTuber / みかん先生】",
         "channelName": "みかんとボーカルノート",
         "durationText": "",
         "durationSeconds": null
@@ -39,10 +46,17 @@
         "channelName": "みかんとボーカルノート",
         "durationText": "",
         "durationSeconds": null
+      },
+      {
+        "videoId": "HpAGgP9h-lc",
+        "title": "【#歌枠】夏の夜に、平和を願う歌枠【ボイトレVTuber / みかん先生】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
       }
     ],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 122,
-    "processedAt": "2026-08-15T12:16:32.699Z"
+    "subscriberItemsAfterClean": 128,
+    "processedAt": "2026-08-15T12:32:34.105Z"
   }
 }
