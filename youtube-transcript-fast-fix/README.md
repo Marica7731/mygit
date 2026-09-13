@@ -1,80 +1,67 @@
 # YouTube 转写文稿时间文本提取器（get_panel 修正版）
 
-这是针对 2026 年 YouTube 转写接口变化重做的 Tampermonkey / Violentmonkey 用户脚本。
+这是针对当前 YouTube 转写接口变化重做的 Tampermonkey / Violentmonkey 用户脚本。
 
-## 为什么要改
+## 2.1.0 行为
 
-旧版脚本从 `captionTracks[].baseUrl` 直接请求：
+- 非视频页完全不显示控件。
+- 视频页默认不弹字幕面板，只显示右下角两个小按钮：
+  - `复制给 GPT`
+  - `字幕`
+- `复制给 GPT` 会按需抓取字幕，并一次性复制：
+  - 视频标题
+  - 频道名
+  - 频道链接
+  - 视频 ID
+  - 标准 watch 链接
+  - 日期（能取得时）
+  - 时长（能取得时）
+  - 播放量（能取得时）
+  - 完整带时间戳字幕
+  - 用于让 GPT 总结视频的提示词
+- `字幕` 只有主动点击时才展开查看面板。
+- 离开 `/watch`、`/live`、`/shorts` 视频页后，控件和面板会直接销毁。
+- 字幕按视频 ID 缓存，重复复制无需反复请求。
+- 支持 YouTube SPA 站内切换视频。
+
+## 字幕接口
+
+旧脚本依赖：
 
 `/api/timedtext?...&fmt=json3`
 
-在部分当前 YouTube 页面上会出现：
+在部分当前 YouTube 页面中会出现 HTTP 200 但响应体为空的情况。
 
-- 能识别到字幕轨；
-- 请求状态是 HTTP 200；
-- 但响应体为空；
-- 随后 `Response.json()` 报 `Unexpected end of JSON input`。
-
-这不是“视频没有字幕”。
-
-YouTube 自己打开“显示文字记录”时，现在会调用：
+本版改用 YouTube 自己“显示文字记录”正在使用的：
 
 `POST /youtubei/v1/get_panel?prettyPrint=false`
 
-并使用：
+其中：
 
 - `panelId: PAmodern_transcript_view`
-- `params`: `AA 09 0F 0A 0B + 11 字节 videoId + 18 02` 的 base64url
-- 当前页面的 `INNERTUBE_CONTEXT`
+- `params` 根据当前 11 字节 videoId 构造
+- 使用页面当前 `INNERTUBE_CONTEXT`
 
-返回数据中包含 `transcriptSegmentViewModel`。
-
-## 本版行为
-
-- 不再依赖 `timedtext`。
-- 直接使用 YouTube 当前原生 transcript panel 接口。
-- 提取格式：`时间 文本`。
-- 支持：
-  - `/watch?v=...`
-  - `/live/...`
-  - `/shorts/...`
-  - YouTube SPA 站内切换视频
-- 自动提取。
-- 支持重新提取、复制、下载 TXT。
-- 对新格式 `transcriptSegmentViewModel` 和旧格式 `transcriptSegmentRenderer` 都保留解析。
-- 同一时间戳、同一文本的连续重复段会去重。
-- `get_panel` 遇到 401 时会尝试双 SAPISID auth 重试。
+解析新格式 `transcriptSegmentViewModel`，同时兼容旧格式 `transcriptSegmentRenderer`。
 
 ## 安装
 
 1. 安装 Tampermonkey 或 Violentmonkey。
-2. 新建用户脚本。
-3. 将 `youtube-transcript-fast.user.js` 全部内容粘贴进去并保存。
-4. 打开任意有转写的 YouTube 视频页。
+2. 打开 `youtube-transcript-fast.user.js`。
+3. 将完整脚本安装/覆盖旧版。
+4. 打开 YouTube 视频页。
 
-右下角会出现“YouTube 转写提取”面板。
+## HAR 验证
 
-## 本次 HAR 验证
+测试视频 `q_r1MNPAnKg` 中：
 
-测试视频：
-
-`q_r1MNPAnKg`
-
-HAR 中：
-
-- `timedtext` 请求出现 3 次；
-- 三次均为 HTTP 200；
-- 三次响应体均为 0 字节；
+- `timedtext` 连续返回 HTTP 200 + 0 字节响应体；
 - YouTube 自己随后请求 `youtubei/v1/get_panel`；
-- 该响应约 950 KB；
-- 解析得到 828 个 `transcriptSegmentViewModel`；
-- 第一批内容为：
-  - `0:31 て`
-  - `2:40 はい、皆さんこんばんは。`
-  - `2:45 ソニーmusicB所属のおこもりのん です。 よろしくお願いします。`
+- 该响应包含完整 transcript 数据；
+- 可解析出与页面“显示文字记录”一致的时间戳字幕。
 
-因此这次修复的核心不是给空 `timedtext` 加 JSON 容错，而是把字幕来源切换到当前 YouTube 正在使用的原生 transcript panel。
+因此修复核心是切换字幕数据源，而不是仅给空 `timedtext` 增加 JSON 容错。
 
-## 注意
+## 安全
 
-HAR 往往包含登录态请求头、Authorization、Cookie 或其他会话信息。本仓库不会提交原始 HAR。
+原始 HAR 可能包含 Authorization、Cookie 和其他登录态信息，不应提交到公开仓库。
