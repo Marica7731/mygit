@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         YouTube 转写文稿时间文本提取器 - get_panel 修正版
 // @namespace    https://github.com/Marica7731/mygit
-// @version      2.0.0
-// @description  从 YouTube 当前原生 transcript panel 接口提取“时间 + 文本”，兼容 watch/live/shorts 和站内 SPA 切换。
+// @version      2.1.0
+// @description  视频页按需提取 YouTube 原生转写；一键复制“元数据 + 时间戳字幕 + GPT 总结提示词”，默认不弹窗。
 // @author       Marica7731
 // @match        https://www.youtube.com/*
 // @grant        unsafeWindow
@@ -12,24 +12,30 @@
 (() => {
   'use strict';
 
+  if (window.top !== window.self) return;
+
   const LOG = '[YT-TRANSCRIPT-FAST]';
   const PANEL_ID = 'PAmodern_transcript_view';
+  const ROOT_ID = 'yt-transcript-fast-root';
+  const PANEL_DOM_ID = 'yt-transcript-fast-panel';
+  const STYLE_ID = 'yt-transcript-fast-style';
   const pageWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
-  let mounted = false;
   let currentVideoId = '';
   let requestSerial = 0;
-  let autoTimer = 0;
+  let navTimer = 0;
+  const transcriptCache = new Map();
 
   const ui = {
     root: null,
-    status: null,
+    copyGpt: null,
+    showTranscript: null,
+    panel: null,
     textarea: null,
-    extract: null,
-    copy: null,
+    status: null,
+    refresh: null,
+    copyRaw: null,
     download: null,
-    minimize: null,
-    body: null,
   };
 
   function log(...args) {
@@ -40,15 +46,13 @@
     console.warn(LOG, ...args);
   }
 
+  function isVideoPage(url = location.href) {
+    return Boolean(getVideoId(url));
+  }
+
   function getVideoId(url = location.href) {
     try {
       const u = new URL(url, location.origin);
-      const host = u.hostname.replace(/^www\./, '');
-      if (host === 'youtu.be') {
-        const id = u.pathname.split('/').filter(Boolean)[0];
-        return /^[\w-]{11}$/.test(id || '') ? id : '';
-      }
-
       const queryId = u.searchParams.get('v');
       if (/^[\w-]{11}$/.test(queryId || '')) return queryId;
 
@@ -112,8 +116,6 @@
       throw new Error(`非法视频 ID: ${videoId}`);
     }
 
-    // 当前 YouTube transcript panel 的 protobuf 参数：
-    // AA 09 0F 0A 0B + 11 字节 videoId + 18 02
     const idBytes = new TextEncoder().encode(videoId);
     const bytes = new Uint8Array(5 + idBytes.length + 2);
     bytes.set([0xaa, 0x09, 0x0f, 0x0a, 0x0b], 0);
@@ -160,8 +162,9 @@
     const headers = {
       'Content-Type': 'application/json',
       'X-YouTube-Client-Name': String(getCfg('INNERTUBE_CONTEXT_CLIENT_NAME') || 1),
-      'X-YouTube-Client-Version':
-        String(getCfg('INNERTUBE_CLIENT_VERSION') || context?.client?.clientVersion || ''),
+      'X-YouTube-Client-Version': String(
+        getCfg('INNERTUBE_CLIENT_VERSION') || context?.client?.clientVersion || ''
+      ),
       'X-Origin': location.origin,
     };
 
@@ -199,23 +202,19 @@
       method: 'POST',
       credentials: 'include',
       headers: createHeaders(context, authorization),
-      body: JSON.stringify({
-        context,
-        panelId: PANEL_ID,
-        params,
-      }),
+      body: JSON.stringify({ context, panelId: PANEL_ID, params }),
     });
 
     const text = await response.text();
     if (!response.ok) {
-      const err = new Error(`get_panel HTTP ${response.status}${text ? `: ${text.slice(0, 180)}` : ''}`);
+      const err = new Error(
+        `get_panel HTTP ${response.status}${text ? `: ${text.slice(0, 180)}` : ''}`
+      );
       err.status = response.status;
       throw err;
     }
 
-    if (!text.trim()) {
-      throw new Error('get_panel 返回了空响应');
-    }
+    if (!text.trim()) throw new Error('get_panel 返回了空响应');
 
     try {
       return JSON.parse(text);
@@ -253,6 +252,12 @@
       : `${m}:${String(s).padStart(2, '0')}`;
   }
 
+  function secondsToDuration(seconds) {
+    const n = Number(seconds);
+    if (!Number.isFinite(n) || n < 0) return '';
+    return msToTimestamp(n * 1000);
+  }
+
   function normalizeText(text) {
     return String(text || '').replace(/\s+/g, ' ').trim();
   }
@@ -262,12 +267,10 @@
 
     function walk(node) {
       if (!node) return;
-
       if (Array.isArray(node)) {
         for (const item of node) walk(item);
         return;
       }
-
       if (typeof node !== 'object') return;
 
       const vm = node.transcriptSegmentViewModel;
@@ -280,9 +283,7 @@
       const legacy = node.transcriptSegmentRenderer;
       if (legacy) {
         const text = normalizeText(
-          runsText(legacy.snippet) ||
-          runsText(legacy.text) ||
-          legacy.simpleText
+          runsText(legacy.snippet) || runsText(legacy.text) || legacy.simpleText
         );
         const timestamp =
           runsText(legacy.startTimeText) ||
@@ -302,288 +303,499 @@
       if (prev && prev.timestamp === seg.timestamp && prev.text === seg.text) continue;
       deduped.push(seg);
     }
-
     return deduped;
   }
 
   function formatTranscript(segments) {
-    return segments.map(({ timestamp, text }) => (
-      timestamp ? `${timestamp} ${text}` : text
-    )).join('\n');
+    return segments
+      .map(({ timestamp, text }) => (timestamp ? `${timestamp} ${text}` : text))
+      .join('\n');
   }
 
-  function setStatus(message, kind = 'normal') {
+  async function getTranscript(videoId, force = false) {
+    if (!force && transcriptCache.has(videoId)) return transcriptCache.get(videoId);
+
+    const panel = await fetchPanel(videoId);
+    const segments = parseTranscriptPanel(panel);
+    if (!segments.length) {
+      throw new Error('没有找到可用的 transcript segment；该视频可能没有文字记录');
+    }
+
+    const text = formatTranscript(segments);
+    const result = { segments, text };
+    transcriptCache.set(videoId, result);
+    return result;
+  }
+
+  function firstText(selectors) {
+    for (const selector of selectors) {
+      const el = document.querySelector(selector);
+      const text = normalizeText(el?.textContent || '');
+      if (text) return text;
+    }
+    return '';
+  }
+
+  function firstHref(selectors) {
+    for (const selector of selectors) {
+      const el = document.querySelector(selector);
+      if (el?.href) return el.href;
+    }
+    return '';
+  }
+
+  function getPlayerResponse(videoId) {
+    const candidates = [
+      pageWindow.ytInitialPlayerResponse,
+      document.querySelector('ytd-watch-flexy')?.playerData,
+      document.querySelector('ytd-player')?.playerResponse,
+    ];
+
+    for (const candidate of candidates) {
+      if (!candidate || typeof candidate !== 'object') continue;
+      const details = candidate.videoDetails;
+      if (!details) continue;
+      if (!videoId || !details.videoId || details.videoId === videoId) return candidate;
+    }
+    return null;
+  }
+
+  function getVideoMeta(videoId) {
+    const player = getPlayerResponse(videoId);
+    const details = player?.videoDetails || {};
+    const micro = player?.microformat?.playerMicroformatRenderer || {};
+
+    const title =
+      normalizeText(details.title) ||
+      firstText([
+        'ytd-watch-metadata h1 yt-formatted-string',
+        'h1.ytd-watch-metadata yt-formatted-string',
+        'meta[name="title"]',
+      ]) ||
+      document.title.replace(/\s*-\s*YouTube\s*$/, '');
+
+    const channel =
+      normalizeText(details.author) ||
+      firstText([
+        'ytd-watch-metadata #owner #channel-name a',
+        'ytd-watch-metadata ytd-channel-name a',
+        '#owner-name a',
+      ]);
+
+    const channelUrl =
+      firstHref([
+        'ytd-watch-metadata #owner #channel-name a',
+        'ytd-watch-metadata ytd-channel-name a',
+        '#owner-name a',
+      ]) ||
+      (details.channelId ? `https://www.youtube.com/channel/${details.channelId}` : '');
+
+    const duration =
+      secondsToDuration(details.lengthSeconds) ||
+      (Number.isFinite(document.querySelector('video')?.duration)
+        ? secondsToDuration(document.querySelector('video').duration)
+        : '');
+
+    const displayedDate = firstText([
+      'ytd-watch-info-text #info yt-formatted-string',
+      '#info-strings yt-formatted-string',
+    ]);
+
+    return {
+      title,
+      channel,
+      channelUrl,
+      videoId,
+      url: `https://www.youtube.com/watch?v=${videoId}`,
+      duration,
+      published: micro.publishDate || micro.uploadDate || displayedDate || '',
+      viewCount: details.viewCount || '',
+    };
+  }
+
+  function buildGptPrompt(meta, transcript) {
+    const lines = [
+      '请总结下面这个 YouTube 视频。',
+      '请以字幕内容为主要依据，不要只根据标题猜测。自动字幕可能有识别错误；涉及人名、机构名、作品名、日期、活动名等专名时，请结合上下文判断，不确定就明确说明。',
+      '请先概括视频主要讲了什么，再列出重要信息、关键时间点、明确宣布的后续安排；如果存在“玩笑/调侃”和“正式告知”，请区分，不要把玩笑当成事实。',
+      '',
+      `视频标题：${meta.title || '未取得'}`,
+      `频道：${meta.channel || '未取得'}`,
+      meta.channelUrl ? `频道链接：${meta.channelUrl}` : '',
+      `视频 ID：${meta.videoId}`,
+      `视频链接：${meta.url}`,
+      meta.published ? `发布日期/页面显示日期：${meta.published}` : '',
+      meta.duration ? `时长：${meta.duration}` : '',
+      meta.viewCount ? `播放量（页面数据）：${meta.viewCount}` : '',
+      '',
+      '以下为带时间戳字幕：',
+      transcript,
+    ];
+
+    return lines.filter((line, index, arr) => line !== '' || index < 4 || arr[index - 1] !== '').join('\n');
+  }
+
+  async function writeClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {}
+
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  }
+
+  function showToast(message, kind = 'normal', timeout = 2200) {
+    if (!document.body) return;
+    const old = document.getElementById('yt-transcript-fast-toast');
+    old?.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'yt-transcript-fast-toast';
+    toast.textContent = message;
+    toast.dataset.kind = kind;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), timeout);
+  }
+
+  function setBusy(busy) {
+    if (!ui.copyGpt) return;
+    ui.copyGpt.disabled = busy;
+    ui.showTranscript.disabled = busy;
+    ui.copyGpt.textContent = busy ? '提取中…' : '复制给 GPT';
+  }
+
+  async function copyForGpt() {
+    const videoId = getVideoId();
+    if (!videoId) return;
+
+    const serial = ++requestSerial;
+    setBusy(true);
+    showToast('正在读取视频信息和字幕…', 'normal', 5000);
+
+    try {
+      const { text } = await getTranscript(videoId, false);
+      if (serial !== requestSerial || videoId !== getVideoId()) return;
+
+      const meta = getVideoMeta(videoId);
+      const prompt = buildGptPrompt(meta, text);
+      const ok = await writeClipboard(prompt);
+      if (!ok) throw new Error('浏览器拒绝写入剪贴板');
+
+      showToast(`已复制给 GPT：${meta.title || videoId}（${text.length.toLocaleString()} 字字幕）`, 'ok', 3500);
+      log('copied GPT prompt', { videoId, chars: prompt.length });
+    } catch (e) {
+      warn('copyForGpt failed', e);
+      showToast(`复制失败：${e?.message || e}`, 'error', 5000);
+    } finally {
+      if (serial === requestSerial) setBusy(false);
+    }
+  }
+
+  function setPanelStatus(message, kind = 'normal') {
     if (!ui.status) return;
     ui.status.textContent = message;
     ui.status.dataset.kind = kind;
   }
 
-  async function extract(reason = 'manual') {
+  async function loadPanelTranscript(force = false) {
     const videoId = getVideoId();
-    if (!videoId) {
-      setStatus('当前页面未识别到 YouTube 视频 ID', 'error');
-      return;
-    }
+    if (!videoId || !ui.panel) return;
 
-    const serial = ++requestSerial;
-    currentVideoId = videoId;
-    ui.extract.disabled = true;
-    setStatus(`读取 ${videoId} 的原生转写面板…`);
-
+    ui.refresh.disabled = true;
+    setPanelStatus('读取字幕中…');
     try {
-      const panel = await fetchPanel(videoId);
-      if (serial !== requestSerial) return;
-
-      const segments = parseTranscriptPanel(panel);
-      if (!segments.length) {
-        throw new Error('get_panel 成功，但没有找到 transcript segment；该视频可能没有可用转写');
-      }
-
-      const text = formatTranscript(segments);
+      const { text, segments } = await getTranscript(videoId, force);
       ui.textarea.value = text;
-      setStatus(`完成：${segments.length} 段，${text.length.toLocaleString()} 字符`, 'ok');
-      log('extract success', { videoId, reason, segments: segments.length });
+      setPanelStatus(`完成：${segments.length} 段，${text.length.toLocaleString()} 字符`, 'ok');
     } catch (e) {
-      if (serial !== requestSerial) return;
-      warn('extract failed:', e);
-      setStatus(`提取失败：${e?.message || e}`, 'error');
+      setPanelStatus(`提取失败：${e?.message || e}`, 'error');
     } finally {
-      if (serial === requestSerial) ui.extract.disabled = false;
+      ui.refresh.disabled = false;
     }
   }
 
-  async function copyTranscript() {
-    const text = ui.textarea?.value || '';
-    if (!text) {
-      setStatus('没有可复制的转写文本', 'error');
+  function destroyPanel() {
+    ui.panel?.remove();
+    ui.panel = null;
+    ui.textarea = null;
+    ui.status = null;
+    ui.refresh = null;
+    ui.copyRaw = null;
+    ui.download = null;
+  }
+
+  function openPanel() {
+    if (ui.panel) {
+      destroyPanel();
       return;
     }
 
-    try {
-      await navigator.clipboard.writeText(text);
-      setStatus(`已复制 ${text.length.toLocaleString()} 字符`, 'ok');
-      return;
-    } catch {}
-
-    ui.textarea.focus();
-    ui.textarea.select();
-    const ok = document.execCommand('copy');
-    setStatus(ok ? `已复制 ${text.length.toLocaleString()} 字符` : '复制失败，请手动 Ctrl+C', ok ? 'ok' : 'error');
-  }
-
-  function downloadTranscript() {
-    const text = ui.textarea?.value || '';
-    if (!text) {
-      setStatus('没有可下载的转写文本', 'error');
-      return;
-    }
-
-    const id = getVideoId() || 'youtube';
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `youtube_transcript_${id}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setStatus('TXT 已生成', 'ok');
-  }
-
-  function mount() {
-    if (mounted || !document.body) return;
-    mounted = true;
-
-    const style = document.createElement('style');
-    style.textContent = `
-      #yt-transcript-fast-panel {
-        position: fixed;
-        right: 16px;
-        bottom: 16px;
-        z-index: 2147483646;
-        width: min(460px, calc(100vw - 32px));
-        color: #f1f1f1;
-        background: rgba(28, 28, 28, .97);
-        border: 1px solid rgba(255,255,255,.16);
-        border-radius: 12px;
-        box-shadow: 0 8px 30px rgba(0,0,0,.35);
-        font: 13px/1.45 Arial, "Microsoft YaHei", sans-serif;
-        overflow: hidden;
-      }
-      #yt-transcript-fast-panel * { box-sizing: border-box; }
-      #yt-transcript-fast-panel .yt-tf-head {
-        height: 38px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 0 10px;
-        background: rgba(255,255,255,.06);
-        user-select: none;
-      }
-      #yt-transcript-fast-panel .yt-tf-title {
-        flex: 1;
-        font-weight: 600;
-      }
-      #yt-transcript-fast-panel button {
-        color: inherit;
-        background: rgba(255,255,255,.09);
-        border: 1px solid rgba(255,255,255,.14);
-        border-radius: 7px;
-        padding: 5px 9px;
-        cursor: pointer;
-      }
-      #yt-transcript-fast-panel button:hover { background: rgba(255,255,255,.16); }
-      #yt-transcript-fast-panel button:disabled { opacity: .5; cursor: default; }
-      #yt-transcript-fast-panel .yt-tf-body { padding: 9px; }
-      #yt-transcript-fast-panel .yt-tf-actions {
-        display: flex;
-        gap: 7px;
-        margin-bottom: 8px;
-      }
-      #yt-transcript-fast-panel textarea {
-        display: block;
-        width: 100%;
-        height: min(42vh, 480px);
-        resize: vertical;
-        color: #f1f1f1;
-        background: #111;
-        border: 1px solid rgba(255,255,255,.16);
-        border-radius: 8px;
-        padding: 9px;
-        outline: none;
-        font: 12px/1.55 Consolas, "Microsoft YaHei", monospace;
-        white-space: pre-wrap;
-      }
-      #yt-transcript-fast-panel .yt-tf-status {
-        margin-top: 7px;
-        min-height: 18px;
-        color: #bbb;
-        overflow-wrap: anywhere;
-      }
-      #yt-transcript-fast-panel .yt-tf-status[data-kind="ok"] { color: #9bd89b; }
-      #yt-transcript-fast-panel .yt-tf-status[data-kind="error"] { color: #ff9f9f; }
-      #yt-transcript-fast-panel[data-minimized="1"] .yt-tf-body { display: none; }
-    `;
-    document.documentElement.appendChild(style);
-
-    const root = document.createElement('section');
-    root.id = 'yt-transcript-fast-panel';
+    const panel = document.createElement('section');
+    panel.id = PANEL_DOM_ID;
 
     const head = document.createElement('div');
     head.className = 'yt-tf-head';
 
     const title = document.createElement('div');
     title.className = 'yt-tf-title';
-    title.textContent = 'YouTube 转写提取';
+    title.textContent = 'YouTube 字幕';
 
-    const minimize = document.createElement('button');
-    minimize.type = 'button';
-    minimize.textContent = '—';
-    minimize.title = '最小化/展开';
-
-    const body = document.createElement('div');
-    body.className = 'yt-tf-body';
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.textContent = '×';
+    close.title = '关闭';
 
     const actions = document.createElement('div');
     actions.className = 'yt-tf-actions';
 
-    const extractBtn = document.createElement('button');
-    extractBtn.type = 'button';
-    extractBtn.textContent = '重新提取';
+    const refresh = document.createElement('button');
+    refresh.type = 'button';
+    refresh.textContent = '重新提取';
 
-    const copyBtn = document.createElement('button');
-    copyBtn.type = 'button';
-    copyBtn.textContent = '复制';
+    const copyRaw = document.createElement('button');
+    copyRaw.type = 'button';
+    copyRaw.textContent = '复制字幕';
 
-    const downloadBtn = document.createElement('button');
-    downloadBtn.type = 'button';
-    downloadBtn.textContent = '下载 TXT';
+    const download = document.createElement('button');
+    download.type = 'button';
+    download.textContent = '下载 TXT';
 
     const textarea = document.createElement('textarea');
     textarea.spellcheck = false;
-    textarea.placeholder = '进入 YouTube 视频页后会自动提取时间 + 转写文本。';
 
     const status = document.createElement('div');
     status.className = 'yt-tf-status';
-    status.textContent = '等待视频页面…';
 
-    actions.append(extractBtn, copyBtn, downloadBtn);
-    body.append(actions, textarea, status);
-    head.append(title, minimize);
-    root.append(head, body);
-    document.body.appendChild(root);
+    head.append(title, close);
+    actions.append(refresh, copyRaw, download);
+    panel.append(head, actions, textarea, status);
+    document.body.appendChild(panel);
 
-    Object.assign(ui, {
-      root,
-      status,
-      textarea,
-      extract: extractBtn,
-      copy: copyBtn,
-      download: downloadBtn,
-      minimize,
-      body,
+    Object.assign(ui, { panel, textarea, status, refresh, copyRaw, download });
+
+    close.addEventListener('click', destroyPanel);
+    refresh.addEventListener('click', () => loadPanelTranscript(true));
+    copyRaw.addEventListener('click', async () => {
+      if (!textarea.value) await loadPanelTranscript(false);
+      if (!textarea.value) return;
+      const ok = await writeClipboard(textarea.value);
+      setPanelStatus(ok ? '字幕已复制' : '复制失败，请手动 Ctrl+C', ok ? 'ok' : 'error');
+    });
+    download.addEventListener('click', async () => {
+      if (!textarea.value) await loadPanelTranscript(false);
+      if (!textarea.value) return;
+      const id = getVideoId() || 'youtube';
+      const blob = new Blob([textarea.value], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `youtube_transcript_${id}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setPanelStatus('TXT 已生成', 'ok');
     });
 
-    extractBtn.addEventListener('click', () => extract('manual'));
-    copyBtn.addEventListener('click', copyTranscript);
-    downloadBtn.addEventListener('click', downloadTranscript);
-    minimize.addEventListener('click', () => {
-      const minimized = root.dataset.minimized === '1';
-      root.dataset.minimized = minimized ? '0' : '1';
-      minimize.textContent = minimized ? '—' : '+';
-    });
-
-    log('panel created');
-    scheduleAutoExtract('mount', 700);
+    loadPanelTranscript(false);
   }
 
-  function scheduleAutoExtract(reason, delay = 500) {
-    clearTimeout(autoTimer);
-    autoTimer = setTimeout(() => {
-      const id = getVideoId();
-      if (!id) {
+  function ensureStyle() {
+    if (document.getElementById(STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = `
+      #${ROOT_ID} {
+        position: fixed;
+        right: 14px;
+        bottom: 14px;
+        z-index: 2147483646;
+        display: flex;
+        gap: 5px;
+        align-items: center;
+        font: 12px/1.2 Arial, "Microsoft YaHei", sans-serif;
+      }
+      #${ROOT_ID} button,
+      #${PANEL_DOM_ID} button {
+        color: #f1f1f1;
+        background: rgba(30, 30, 30, .92);
+        border: 1px solid rgba(255,255,255,.18);
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      #${ROOT_ID} button:hover,
+      #${PANEL_DOM_ID} button:hover { background: rgba(55,55,55,.96); }
+      #${ROOT_ID} button:disabled,
+      #${PANEL_DOM_ID} button:disabled { opacity: .55; cursor: default; }
+      #${ROOT_ID} .yt-tf-copy-gpt {
+        padding: 7px 10px;
+        font-weight: 600;
+        box-shadow: 0 4px 16px rgba(0,0,0,.28);
+      }
+      #${ROOT_ID} .yt-tf-show {
+        padding: 7px 8px;
+        box-shadow: 0 4px 16px rgba(0,0,0,.22);
+      }
+      #${PANEL_DOM_ID} {
+        position: fixed;
+        right: 14px;
+        bottom: 54px;
+        z-index: 2147483646;
+        width: min(470px, calc(100vw - 28px));
+        color: #f1f1f1;
+        background: rgba(24,24,24,.98);
+        border: 1px solid rgba(255,255,255,.16);
+        border-radius: 12px;
+        box-shadow: 0 10px 32px rgba(0,0,0,.4);
+        padding: 9px;
+        font: 12px/1.45 Arial, "Microsoft YaHei", sans-serif;
+      }
+      #${PANEL_DOM_ID} .yt-tf-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      #${PANEL_DOM_ID} .yt-tf-title { flex: 1; font-weight: 600; }
+      #${PANEL_DOM_ID} .yt-tf-head button { padding: 3px 8px; font-size: 16px; }
+      #${PANEL_DOM_ID} .yt-tf-actions {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 8px;
+      }
+      #${PANEL_DOM_ID} .yt-tf-actions button { padding: 5px 8px; }
+      #${PANEL_DOM_ID} textarea {
+        display: block;
+        width: 100%;
+        height: min(42vh, 470px);
+        resize: vertical;
+        color: #f1f1f1;
+        background: #101010;
+        border: 1px solid rgba(255,255,255,.14);
+        border-radius: 8px;
+        padding: 8px;
+        outline: none;
+        font: 12px/1.55 Consolas, "Microsoft YaHei", monospace;
+        white-space: pre-wrap;
+      }
+      #${PANEL_DOM_ID} .yt-tf-status {
+        margin-top: 7px;
+        min-height: 17px;
+        color: #bbb;
+        overflow-wrap: anywhere;
+      }
+      #${PANEL_DOM_ID} .yt-tf-status[data-kind="ok"] { color: #9bd89b; }
+      #${PANEL_DOM_ID} .yt-tf-status[data-kind="error"] { color: #ff9f9f; }
+      #yt-transcript-fast-toast {
+        position: fixed;
+        left: 50%;
+        bottom: 74px;
+        transform: translateX(-50%);
+        z-index: 2147483647;
+        max-width: min(680px, calc(100vw - 32px));
+        padding: 9px 12px;
+        border-radius: 9px;
+        color: #f1f1f1;
+        background: rgba(20,20,20,.96);
+        border: 1px solid rgba(255,255,255,.16);
+        box-shadow: 0 6px 24px rgba(0,0,0,.32);
+        font: 12px/1.4 Arial, "Microsoft YaHei", sans-serif;
+        pointer-events: none;
+      }
+      #yt-transcript-fast-toast[data-kind="ok"] { border-color: rgba(130,210,130,.55); }
+      #yt-transcript-fast-toast[data-kind="error"] { border-color: rgba(255,120,120,.65); }
+    `;
+    document.documentElement.appendChild(style);
+  }
+
+  function mountLauncher() {
+    if (!document.body || !isVideoPage()) return;
+    if (document.getElementById(ROOT_ID)) return;
+
+    ensureStyle();
+    const root = document.createElement('div');
+    root.id = ROOT_ID;
+
+    const copyGpt = document.createElement('button');
+    copyGpt.type = 'button';
+    copyGpt.className = 'yt-tf-copy-gpt';
+    copyGpt.textContent = '复制给 GPT';
+    copyGpt.title = '复制视频标题、频道、链接和完整时间戳字幕，并附带总结提示词';
+
+    const showTranscript = document.createElement('button');
+    showTranscript.type = 'button';
+    showTranscript.className = 'yt-tf-show';
+    showTranscript.textContent = '字幕';
+    showTranscript.title = '查看/复制原始字幕';
+
+    root.append(copyGpt, showTranscript);
+    document.body.appendChild(root);
+
+    Object.assign(ui, { root, copyGpt, showTranscript });
+    copyGpt.addEventListener('click', copyForGpt);
+    showTranscript.addEventListener('click', openPanel);
+    log('launcher mounted', getVideoId());
+  }
+
+  function unmountLauncher() {
+    destroyPanel();
+    ui.root?.remove();
+    ui.root = null;
+    ui.copyGpt = null;
+    ui.showTranscript = null;
+    document.getElementById('yt-transcript-fast-toast')?.remove();
+  }
+
+  function syncPage(reason = 'navigation') {
+    clearTimeout(navTimer);
+    navTimer = setTimeout(() => {
+      const videoId = getVideoId();
+      if (!videoId) {
+        if (currentVideoId) ++requestSerial;
         currentVideoId = '';
-        if (ui.textarea) ui.textarea.value = '';
-        setStatus('当前不是可识别的视频页面');
+        unmountLauncher();
         return;
       }
 
-      if (id !== currentVideoId || !ui.textarea?.value) {
-        if (id !== currentVideoId && ui.textarea) ui.textarea.value = '';
-        extract(reason);
+      if (videoId !== currentVideoId) {
+        ++requestSerial;
+        currentVideoId = videoId;
+        destroyPanel();
       }
-    }, delay);
-  }
-
-  function onNavigation(reason) {
-    const id = getVideoId();
-    if (id !== currentVideoId) {
-      ++requestSerial;
-      currentVideoId = '';
-      if (ui.textarea) ui.textarea.value = '';
-      setStatus('检测到视频切换，准备提取…');
-    }
-    scheduleAutoExtract(reason, 700);
+      mountLauncher();
+      log('page synced', { reason, videoId });
+    }, 250);
   }
 
   function boot() {
-    const tryMount = () => {
-      if (document.body) mount();
-      else setTimeout(tryMount, 100);
+    const waitBody = () => {
+      if (!document.body) {
+        setTimeout(waitBody, 100);
+        return;
+      }
+      syncPage('boot');
     };
-    tryMount();
+    waitBody();
 
-    document.addEventListener('yt-navigate-finish', () => onNavigation('yt-navigate-finish'), true);
-    window.addEventListener('popstate', () => onNavigation('popstate'));
+    document.addEventListener('yt-navigate-finish', () => syncPage('yt-navigate-finish'), true);
+    window.addEventListener('popstate', () => syncPage('popstate'));
 
     let lastHref = location.href;
     setInterval(() => {
       if (location.href !== lastHref) {
         lastHref = location.href;
-        onNavigation('url-change');
+        syncPage('url-change');
       }
-    }, 1000);
+    }, 800);
   }
 
   boot();
