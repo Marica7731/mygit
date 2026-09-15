@@ -2,11 +2,30 @@
   "schemaVersion": 1,
   "snapshotType": "live",
   "group": "live",
-  "generatedAt": "2026-09-15T14:52:34.656Z",
+  "generatedAt": "2026-09-15T15:09:39.277Z",
   "retentionDays": 7,
   "retainedDays": 7,
-  "latestSnapshotId": "20260915T144535Z",
+  "latestSnapshotId": "20260915T150106Z",
   "snapshots": [
+    {
+      "id": "20260915T150106Z",
+      "file": "20260915T150106Z.json",
+      "path": "data/live-snapshots/20260915T150106Z.json",
+      "group": "live",
+      "snapshotType": "live",
+      "generatedAt": "2026-09-15T15:01:06.533Z",
+      "capturedAt": "2026-09-15T15:01:06.533Z",
+      "expiresAt": "2026-09-22T15:01:06.533Z",
+      "label": "2026-09-15 23:01",
+      "itemCount": 127,
+      "videoCount": 1,
+      "liveCount": 126,
+      "upcomingCount": 0,
+      "keywords": {
+        "歌枠": 94,
+        "弾き語り": 33
+      }
+    },
     {
       "id": "20260915T144535Z",
       "file": "20260915T144535Z.json",
@@ -12297,25 +12316,6 @@
       "keywords": {
         "歌枠": 91,
         "弾き語り": 28
-      }
-    },
-    {
-      "id": "20260908T150342Z",
-      "file": "20260908T150342Z.json",
-      "path": "data/live-snapshots/20260908T150342Z.json",
-      "group": "live",
-      "snapshotType": "live",
-      "generatedAt": "2026-09-08T15:03:42.487Z",
-      "capturedAt": "2026-09-08T15:03:42.487Z",
-      "expiresAt": "2026-09-15T15:03:42.487Z",
-      "label": "2026-09-08 23:03",
-      "itemCount": 135,
-      "videoCount": 0,
-      "liveCount": 135,
-      "upcomingCount": 0,
-      "keywords": {
-        "歌枠": 95,
-        "弾き語り": 40
       }
     }
   ]
