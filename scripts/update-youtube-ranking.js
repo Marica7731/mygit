@@ -499,7 +499,7 @@ async function extractSearchItems(page) {
         // accessibility label rather than in #metadata-line. Only extract an
         // explicit numeral followed by a view-unit (never an upload age).
         const viewPattern =
-          /[0-9０-９][0-9０-９,，]*(?:[.．][0-9０-９]+)?\\s*(?:[KMB億亿万萬千])?\\s*(?:views?|回視聴|視聴回数|次观看|次觀看|조회수|회 시청)/gi;
+          /[0-9０-９][0-9０-９,，]*(?:[.．][0-9０-９]+)?\s*(?:[KMB億亿万萬千])?\s*(?:views?|回視聴|視聴回数|次观看|次觀看|조회수|회 시청)/gi;
         const exactViewText = (value) => {
           const matches = String(value || "").match(viewPattern);
           return matches ? matches[matches.length - 1] : "";
