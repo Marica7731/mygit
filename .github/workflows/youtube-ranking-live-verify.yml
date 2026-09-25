@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/youtube-ranking-live-verify.yml"
+      - "data/youtube-ranking.json"
+      - "data/youtube-ranking-status.json"
   workflow_run:
     workflows: ["pages build and deployment"]
     types: [completed]
