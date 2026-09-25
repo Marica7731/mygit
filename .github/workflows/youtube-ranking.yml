@@ -155,13 +155,14 @@ jobs:
         continue-on-error: true
         run: node scripts/enrich-live-details.js
 
+      # Reuse already observed videoId counts before expensive watch-page calls.
+      - name: Recover previous view metrics
+        run: node scripts/merge-previous-view-metrics.js
+
       - name: Enrich video view metrics
         id: enrich_video_metrics
         timeout-minutes: 18
         run: node scripts/enrich-video-metrics.js
-
-      - name: Recover previous view metrics
-        run: node scripts/merge-previous-view-metrics.js
 
       - name: Fill missing durations
         if: steps.enrich_video_metrics.outputs.rate_limited != 'true'

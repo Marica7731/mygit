@@ -593,6 +593,46 @@ async function scrollToBottom(page) {
   });
 }
 
+// Harvest view labels from already-loaded search JSON, including scroll responses.
+function collectStructuredSearchViews(data, byVideoId) {
+  const stack = [data];
+  let inspected = 0;
+  const viewPattern = /[0-9０-９][0-9０-９,，]*(?:[.．][0-9０-９]+)?\s*(?:[KMB億亿万萬千])?\s*(?:views?|回視聴|視聴回数|次观看|次觀看|조회수|회 시청)/gi;
+  const jsonText = (value) => {
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    if (typeof value.simpleText === "string") return value.simpleText;
+    if (Array.isArray(value.runs)) return value.runs.map((run) => run.text || "").join("");
+    return "";
+  };
+  const matchView = (value) => {
+    const matches = String(value || "").match(viewPattern);
+    return matches ? matches[matches.length - 1] : "";
+  };
+  while (stack.length && inspected++ < 150000) {
+    const node = stack.pop();
+    if (!node || typeof node !== "object") continue;
+    if (Array.isArray(node)) {
+      for (const child of node) if (child && typeof child === "object") stack.push(child);
+      continue;
+    }
+    const id = node.videoId || node.contentId || "";
+    if (/^[a-zA-Z0-9_-]{11}$/.test(id) && !byVideoId.has(id)) {
+      const text = [
+        jsonText(node.viewCountText),
+        jsonText(node.shortViewCountText),
+        jsonText(node.accessibility?.accessibilityData?.label),
+        jsonText(node.title?.accessibility?.accessibilityData?.label),
+        node.metadata ? JSON.stringify(node.metadata).slice(0, 12000) : "",
+      ].map(matchView).find(Boolean);
+      if (text) byVideoId.set(id, text);
+    }
+    for (const child of Object.values(node)) {
+      if (child && typeof child === "object") stack.push(child);
+    }
+  }
+}
+
 function sourceLimit(sourceGroup) {
   return Math.min(CONFIG.groupLimits[sourceGroup], CONFIG.globalLimit);
 }
@@ -605,6 +645,19 @@ async function scrapeSource(page, source, collectedAt) {
     `[${source.sourceGroup}] ${source.keyword}: start, limit=${limit}, scrollToBottom=${shouldScrollToBottom}`,
   );
 
+  const structuredViews = new Map();
+  const responseTasks = [];
+  let searchContinuationResponses = 0;
+  const onSearchResponse = (response) => {
+    if (!/\/youtubei\/v1\/search(?:[?#]|$)/.test(response.url())) return;
+    searchContinuationResponses += 1;
+    responseTasks.push(response.json().then((json) => {
+      collectStructuredSearchViews(json, structuredViews);
+    }).catch((error) => {
+      console.warn("[" + source.sourceGroup + "] structured search response unavailable: " + error.message);
+    }));
+  };
+  page.on("response", onSearchResponse);
   await gotoWithRetry(page, source.sourceUrl, CONFIG.navigationTimeoutMs);
   await dismissConsent(page);
   await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
@@ -650,7 +703,28 @@ async function scrapeSource(page, source, collectedAt) {
 
   const finalRawItems = await extractSearchItems(page);
   const finalScrollState = await getScrollState(page);
+  const initialData = await page.evaluate(() => window.ytInitialData || null);
+  collectStructuredSearchViews(initialData, structuredViews);
+  page.off("response", onSearchResponse);
+  await Promise.allSettled(responseTasks);
+  let recoveredFromJson = 0;
+  for (const item of finalRawItems) {
+    if (item.viewText) continue;
+    const view = structuredViews.get(item.videoId);
+    if (!view) continue;
+    item.viewText = view;
+    recoveredFromJson += 1;
+  }
   const finalItems = dedupeItems(finalRawItems).slice(0, limit);
+  if (source.sourceGroup !== "live") {
+    console.log(
+      "[" + source.sourceGroup + "] " + source.keyword + ": searchViewSignals=" +
+      finalItems.filter((x) => x.viewText).length + "/" + finalItems.length +
+      ", structuredVideoIds=" + structuredViews.size +
+      ", recoveredFromJson=" + recoveredFromJson +
+      ", continuationResponses=" + searchContinuationResponses,
+    );
+  }
 
   if (finalItems.length >= limit && !finalScrollState.atBottom) {
     truncatedByLimit = true;
