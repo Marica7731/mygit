@@ -57,12 +57,13 @@ jobs:
       YTB_RANKING_LIVE_DETAIL_LIMIT: "5"
       YTB_RANKING_LIVE_DETAIL_DELAY_MS: "500"
       YTB_RANKING_LIVE_DETAIL_NAVIGATION_TIMEOUT_MS: "15000"
-      YTB_RANKING_METRIC_DETAIL_LIMIT: "120"
-      YTB_RANKING_METRIC_FETCH_LIMIT: "240"
-      YTB_RANKING_METRIC_FETCH_CONCURRENCY: "8"
-      YTB_RANKING_METRIC_FETCH_TIMEOUT_MS: "6000"
-      YTB_RANKING_OEMBED_CHANNEL_LIMIT: "1000"
-      YTB_RANKING_OEMBED_CHANNEL_CONCURRENCY: "8"
+      YTB_RANKING_METRIC_DETAIL_LIMIT: "24"
+      YTB_RANKING_METRIC_FETCH_LIMIT: "280"
+      YTB_RANKING_METRIC_FETCH_CONCURRENCY: "1"
+      YTB_RANKING_METRIC_FETCH_TIMEOUT_MS: "10000"
+      YTB_RANKING_YOUTUBE_REQUEST_DELAY_MS: "1200"
+      YTB_RANKING_OEMBED_CHANNEL_LIMIT: "24"
+      YTB_RANKING_OEMBED_CHANNEL_CONCURRENCY: "1"
       YTB_RANKING_OEMBED_CHANNEL_TIMEOUT_MS: "6000"
       YTB_RANKING_METRIC_DETAIL_DELAY_MS: "900"
       YTB_RANKING_METRIC_DETAIL_NAVIGATION_TIMEOUT_MS: "20000"
@@ -180,16 +181,16 @@ jobs:
         run: node scripts/validate-youtube-ranking.js
 
       - name: Retry ranking data with conservative settings
-        if: steps.validate_ranking.outcome == 'failure'
+        if: steps.validate_ranking.outcome == 'failure' && steps.validate_ranking.outputs.retryable == 'true'
         env:
           YTB_RANKING_SCROLL_TO_BOTTOM_GROUPS: "live,today,month"
           YTB_RANKING_MAX_SCROLLS: "220"
           YTB_RANKING_SCROLL_DELAY_MS: "2000"
           YTB_RANKING_INITIAL_DELAY_MS: "4000"
           YTB_RANKING_NAVIGATION_TIMEOUT_MS: "90000"
-          YTB_RANKING_METRIC_FETCH_CONCURRENCY: "4"
+          YTB_RANKING_METRIC_FETCH_CONCURRENCY: "1"
           YTB_RANKING_METRIC_FETCH_TIMEOUT_MS: "10000"
-          YTB_RANKING_OEMBED_CHANNEL_CONCURRENCY: "4"
+          YTB_RANKING_OEMBED_CHANNEL_CONCURRENCY: "1"
           YTB_RANKING_OEMBED_CHANNEL_TIMEOUT_MS: "10000"
           YTB_RANKING_DURATION_FETCH_CONCURRENCY: "2"
           YTB_RANKING_DURATION_FETCH_TIMEOUT_MS: "12000"
@@ -204,7 +205,14 @@ jobs:
           node scripts/normalize-duration-fields.js
           node scripts/clear-live-duration-fields.js
 
+      - name: Reject non-retryable ranking quality failure
+        if: steps.validate_ranking.outcome == 'failure' && steps.validate_ranking.outputs.retryable != 'true'
+        run: |
+          echo "::error::Ranking quality failed without incomplete collection; refusing to re-crawl or publish."
+          exit 1
+
       - name: Validate ranking data after retry
+        if: steps.validate_ranking.outcome == 'failure' && steps.validate_ranking.outputs.retryable == 'true'
         run: node scripts/validate-youtube-ranking.js
 
       - name: Validate duration data

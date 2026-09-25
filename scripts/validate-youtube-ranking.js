@@ -25,21 +25,37 @@ function main() {
   const payload = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
   const errors = [];
   const warnings = [];
+  const retryableErrors = [];
 
   for (const group of ["live", "today", "month"]) {
     const items = getItems(payload, group);
-    if (!items.length) errors.push(`${group}: items is empty`);
-    checkCollectionSize(payload, group, items, errors, warnings);
+    if (!items.length) {
+      const message = `${group}: items is empty`;
+      errors.push(message);
+      retryableErrors.push(message);
+    }
+    checkCollectionSize(payload, group, items, errors, warnings, retryableErrors);
     checkThumbnails(group, items, errors);
   }
 
   checkLiveSubscribers(getItems(payload, "live"), errors, warnings);
-  for (const group of VIEW_GROUPS) checkViewCoverage(payload, group, getItems(payload, group), errors, warnings);
+  for (const group of VIEW_GROUPS) checkViewCoverage(payload, group, getItems(payload, group), errors, warnings, retryableErrors);
+  if (payload.metricDetailPostProcess?.rateLimited) {
+    const metric = payload.metricDetailPostProcess;
+    warnings.push(`YouTube HTTP 429 circuit opened at ${metric.rateLimitSource || "unknown"}; Retry-After=${metric.retryAfter || "absent"}; blockedUntil=${metric.blockedUntil || "unknown"}`);
+  }
+  if (process.env.GITHUB_OUTPUT) {
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `retryable=${errors.length > 0 && retryableErrors.length > 0}\n`);
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `error_count=${errors.length}\n`);
+  }
 
   if (errors.length) {
     console.error("[validate-ranking] data quality check failed:");
     for (const error of errors) console.error(`- ${error}`);
-    process.exit(1);
+    if (warnings.length) for (const warning of warnings) console.warn(`- ${warning}`);
+    console.error(`[validate-ranking] retryable_incomplete_collection=${retryableErrors.length > 0}`);
+    process.exitCode = 1;
+    return;
   }
 
   if (warnings.length) {
@@ -65,13 +81,15 @@ function hasCompleteSourceCoverage(payload, group) {
   return sources.every((source) => source.reachedBottom === true || source.truncatedByLimit === true);
 }
 
-function checkCollectionSize(payload, group, items, errors, warnings) {
+function checkCollectionSize(payload, group, items, errors, warnings, retryableErrors) {
   if (!items.length) return;
 
   if (group === "live") {
     const liveItems = items.filter((item) => item.statusType === "live" || item.statusType === "upcoming");
     if (liveItems.length < CONFIG.minLiveItems) {
-      errors.push(`live: only ${liveItems.length} live/upcoming items collected, expected at least ${CONFIG.minLiveItems}`);
+      const message = `live: only ${liveItems.length} live/upcoming items collected, expected at least ${CONFIG.minLiveItems}`;
+      errors.push(message);
+      if (!hasCompleteSourceCoverage(payload, group)) retryableErrors.push(message);
     }
     return;
   }
@@ -81,7 +99,10 @@ function checkCollectionSize(payload, group, items, errors, warnings) {
   if (videos.length < minimum) {
     const message = `${group}: only ${videos.length} non-live videos collected, expected at least ${minimum}`;
     if (hasCompleteSourceCoverage(payload, group)) warnings.push(`${message}; all sources reached bottom or limit`);
-    else errors.push(message);
+    else {
+      errors.push(message);
+      retryableErrors.push(message);
+    }
   }
 }
 
@@ -136,10 +157,12 @@ function checkLiveSubscribers(items, errors, warnings) {
   }
 }
 
-function checkViewCoverage(payload, group, items, errors, warnings) {
+function checkViewCoverage(payload, group, items, errors, warnings, retryableErrors) {
   const videos = items.filter((item) => item.statusType !== "live" && item.statusType !== "upcoming");
   if (videos.length < CONFIG.minViewGroupItems) {
-    errors.push(`${group}: only ${videos.length} non-live videos collected`);
+    const message = `${group}: only ${videos.length} non-live videos collected`;
+    errors.push(message);
+    if (!hasCompleteSourceCoverage(payload, group)) retryableErrors.push(message);
     return;
   }
 

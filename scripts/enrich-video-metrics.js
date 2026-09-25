@@ -21,19 +21,65 @@ function parseBooleanEnv(name, fallback) {
 }
 
 const CONFIG = {
-  limit: parseIntegerEnv("YTB_RANKING_METRIC_DETAIL_LIMIT", 120),
-  fetchLimit: parseIntegerEnv("YTB_RANKING_METRIC_FETCH_LIMIT", 700),
-  fetchConcurrency: parseIntegerEnv("YTB_RANKING_METRIC_FETCH_CONCURRENCY", 4),
+  limit: parseIntegerEnv("YTB_RANKING_METRIC_DETAIL_LIMIT", 24),
+  fetchLimit: parseIntegerEnv("YTB_RANKING_METRIC_FETCH_LIMIT", 280),
+  fetchConcurrency: parseIntegerEnv("YTB_RANKING_METRIC_FETCH_CONCURRENCY", 1),
   fetchTimeoutMs: parseIntegerEnv("YTB_RANKING_METRIC_FETCH_TIMEOUT_MS", 10000),
-  oembedLimit: parseIntegerEnv("YTB_RANKING_OEMBED_CHANNEL_LIMIT", 1000),
-  oembedConcurrency: parseIntegerEnv("YTB_RANKING_OEMBED_CHANNEL_CONCURRENCY", 8),
+  oembedLimit: parseIntegerEnv("YTB_RANKING_OEMBED_CHANNEL_LIMIT", 24),
+  oembedConcurrency: parseIntegerEnv("YTB_RANKING_OEMBED_CHANNEL_CONCURRENCY", 1),
   oembedTimeoutMs: parseIntegerEnv("YTB_RANKING_OEMBED_CHANNEL_TIMEOUT_MS", 6000),
   delayMs: parseIntegerEnv("YTB_RANKING_METRIC_DETAIL_DELAY_MS", 900),
+  requestDelayMs: parseIntegerEnv("YTB_RANKING_YOUTUBE_REQUEST_DELAY_MS", 1200),
   navigationTimeoutMs: parseIntegerEnv("YTB_RANKING_METRIC_DETAIL_NAVIGATION_TIMEOUT_MS", 20000),
   youtubeApiKey: process.env.YOUTUBE_API_KEY || process.env.YTB_RANKING_YOUTUBE_API_KEY || "",
   headless: parseBooleanEnv("YTB_RANKING_HEADLESS", true),
   chromeExecutable: process.env.YTB_RANKING_CHROME_EXECUTABLE || "",
 };
+
+// Shared throttle/circuit: all YouTube metrics requests stop after the first HTTP 429.
+const youtubeCircuit = { tripped: false, retryAfter: "", blockedUntil: "", reason: "", requests: 0 };
+let nextYoutubeRequestAt = 0;
+
+async function reserveYoutubeRequest() {
+  if (youtubeCircuit.tripped) return false;
+  const now = Date.now();
+  const start = Math.max(now, nextYoutubeRequestAt);
+  nextYoutubeRequestAt = start + CONFIG.requestDelayMs;
+  if (start > now) await new Promise((resolve) => setTimeout(resolve, start - now));
+  if (youtubeCircuit.tripped) return false;
+  youtubeCircuit.requests += 1;
+  return true;
+}
+
+function stopOn429(response, where) {
+  const status = typeof response.status === "function" ? response.status() : response.status;
+  if (status !== 429) return;
+  const headers = typeof response.headers === "function" ? response.headers() : response.headers;
+  const retryAfter = headers?.get?.("retry-after") || headers?.["retry-after"] || "";
+  const seconds = Number(retryAfter);
+  const until = retryAfter
+    ? (Number.isFinite(seconds) && seconds >= 0 ? Date.now() + seconds * 1000 : Date.parse(retryAfter))
+    : NaN;
+  if (!youtubeCircuit.tripped) {
+    youtubeCircuit.tripped = true;
+    youtubeCircuit.retryAfter = retryAfter;
+    youtubeCircuit.blockedUntil = Number.isFinite(until) ? new Date(until).toISOString() : "";
+    youtubeCircuit.reason = where;
+    console.error(
+      `[metric-post] HTTP 429 at ${where}; shared YouTube circuit OPEN; Retry-After=${retryAfter || "absent"}; blockedUntil=${youtubeCircuit.blockedUntil || "unknown"}; stopping requests`,
+    );
+  }
+  throw new Error(`HTTP 429 at ${where}; YouTube circuit open`);
+}
+
+function uniqueItemsByVideoId(items) {
+  const seen = new Set();
+  return items.filter((item) => {
+    if (!item.videoId || seen.has(item.videoId)) return false;
+    seen.add(item.videoId);
+    return true;
+  });
+}
 
 function formatCount(value, suffix) {
   const number = Number(value);
@@ -85,20 +131,14 @@ function allTargetItems(payload) {
   const items = [];
   for (const group of ["today", "month"]) {
     for (const item of payload.groups?.[group]?.items || []) {
-      if (!item.videoId) continue;
-      if (item.statusType === "live" || item.statusType === "upcoming") continue;
-      const needsViewMetric = item.viewCount == null || item.viewCount <= 0;
-      const needsChannelLink = !item.channelId && !item.channelUrl;
-      if (!needsViewMetric && !needsChannelLink) continue;
+      if (!item.videoId || item.statusType === "live" || item.statusType === "upcoming") continue;
+      if (positiveNumber(item.viewCount)) continue; // Channel-link-only work is NOT metric work.
       items.push(item);
     }
   }
   return items;
 }
-
-function itemsMissingViewMetric(payload) {
-  return allTargetItems(payload).filter((item) => item.viewCount == null || item.viewCount <= 0);
-}
+function itemsMissingViewMetric(payload) { return allTargetItems(payload); }
 
 function itemsMissingChannelLink(payload) {
   const items = [];
@@ -173,17 +213,18 @@ function extractMetricFromWatchHtml(html) {
 }
 
 async function fetchWatchMetric(item) {
+  if (!(await reserveYoutubeRequest())) return null;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), CONFIG.fetchTimeoutMs);
   try {
     const response = await fetch(canonicalWatchUrl(item), {
       signal: controller.signal,
       headers: {
-        "User-Agent":
-          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
         "Accept-Language": "ja-JP,ja;q=0.9,en;q=0.8",
       },
     });
+    stopOn429(response, "watch HTML");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return extractMetricFromWatchHtml(await response.text());
   } finally {
@@ -192,41 +233,46 @@ async function fetchWatchMetric(item) {
 }
 
 async function fetchYoutubeApi(pathname, params) {
+  if (!(await reserveYoutubeRequest())) return null;
   const url = new URL(`https://www.googleapis.com/youtube/v3/${pathname}`);
   for (const [key, value] of Object.entries(params)) {
     if (value != null && value !== "") url.searchParams.set(key, value);
   }
   url.searchParams.set("key", CONFIG.youtubeApiKey);
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`YouTube Data API ${pathname} failed: ${response.status} ${body.slice(0, 240)}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), CONFIG.fetchTimeoutMs);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    stopOn429(response, `YouTube Data API ${pathname}`);
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(`YouTube Data API ${pathname} failed: ${response.status} ${body.slice(0, 240)}`);
+    }
+    return response.json();
+  } finally {
+    clearTimeout(timeout);
   }
-  return response.json();
 }
 
 async function fetchOEmbedChannel(item) {
+  if (!(await reserveYoutubeRequest())) return null;
   const url = new URL("https://www.youtube.com/oembed");
   url.searchParams.set("url", canonicalWatchUrl(item));
   url.searchParams.set("format", "json");
-
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), CONFIG.oembedTimeoutMs);
   try {
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
-        "User-Agent":
-          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
         "Accept-Language": "ja-JP,ja;q=0.9,en;q=0.8",
       },
     });
+    stopOn429(response, "oEmbed");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-    return {
-      channelUrl: absoluteYoutubeUrl(data.author_url),
-    };
+    return { channelUrl: absoluteYoutubeUrl(data.author_url) };
   } finally {
     clearTimeout(timeout);
   }
@@ -268,39 +314,29 @@ function mergeMetric(item, detail, source) {
 }
 
 async function enrichChannelLinksWithOEmbed(payload) {
-  const targets = itemsMissingChannelLink(payload).slice(0, CONFIG.oembedLimit);
-  if (!targets.length) return { checked: 0, changed: 0, failed: 0 };
-
+  const targets = uniqueItemsByVideoId(itemsMissingChannelLink(payload)).slice(0, CONFIG.oembedLimit);
+  if (!targets.length || youtubeCircuit.tripped) return { checked: 0, changed: 0, failed: 0 };
   const byVideoId = mapByVideoId(payload);
-  let nextIndex = 0;
-  let checked = 0;
-  let changed = 0;
-  let failed = 0;
-
-  console.log(
-    `[metric-post] oEmbed channel targets=${targets.length}, limit=${CONFIG.oembedLimit}, concurrency=${CONFIG.oembedConcurrency}`,
-  );
-
+  let index = 0, checked = 0, changed = 0, failed = 0;
+  console.log(`[metric-post] oEmbed channel targets=${targets.length}, limit=${CONFIG.oembedLimit}, concurrency=${CONFIG.oembedConcurrency}`);
   async function worker() {
-    while (nextIndex < targets.length) {
-      const item = targets[nextIndex];
-      nextIndex += 1;
+    while (index < targets.length && !youtubeCircuit.tripped) {
+      const item = targets[index++];
+      if ((byVideoId.get(item.videoId) || []).every((entry) => entry.channelId || entry.channelUrl)) continue;
       try {
         const detail = await fetchOEmbedChannel(item);
-        checked += 1;
+        if (!detail) break;
+        checked++;
         for (const entry of byVideoId.get(item.videoId) || []) {
-          if (mergeMetric(entry, detail, "youtubeOEmbed")) changed += 1;
+          if (mergeMetric(entry, detail, "youtubeOEmbed")) changed++;
         }
       } catch (error) {
-        failed += 1;
+        failed++;
         console.warn(`[metric-post] oEmbed ${item.videoId}: ${error.message}`);
       }
     }
   }
-
-  const workerCount = Math.min(CONFIG.oembedConcurrency, targets.length);
-  await Promise.all(Array.from({ length: workerCount }, () => worker()));
-
+  await Promise.all(Array.from({ length: Math.min(CONFIG.oembedConcurrency, targets.length) }, () => worker()));
   console.log(`[metric-post] oEmbed checked=${checked}, changed=${changed}, failed=${failed}`);
   return { checked, changed, failed };
 }
@@ -317,11 +353,13 @@ async function enrichWithYoutubeApi(payload) {
   let changed = 0;
 
   for (const part of chunk(ids, 50)) {
+    if (youtubeCircuit.tripped) break;
     const data = await fetchYoutubeApi("videos", {
       part: "snippet,statistics",
       id: part.join(","),
       maxResults: "50",
     });
+    if (!data) break;
 
     for (const video of data.items || []) {
       checked += 1;
@@ -341,53 +379,48 @@ async function enrichWithYoutubeApi(payload) {
 }
 
 async function enrichWithFetchPages(payload) {
-  const targets = allTargetItems(payload).filter((item) => item.videoId).slice(0, CONFIG.fetchLimit);
-  if (!targets.length) return { checked: 0, changed: 0 };
-
+  const targets = uniqueItemsByVideoId(itemsMissingViewMetric(payload)).slice(0, CONFIG.fetchLimit);
+  if (!targets.length || youtubeCircuit.tripped) return { checked: 0, changed: 0 };
   const byVideoId = mapByVideoId(payload);
-  let nextIndex = 0;
-  let checked = 0;
-  let changed = 0;
-
-  console.log(
-    `[metric-post] fetch fallback targets=${targets.length}, limit=${CONFIG.fetchLimit}, concurrency=${CONFIG.fetchConcurrency}`,
-  );
-
+  let index = 0, checked = 0, changed = 0;
+  console.log(`[metric-post] fetch fallback targets=${targets.length}, limit=${CONFIG.fetchLimit}, concurrency=${CONFIG.fetchConcurrency}`);
   async function worker() {
-    while (nextIndex < targets.length) {
-      const item = targets[nextIndex];
-      nextIndex += 1;
+    while (index < targets.length && !youtubeCircuit.tripped) {
+      const item = targets[index++];
+      if ((byVideoId.get(item.videoId) || []).some((entry) => positiveNumber(entry.viewCount))) continue;
       try {
         const detail = await fetchWatchMetric(item);
-        checked += 1;
+        if (!detail) break;
+        checked++;
         for (const entry of byVideoId.get(item.videoId) || []) {
-          if (mergeMetric(entry, detail, "watchHtmlFetch")) changed += 1;
+          if (mergeMetric(entry, detail, "watchHtmlFetch")) changed++;
         }
       } catch (error) {
         console.warn(`[metric-post] fetch ${item.videoId}: ${error.message}`);
       }
     }
   }
-
-  const workerCount = Math.min(CONFIG.fetchConcurrency, targets.length);
-  await Promise.all(Array.from({ length: workerCount }, () => worker()));
-
+  await Promise.all(Array.from({ length: Math.min(CONFIG.fetchConcurrency, targets.length) }, () => worker()));
   console.log(`[metric-post] fetch checked=${checked}, changed=${changed}`);
   return { checked, changed };
 }
 
 async function gotoWithRetry(page, url) {
   let lastError;
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
+  for (let attempt = 1; attempt <= 2 && !youtubeCircuit.tripped; attempt++) {
+    if (!(await reserveYoutubeRequest())) break;
     try {
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: CONFIG.navigationTimeoutMs });
+      const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: CONFIG.navigationTimeoutMs });
+      if (response) stopOn429(response, "browser navigation");
+      if (youtubeCircuit.tripped) throw new Error("YouTube circuit opened during navigation");
       return;
     } catch (error) {
       lastError = error;
+      if (youtubeCircuit.tripped) break;
       await page.waitForTimeout(1000 * attempt);
     }
   }
-  throw lastError;
+  throw lastError || new Error("YouTube circuit open");
 }
 
 async function dismissConsent(page) {
@@ -453,38 +486,41 @@ async function extractWatchMetric(page) {
 }
 
 async function enrichWithWatchPages(payload) {
-  const targets = itemsMissingViewMetric(payload).filter((item) => item.videoId).slice(0, CONFIG.limit);
-  if (!targets.length) return { checked: 0, changed: 0 };
-
+  const targets = uniqueItemsByVideoId(itemsMissingViewMetric(payload)).slice(0, CONFIG.limit);
+  if (!targets.length || youtubeCircuit.tripped) return { checked: 0, changed: 0 };
   const byVideoId = mapByVideoId(payload);
-  let checked = 0;
-  let changed = 0;
-
+  let checked = 0, changed = 0;
   const browser = await chromium.launch({
     headless: CONFIG.headless,
     executablePath: CONFIG.chromeExecutable || undefined,
     args: ["--disable-dev-shm-usage", "--no-sandbox"],
   });
-
   try {
     const page = await browser.newPage({
       locale: "ja-JP",
       viewport: { width: 1280, height: 900 },
-      userAgent:
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+      userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
     });
     page.setDefaultTimeout(12000);
-
+    page.on("response", (response) => {
+      if (response.status() === 429 && /(?:^|\.)youtube\.com$/.test(new URL(response.url()).hostname)) {
+        try { stopOn429(response, "browser YouTube response"); } catch { /* circuit logs once */ }
+      }
+    });
     console.log(`[metric-post] watch fallback targets=${targets.length}, limit=${CONFIG.limit}`);
     for (const item of targets) {
+      if (youtubeCircuit.tripped) break;
+      if ((byVideoId.get(item.videoId) || []).some((entry) => positiveNumber(entry.viewCount))) continue;
       try {
         await gotoWithRetry(page, canonicalWatchUrl(item));
+        if (youtubeCircuit.tripped) break;
         await dismissConsent(page);
         await page.waitForTimeout(CONFIG.delayMs);
+        if (youtubeCircuit.tripped) break;
         const detail = await extractWatchMetric(page);
-        checked += 1;
+        checked++;
         for (const entry of byVideoId.get(item.videoId) || []) {
-          if (mergeMetric(entry, detail, "watchPageMetric")) changed += 1;
+          if (mergeMetric(entry, detail, "watchPageMetric")) changed++;
         }
       } catch (error) {
         console.warn(`[metric-post] watch ${item.videoId}: ${error.message}`);
@@ -493,33 +529,37 @@ async function enrichWithWatchPages(payload) {
   } finally {
     await browser.close();
   }
-
   console.log(`[metric-post] watch checked=${checked}, changed=${changed}`);
   return { checked, changed };
 }
 
 async function main() {
   const payload = JSON.parse(await fs.readFile(DATA_FILE, "utf8"));
-  const beforeMissing = allTargetItems(payload).length;
+  const beforeMissing = uniqueVideoIds(itemsMissingViewMetric(payload)).length;
   const api = await enrichWithYoutubeApi(payload).catch((error) => {
     console.warn(`[metric-post] api skipped: ${error.message}`);
     return { checked: 0, changed: 0 };
   });
-  const oembed = await enrichChannelLinksWithOEmbed(payload).catch((error) => {
-    console.warn(`[metric-post] oEmbed skipped: ${error.message}`);
-    return { checked: 0, changed: 0, failed: 0 };
-  });
-  const fetchPages = allTargetItems(payload).length
+  const fetchPages = !youtubeCircuit.tripped && itemsMissingViewMetric(payload).length
     ? await enrichWithFetchPages(payload).catch((error) => {
         console.warn(`[metric-post] fetch skipped: ${error.message}`);
         return { checked: 0, changed: 0 };
       })
     : { checked: 0, changed: 0 };
-  const watch = itemsMissingViewMetric(payload).length
-    ? await enrichWithWatchPages(payload)
+  const watch = !youtubeCircuit.tripped && itemsMissingViewMetric(payload).length
+    ? await enrichWithWatchPages(payload).catch((error) => {
+        console.warn(`[metric-post] browser skipped: ${error.message}`);
+        return { checked: 0, changed: 0 };
+      })
     : { checked: 0, changed: 0 };
-  const afterMissing = allTargetItems(payload).length;
-
+  // Optional channel links run only after the high-priority viewCount phase.
+  const oembed = !youtubeCircuit.tripped
+    ? await enrichChannelLinksWithOEmbed(payload).catch((error) => {
+        console.warn(`[metric-post] oEmbed skipped: ${error.message}`);
+        return { checked: 0, changed: 0, failed: 0 };
+      })
+    : { checked: 0, changed: 0, failed: 0 };
+  const afterMissing = uniqueVideoIds(itemsMissingViewMetric(payload)).length;
   payload.metricDetailPostProcess = {
     generatedAt: new Date().toISOString(),
     limit: CONFIG.limit,
@@ -527,13 +567,17 @@ async function main() {
     beforeMissing,
     afterMissing,
     api,
-    oembed,
     fetch: fetchPages,
     watch,
+    oembed,
+    rateLimited: youtubeCircuit.tripped,
+    retryAfter: youtubeCircuit.retryAfter,
+    blockedUntil: youtubeCircuit.blockedUntil,
+    rateLimitSource: youtubeCircuit.reason,
+    youtubeRequestsStarted: youtubeCircuit.requests,
   };
-
   await fs.writeFile(DATA_FILE, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
-  console.log(`[metric-post] missing ${beforeMissing} -> ${afterMissing}`);
+  console.log(`[metric-post] missing viewCount videoIds ${beforeMissing} -> ${afterMissing}; rateLimited=${youtubeCircuit.tripped}`);
 }
 
 main().catch((error) => {
