@@ -1,23 +1,23 @@
 {
-  "status": "failed",
-  "attemptedAt": "2026-09-25T14:32:17.780Z",
-  "runId": "36145049792",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/36145049792",
+  "status": "success",
+  "attemptedAt": "2026-09-25T15:20:31.505Z",
+  "runId": "36151552060",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/36151552060",
   "eventName": "workflow_dispatch",
-  "headSha": "926e973de438f10c71fdb3f86073c6a8bb3612aa",
-  "message": "Validate ranking data after retry failed",
-  "failedStep": "Validate ranking data after retry",
-  "lastSuccessfulGeneratedAt": "2026-09-25T13:52:50.143Z",
+  "headSha": "c2fbf7202e05f6e7c889071bc77e849d030faa61",
+  "message": "ranking update passed",
+  "failedStep": "",
+  "lastSuccessfulGeneratedAt": "2026-09-25T15:09:38.810Z",
   "liveDetailPostProcess": {
-    "generatedAt": "2026-09-25T13:59:29.954Z",
+    "generatedAt": "2026-09-25T15:16:30.190Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 227913,
+    "elapsedMs": 246630,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 122,
+    "clearedUntrustedLiveViewers": 130,
     "watchChecked": 120,
-    "watchChanged": 121,
+    "watchChanged": 122,
     "channelChecked": 0,
     "channelChanged": 0
   },
@@ -42,7 +42,7 @@
       }
     ],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 124,
-    "processedAt": "2026-09-25T14:03:14.779Z"
+    "subscriberItemsAfterClean": 123,
+    "processedAt": "2026-09-25T15:20:18.278Z"
   }
 }
