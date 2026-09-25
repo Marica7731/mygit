@@ -303,6 +303,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh workflow run youtube-ranking-chain.yml --ref main --repo "$GITHUB_REPOSITORY" -f trigger_run_id="$GITHUB_RUN_ID" || {
-            echo "::warning::Failed to dispatch chain workflow; scheduler fallback remains active."
-          }
+          for attempt in 1 2 3; do
+            echo "Dispatching next chain tick (attempt $attempt/3)."
+            if gh workflow run youtube-ranking-chain.yml --ref main --repo "$GITHUB_REPOSITORY" -f trigger_run_id="$GITHUB_RUN_ID"; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "::warning::Chain dispatch attempt $attempt failed; retrying in 10 seconds."
+              sleep 10
+            fi
+          done
+          echo "::warning::Failed to dispatch chain workflow after 3 attempts; scheduler fallback remains active."
