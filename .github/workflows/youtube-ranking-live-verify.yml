@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 24
     env:
       GH_TOKEN: ${{ github.token }}
-      TARGET_DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      TARGET_DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.event.before || github.sha }}
       TARGET_DEPLOY_RUN_ID: ${{ github.event.workflow_run.id || '' }}
       RANKING_SITE_ORIGIN: https://ytb.culua.com
     steps:
