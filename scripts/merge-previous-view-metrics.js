@@ -65,7 +65,7 @@ async function historicalViewsByVideoId() {
     const snapshotDir = path.join(ROOT_DIR, "data", `${group}-snapshots`);
     const entries = await fs.readdir(snapshotDir, { withFileTypes: true }).catch(() => []);
     const recentFiles = entries
-      .filter((entry) => entry.isFile() && /^\\d{8}T\\d{6}Z\\.json$/.test(entry.name))
+      .filter((entry) => entry.isFile() && /^\d{8}T\d{6}Z\.json$/.test(entry.name))
       .map((entry) => ({ group, name: entry.name, filePath: path.join(snapshotDir, entry.name) }))
       .sort((left, right) => right.name.localeCompare(left.name))
       .slice(0, MAX_HISTORY_SNAPSHOTS_PER_GROUP);
