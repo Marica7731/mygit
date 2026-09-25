@@ -6,6 +6,7 @@ const path = require("node:path");
 const ROOT_DIR = path.resolve(__dirname, "..");
 const DATA_FILE = path.join(ROOT_DIR, "data", "youtube-ranking.json");
 const PREVIOUS_FILE = process.env.YTB_RANKING_PREVIOUS_DATA || "/tmp/youtube-ranking-previous.json";
+const MAX_HISTORY_SNAPSHOTS_PER_GROUP = 24;
 
 function positiveNumber(value) {
   return Number.isFinite(Number(value)) && Number(value) > 0;
@@ -55,6 +56,39 @@ function previousViewsByVideoId(previousPayload) {
     }
   }
   return map;
+}
+
+async function historicalViewsByVideoId() {
+  const snapshotFiles = [];
+
+  for (const group of ["today", "month"]) {
+    const snapshotDir = path.join(ROOT_DIR, "data", `${group}-snapshots`);
+    const entries = await fs.readdir(snapshotDir, { withFileTypes: true }).catch(() => []);
+    const recentFiles = entries
+      .filter((entry) => entry.isFile() && /^\\d{8}T\\d{6}Z\\.json$/.test(entry.name))
+      .map((entry) => ({ group, name: entry.name, filePath: path.join(snapshotDir, entry.name) }))
+      .sort((left, right) => right.name.localeCompare(left.name))
+      .slice(0, MAX_HISTORY_SNAPSHOTS_PER_GROUP);
+    snapshotFiles.push(...recentFiles);
+  }
+
+  snapshotFiles.sort((left, right) => right.name.localeCompare(left.name));
+  const byVideoId = new Map();
+  let snapshotsRead = 0;
+
+  for (const snapshotFile of snapshotFiles) {
+    const snapshotPayload = await readJsonIfExists(snapshotFile.filePath);
+    if (!snapshotPayload) continue;
+    snapshotsRead += 1;
+
+    for (const item of groupItems(snapshotPayload, snapshotFile.group)) {
+      const videoId = clean(item.videoId);
+      if (!videoId || byVideoId.has(videoId) || !positiveNumber(item.viewCount)) continue;
+      byVideoId.set(videoId, item);
+    }
+  }
+
+  return { byVideoId, snapshotsRead };
 }
 
 function channelUrlKey(value) {
@@ -138,9 +172,12 @@ async function main() {
   }
 
   const previous = previousViewsByVideoId(previousPayload);
+  const historical = await historicalViewsByVideoId();
   const previousLiveSubscribers = previousLiveSubscriberIndexes(previousPayload);
   let checked = 0;
   let changed = 0;
+  let previousChanged = 0;
+  let historicalChanged = 0;
   let liveSubscriberChecked = 0;
   let liveSubscriberChanged = 0;
 
@@ -151,13 +188,18 @@ async function main() {
       checked += 1;
 
       const oldItem = previous.get(item.videoId);
-      if (!oldItem) continue;
+      const historicalItem = historical.byVideoId.get(item.videoId);
+      const sourceItem = oldItem || historicalItem;
+      if (!sourceItem) continue;
 
-      item.viewCount = Number(oldItem.viewCount);
-      item.viewText = oldItem.viewText || `${Math.round(Number(oldItem.viewCount)).toLocaleString("ja-JP")} 回視聴`;
-      item.viewSource = "previousRun";
+      item.viewCount = Number(sourceItem.viewCount);
+      item.viewText =
+        sourceItem.viewText || `${Math.round(Number(sourceItem.viewCount)).toLocaleString("ja-JP")} 回視聴`;
+      item.viewSource = oldItem ? "previousRun" : "historicalSnapshot";
       item.searchableText = buildSearchableText(item);
       changed += 1;
+      if (oldItem) previousChanged += 1;
+      else historicalChanged += 1;
     }
   }
 
@@ -176,13 +218,17 @@ async function main() {
     previousGeneratedAt: previousPayload.generatedAt || "",
     checked,
     changed,
+    previousChanged,
+    historicalChanged,
+    historicalSnapshotsRead: historical.snapshotsRead,
+    historicalVideoIds: historical.byVideoId.size,
     liveSubscriberChecked,
     liveSubscriberChanged,
   };
 
   await fs.writeFile(DATA_FILE, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
   console.log(
-    `[previous-metric] checked=${checked}, changed=${changed}, liveSubscriberChecked=${liveSubscriberChecked}, liveSubscriberChanged=${liveSubscriberChanged}`,
+    `[previous-metric] checked=${checked}, changed=${changed}, previousChanged=${previousChanged}, historicalChanged=${historicalChanged}, historicalSnapshotsRead=${historical.snapshotsRead}, liveSubscriberChecked=${liveSubscriberChecked}, liveSubscriberChanged=${liveSubscriberChanged}`,
   );
 }
 
