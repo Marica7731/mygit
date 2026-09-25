@@ -6,7 +6,6 @@ const path = require("node:path");
 const ROOT_DIR = path.resolve(__dirname, "..");
 const DATA_FILE = path.join(ROOT_DIR, "data", "youtube-ranking.json");
 const PREVIOUS_FILE = process.env.YTB_RANKING_PREVIOUS_DATA || "/tmp/youtube-ranking-previous.json";
-const MAX_HISTORY_SNAPSHOTS_PER_GROUP = 24;
 
 function positiveNumber(value) {
   return Number.isFinite(Number(value)) && Number(value) > 0;
@@ -64,12 +63,11 @@ async function historicalViewsByVideoId() {
   for (const group of ["today", "month"]) {
     const snapshotDir = path.join(ROOT_DIR, "data", `${group}-snapshots`);
     const entries = await fs.readdir(snapshotDir, { withFileTypes: true }).catch(() => []);
-    const recentFiles = entries
+    const retainedFiles = entries
       .filter((entry) => entry.isFile() && /^\d{8}T\d{6}Z\.json$/.test(entry.name))
       .map((entry) => ({ group, name: entry.name, filePath: path.join(snapshotDir, entry.name) }))
-      .sort((left, right) => right.name.localeCompare(left.name))
-      .slice(0, MAX_HISTORY_SNAPSHOTS_PER_GROUP);
-    snapshotFiles.push(...recentFiles);
+      .sort((left, right) => right.name.localeCompare(left.name));
+    snapshotFiles.push(...retainedFiles);
   }
 
   snapshotFiles.sort((left, right) => right.name.localeCompare(left.name));
