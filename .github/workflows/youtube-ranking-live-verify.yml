@@ -1,0 +1,109 @@
+name: Verify live YouTube ranking deployment
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/youtube-ranking-live-verify.yml"
+  workflow_run:
+    workflows: ["pages build and deployment"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: youtube-ranking-live-verify
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      TARGET_DEPLOY_RUN_ID: ${{ github.event.workflow_run.id || '' }}
+      RANKING_SITE_ORIGIN: https://ytb.culua.com
+    steps:
+      - name: Verify Pages deployment and live HTTP/JSON evidence
+        run: |
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process');
+          const repo = process.env.GITHUB_REPOSITORY;
+          const targetSha = process.env.TARGET_DEPLOY_SHA;
+          const specificRunId = process.env.TARGET_DEPLOY_RUN_ID;
+          const origin = process.env.RANKING_SITE_ORIGIN;
+          const deadline = Date.now() + 19 * 60 * 1000;
+          const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+          function pagesRun() {
+            const json = JSON.parse(execFileSync('gh',
+              ['api', '--method', 'GET', `repos/${repo}/actions/runs`, '-f', 'per_page=60'],
+              { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }));
+            return json.workflow_runs.find((run) =>
+              run.name === 'pages build and deployment' &&
+              (specificRunId ? String(run.id) === specificRunId : run.head_sha === targetSha));
+          }
+
+          async function main() {
+            let deployed;
+            while (Date.now() < deadline) {
+              deployed = pagesRun();
+              if (deployed?.status === 'completed') break;
+              console.log(`[online] waiting for Pages run at SHA ${targetSha}: ${deployed?.status || 'not found'}`);
+              await sleep(20000);
+            }
+            if (!deployed || deployed.status !== 'completed' || deployed.conclusion !== 'success') {
+              throw new Error(`Pages deployment not successful: ${JSON.stringify({
+                id: deployed?.id, sha: deployed?.head_sha, status: deployed?.status, conclusion: deployed?.conclusion
+              })}`);
+            }
+            console.log('[online] Pages deployment ' + JSON.stringify({
+              runId: deployed.id, sha: deployed.head_sha, conclusion: deployed.conclusion,
+              completedAt: deployed.updated_at, url: deployed.html_url
+            }));
+
+            const paths = ['/today.html', '/data/youtube-ranking.json', '/data/youtube-ranking-status.json'];
+            let checked;
+            for (let attempt = 1; attempt <= 6; attempt++) {
+              checked = await Promise.all(paths.map(async (pathname) => {
+                const url = origin + pathname + '?verify=' + process.env.GITHUB_RUN_ID + '-' + attempt;
+                const response = await fetch(url, { signal: AbortSignal.timeout(20000), cache: 'no-store' });
+                const body = await response.text();
+                return { pathname, status: response.status, contentType: response.headers.get('content-type'),
+                  body, bytes: Buffer.byteLength(body) };
+              }));
+              if (checked.every((x) => x.status === 200)) break;
+              await sleep(15000);
+            }
+            const info = checked.map(({pathname, status, contentType, bytes}) => ({pathname, status, contentType, bytes}));
+            console.log('[online] HTTP evidence ' + JSON.stringify(info));
+            if (checked.some((x) => x.status !== 200)) throw new Error('Live page or JSON HTTP status is not 200');
+
+            const html = checked[0].body, ranking = JSON.parse(checked[1].body);
+            const status = JSON.parse(checked[2].body);
+            const today = ranking.groups?.today?.items || [];
+            const validViews = today.filter((item) =>
+              item.statusType !== 'live' && item.statusType !== 'upcoming' && Number(item.viewCount) > 0).length;
+            const evidence = {
+              deployedSha: deployed.head_sha, generatedAt: ranking.generatedAt,
+              todayCount: today.length, todayWithViews: validViews,
+              status: status.status, attemptedAt: status.attemptedAt,
+              lastSuccessfulGeneratedAt: status.lastSuccessfulGeneratedAt,
+              lastUpdateRunId: status.runId, failureMessage: status.message,
+              htmlHasTodayGroup: /data-source-group="today"/.test(html),
+              htmlHasAppRoot: /id="app"/.test(html)
+            };
+            console.log('[online] RANKING EVIDENCE ' + JSON.stringify(evidence));
+            if (!evidence.htmlHasTodayGroup || !evidence.htmlHasAppRoot) throw new Error('Live today.html markers missing');
+            if (!Number.isFinite(Date.parse(ranking.generatedAt))) throw new Error('Missing valid ranking generatedAt');
+            if (Date.parse(ranking.generatedAt) <= Date.parse('2026-09-25T15:47:44.067Z'))
+              throw new Error('Ranking generatedAt has not advanced from the stale production snapshot');
+            if (status.status !== 'success') throw new Error('Online ranking status is not success');
+            if (today.length >= 240 && validViews < 240)
+              throw new Error(`Online viewCount quality insufficient: ${validViews}/${today.length}`);
+          }
+          main().catch((error) => { console.error('[online] VERIFICATION FAILED: ' + error.message); process.exitCode = 1; });
+          NODE
