@@ -156,6 +156,7 @@ jobs:
         run: node scripts/enrich-live-details.js
 
       - name: Enrich video view metrics
+        id: enrich_video_metrics
         timeout-minutes: 18
         run: node scripts/enrich-video-metrics.js
 
@@ -163,6 +164,7 @@ jobs:
         run: node scripts/merge-previous-view-metrics.js
 
       - name: Fill missing durations
+        if: steps.enrich_video_metrics.outputs.rate_limited != 'true'
         timeout-minutes: 20
         run: node scripts/fill-duration-details.js
 
@@ -181,6 +183,7 @@ jobs:
         run: node scripts/validate-youtube-ranking.js
 
       - name: Retry ranking data with conservative settings
+        # An HTTP 429 also disables this recrawl via validator.retryable=false.
         if: steps.validate_ranking.outcome == 'failure' && steps.validate_ranking.outputs.retryable == 'true'
         env:
           YTB_RANKING_SCROLL_TO_BOTTOM_GROUPS: "live,today,month"

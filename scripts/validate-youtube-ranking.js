@@ -44,8 +44,9 @@ function main() {
     const metric = payload.metricDetailPostProcess;
     warnings.push(`YouTube HTTP 429 circuit opened at ${metric.rateLimitSource || "unknown"}; Retry-After=${metric.retryAfter || "absent"}; blockedUntil=${metric.blockedUntil || "unknown"}`);
   }
+  const retryable = errors.length > 0 && retryableErrors.length > 0 && !payload.metricDetailPostProcess?.rateLimited;
   if (process.env.GITHUB_OUTPUT) {
-    fs.appendFileSync(process.env.GITHUB_OUTPUT, `retryable=${errors.length > 0 && retryableErrors.length > 0}\n`);
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `retryable=${retryable}\n`);
     fs.appendFileSync(process.env.GITHUB_OUTPUT, `error_count=${errors.length}\n`);
   }
 
@@ -53,7 +54,7 @@ function main() {
     console.error("[validate-ranking] data quality check failed:");
     for (const error of errors) console.error(`- ${error}`);
     if (warnings.length) for (const warning of warnings) console.warn(`- ${warning}`);
-    console.error(`[validate-ranking] retryable_incomplete_collection=${retryableErrors.length > 0}`);
+    console.error(`[validate-ranking] retryable_incomplete_collection=${retryable}`);
     process.exitCode = 1;
     return;
   }

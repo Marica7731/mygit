@@ -577,6 +577,9 @@ async function main() {
     youtubeRequestsStarted: youtubeCircuit.requests,
   };
   await fs.writeFile(DATA_FILE, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  if (process.env.GITHUB_OUTPUT) {
+    await fs.appendFile(process.env.GITHUB_OUTPUT, `rate_limited=${youtubeCircuit.tripped}\n`);
+  }
   console.log(`[metric-post] missing viewCount videoIds ${beforeMissing} -> ${afterMissing}; rateLimited=${youtubeCircuit.tripped}`);
 }
 
