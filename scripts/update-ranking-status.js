@@ -9,6 +9,22 @@ const statusPath = path.join("data", "youtube-ranking-status.json");
 const forcedFailureMessage = process.env.YTB_RANKING_FORCE_FAILURE || "";
 const failure = getFailureInfo() || (forcedFailureMessage ? { name: forcedFailureMessage } : null);
 const ranking = readJson(path.join("data", "youtube-ranking.json")) || {};
+const failedCandidate = (forcedFailureMessage && readJson(process.env.YTB_RANKING_FAILURE_DATA || "")) || ranking;
+const details = failedCandidate.metricDetailPostProcess || null;
+const today = (failedCandidate.groups?.today?.items || [])
+  .filter((item) => item.statusType !== "live" && item.statusType !== "upcoming");
+const todayWithViews = today.filter((item) => Number(item.viewCount) > 0).length;
+const failureDiagnostics = failure ? {
+  rateLimited: Boolean(details?.rateLimited),
+  rateLimitSource: details?.rateLimitSource || "",
+  retryAfter: details?.retryAfter || "",
+  blockedUntil: details?.blockedUntil || "",
+  youtubeRequestsStarted: details?.youtubeRequestsStarted ?? null,
+  candidateGeneratedAt: failedCandidate.generatedAt || "",
+  todayVideos: today.length,
+  todayWithViews,
+  todayMissingViews: today.length - todayWithViews,
+} : null;
 const status = {
   status: failure ? "failed" : "success",
   attemptedAt: new Date().toISOString(),
@@ -16,9 +32,13 @@ const status = {
   runUrl: repo && runId ? `https://github.com/${repo}/actions/runs/${runId}` : "",
   eventName: process.env.GITHUB_EVENT_NAME || "",
   headSha: process.env.GITHUB_SHA || "",
-  message: failure ? `${failure.name} failed` : "ranking update passed",
+  message: failure
+    ? `${failure.name} failed${details?.rateLimited ? " (YouTube HTTP 429; circuit opened)" : ""}${today.length && todayWithViews < 240 ? `; today viewCount ${todayWithViews}/${today.length} (<240)` : ""}`
+    : "ranking update passed",
   failedStep: failure ? failure.name : "",
   lastSuccessfulGeneratedAt: ranking.generatedAt || "",
+  metricDetailPostProcess: details,
+  failureDiagnostics,
   liveDetailPostProcess: ranking.liveDetailPostProcess || null,
   liveDurationPostProcess: ranking.liveDurationPostProcess || null,
 };

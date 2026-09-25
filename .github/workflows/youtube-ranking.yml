@@ -281,10 +281,11 @@ jobs:
           force_failure=""
           if [ -f /tmp/youtube-ranking-run-failed ]; then
             force_failure="previous ranking step"
+            cp data/youtube-ranking.json /tmp/youtube-ranking-failed-candidate.json || true
             git fetch origin main
             git show origin/main:data/youtube-ranking.json > data/youtube-ranking.json || true
           fi
-          YTB_RANKING_FORCE_FAILURE="$force_failure" node scripts/update-ranking-status.js
+          YTB_RANKING_FORCE_FAILURE="$force_failure" YTB_RANKING_FAILURE_DATA=/tmp/youtube-ranking-failed-candidate.json node scripts/update-ranking-status.js
           cp data/youtube-ranking-status.json /tmp/youtube-ranking-status.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
