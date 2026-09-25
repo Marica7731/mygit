@@ -81,8 +81,25 @@ jobs:
           async function dispatchWhenIdle({ allowCooldownWait }) {
             const runs = readUpdateRuns(repo);
             const activeStatuses = new Set(['queued', 'in_progress', 'waiting', 'requested', 'pending']);
-            const active = runs.find((run) => activeStatuses.has(run.status));
-            if (active) {
+            let runs = readUpdateRuns(repo);
+            let active = runs.find((run) => activeStatuses.has(run.status));
+            if (active && triggerRunId && String(active.id) === triggerRunId) {
+              const deadline = Date.now() + 5 * 60 * 1000;
+              while (Date.now() < deadline) {
+                const triggerRun = readRun(repo, triggerRunId);
+                if (!triggerRun || !activeStatuses.has(triggerRun.status)) break;
+                console.log(
+                  `Waiting for triggering update run #${triggerRun.run_number} to finish before dispatching the next update.`,
+                );
+                await sleep(Math.min(10_000, deadline - Date.now()));
+              }
+              runs = readUpdateRuns(repo);
+              active = runs.find((run) => activeStatuses.has(run.status));
+              if (active) {
+                console.log(`Skip dispatch: update run #${active.run_number} is ${active.status}.`);
+                return;
+              }
+            } else if (active) {
               console.log(`Skip dispatch: update run #${active.run_number} is ${active.status}.`);
               return;
             }
