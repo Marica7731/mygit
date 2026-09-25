@@ -51,10 +51,10 @@ async function reserveYoutubeRequest() {
   return true;
 }
 
-function stopOn429(response, where) {
+async function stopOn429(response, where) {
   const status = typeof response.status === "function" ? response.status() : response.status;
   if (status !== 429) return;
-  const headers = typeof response.headers === "function" ? response.headers() : response.headers;
+  const headers = typeof response.headers === "function" ? await response.headers() : response.headers;
   const retryAfter = headers?.get?.("retry-after") || headers?.["retry-after"] || "";
   const seconds = Number(retryAfter);
   const until = retryAfter
@@ -165,6 +165,25 @@ function mapByVideoId(payload) {
   return map;
 }
 
+function spreadKnownVideoMetrics(payload) {
+  // A single video may occur in multiple ranking groups. Reuse its actual collected
+  // metric for missing copies before scheduling network calls, never fabricate counts.
+  let recovered = 0;
+  for (const entries of mapByVideoId(payload).values()) {
+    const source = entries.find((item) => positiveNumber(item.viewCount));
+    if (!source) continue;
+    for (const item of entries) {
+      if (positiveNumber(item.viewCount) || item.statusType === "live" || item.statusType === "upcoming") continue;
+      if (mergeMetric(item, {
+        viewCount: Number(source.viewCount),
+        channelId: source.channelId,
+        channelUrl: source.channelUrl,
+      }, "sameVideoId")) recovered += 1;
+    }
+  }
+  if (recovered) console.log(`[metric-post] recovered ${recovered} missing group copies by shared videoId`);
+}
+
 function uniqueVideoIds(items) {
   return Array.from(new Set(items.map((item) => item.videoId).filter(Boolean)));
 }
@@ -224,7 +243,7 @@ async function fetchWatchMetric(item) {
         "Accept-Language": "ja-JP,ja;q=0.9,en;q=0.8",
       },
     });
-    stopOn429(response, "watch HTML");
+    await stopOn429(response, "watch HTML");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return extractMetricFromWatchHtml(await response.text());
   } finally {
@@ -243,7 +262,7 @@ async function fetchYoutubeApi(pathname, params) {
   const timeout = setTimeout(() => controller.abort(), CONFIG.fetchTimeoutMs);
   try {
     const response = await fetch(url, { signal: controller.signal });
-    stopOn429(response, `YouTube Data API ${pathname}`);
+    await stopOn429(response, `YouTube Data API ${pathname}`);
     if (!response.ok) {
       const body = await response.text().catch(() => "");
       throw new Error(`YouTube Data API ${pathname} failed: ${response.status} ${body.slice(0, 240)}`);
@@ -269,7 +288,7 @@ async function fetchOEmbedChannel(item) {
         "Accept-Language": "ja-JP,ja;q=0.9,en;q=0.8",
       },
     });
-    stopOn429(response, "oEmbed");
+    await stopOn429(response, "oEmbed");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     return { channelUrl: absoluteYoutubeUrl(data.author_url) };
@@ -411,7 +430,7 @@ async function gotoWithRetry(page, url) {
     if (!(await reserveYoutubeRequest())) break;
     try {
       const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: CONFIG.navigationTimeoutMs });
-      if (response) stopOn429(response, "browser navigation");
+      if (response) await stopOn429(response, "browser navigation");
       if (youtubeCircuit.tripped) throw new Error("YouTube circuit opened during navigation");
       return;
     } catch (error) {
@@ -502,9 +521,9 @@ async function enrichWithWatchPages(payload) {
       userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
     });
     page.setDefaultTimeout(12000);
-    page.on("response", (response) => {
+    page.on("response", async (response) => {
       if (response.status() === 429 && /(?:^|\.)youtube\.com$/.test(new URL(response.url()).hostname)) {
-        try { stopOn429(response, "browser YouTube response"); } catch { /* circuit logs once */ }
+        try { await stopOn429(response, "browser YouTube response"); } catch { /* circuit logs once */ }
       }
     });
     console.log(`[metric-post] watch fallback targets=${targets.length}, limit=${CONFIG.limit}`);
@@ -535,6 +554,7 @@ async function enrichWithWatchPages(payload) {
 
 async function main() {
   const payload = JSON.parse(await fs.readFile(DATA_FILE, "utf8"));
+  spreadKnownVideoMetrics(payload);
   const beforeMissing = uniqueVideoIds(itemsMissingViewMetric(payload)).length;
   const api = await enrichWithYoutubeApi(payload).catch((error) => {
     console.warn(`[metric-post] api skipped: ${error.message}`);
