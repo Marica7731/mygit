@@ -463,6 +463,12 @@ async function extractSearchItems(page) {
               ".metadata-snippet-text",
               ".inline-metadata-item",
               ".yt-lockup-metadata-view-model-wiz__metadata span",
+              ".yt-content-metadata-view-model-wiz__metadata-row",
+              ".yt-content-metadata-view-model-wiz__metadata-row span",
+              ".yt-content-metadata-view-model__metadata-row",
+              ".yt-content-metadata-view-model__metadata-row span",
+              ".yt-core-attributed-string",
+              "[class*='metadata-text']",
             ].join(","),
           ),
         );
@@ -489,9 +495,21 @@ async function extractSearchItems(page) {
           pickFirstText(badgeNodes, (value) =>
             /(watching|視聴中|人が視聴|直播中|正在观看|正在觀看|시청 중|명 시청)/i.test(value),
           );
-        const viewText = pickFirstText(metadataNodes, (value) =>
-          /(views?|回視聴|視聴回数|次观看|次觀看|조회수|회 시청)/i.test(value),
-        );
+        // View counts may live in modern metadata view-model rows or the
+        // accessibility label rather than in #metadata-line. Only extract an
+        // explicit numeral followed by a view-unit (never an upload age).
+        const viewPattern =
+          /[0-9０-９][0-9０-９,，]*(?:[.．][0-9０-９]+)?\\s*(?:[KMB億亿万萬千])?\\s*(?:views?|回視聴|視聴回数|次观看|次觀看|조회수|회 시청)/gi;
+        const exactViewText = (value) => {
+          const matches = String(value || "").match(viewPattern);
+          return matches ? matches[matches.length - 1] : "";
+        };
+        const viewText =
+          metadataNodes.map((node) => exactViewText(text(node))).find(Boolean) ||
+          exactViewText(titleLink.getAttribute("aria-label")) ||
+          exactViewText(renderer.getAttribute("aria-label")) ||
+          exactViewText(renderer.querySelector('[aria-label*="views"]')?.getAttribute("aria-label")) ||
+          "";
         const publishedText = pickFirstText(metadataNodes, (value) =>
           /(ago|前|昨日|streamed|premiere|seconds?|minutes?|hours?|days?|weeks?|months?|years?|秒|分|時間|日|週間|か月|ヶ月|年|小时前|天前|周前|月前|年前)/i.test(
             value,
