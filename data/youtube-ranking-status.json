@@ -1,13 +1,53 @@
 {
   "status": "failed",
-  "attemptedAt": "2026-09-25T20:17:32.434Z",
-  "runId": "36182383965",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/36182383965",
+  "attemptedAt": "2026-09-25T20:33:14.891Z",
+  "runId": "36184239141",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/36184239141",
   "eventName": "push",
-  "headSha": "5a357f06ebcfd6ccdb65db1d1574196ba669fa08",
-  "message": "Reject non-retryable ranking quality failure failed",
+  "headSha": "69f88669d4587d4c98aa29082fc7fef8a8533000",
+  "message": "Reject non-retryable ranking quality failure failed (YouTube HTTP 429; circuit opened); today viewCount 101/375 (<240)",
   "failedStep": "Reject non-retryable ranking quality failure",
   "lastSuccessfulGeneratedAt": "2026-09-25T15:47:44.067Z",
+  "metricDetailPostProcess": {
+    "generatedAt": "2026-09-25T20:32:54.285Z",
+    "limit": 24,
+    "youtubeDataApiConfigured": false,
+    "beforeMissing": 1289,
+    "afterMissing": 1283,
+    "api": {
+      "checked": 0,
+      "changed": 0
+    },
+    "fetch": {
+      "checked": 147,
+      "changed": 197
+    },
+    "watch": {
+      "checked": 0,
+      "changed": 0
+    },
+    "oembed": {
+      "checked": 0,
+      "changed": 0,
+      "failed": 0
+    },
+    "rateLimited": true,
+    "retryAfter": "",
+    "blockedUntil": "",
+    "rateLimitSource": "watch HTML",
+    "youtubeRequestsStarted": 148
+  },
+  "failureDiagnostics": {
+    "rateLimited": true,
+    "rateLimitSource": "watch HTML",
+    "retryAfter": "",
+    "blockedUntil": "",
+    "youtubeRequestsStarted": 148,
+    "candidateGeneratedAt": "2026-09-25T20:25:06.818Z",
+    "todayVideos": 375,
+    "todayWithViews": 101,
+    "todayMissingViews": 274
+  },
   "liveDetailPostProcess": {
     "generatedAt": "2026-09-25T15:54:35.072Z",
     "limit": 120,
