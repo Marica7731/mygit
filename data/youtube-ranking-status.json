@@ -1,15 +1,15 @@
 {
-  "status": "failed",
-  "attemptedAt": "2026-09-25T23:26:49.464Z",
-  "runId": "36199912113",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/36199912113",
+  "status": "success",
+  "attemptedAt": "2026-09-25T23:52:19.483Z",
+  "runId": "36201853944",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/36201853944",
   "eventName": "workflow_dispatch",
-  "headSha": "92a4fe967515b931f1ba690fca17e285138a34ac",
-  "message": "Validate duration data failed",
-  "failedStep": "Validate duration data",
-  "lastSuccessfulGeneratedAt": "2026-09-25T23:02:41.440Z",
+  "headSha": "06d83b5d72c98da84ceb0fa1cf8f57407a53c985",
+  "message": "ranking update passed",
+  "failedStep": "",
+  "lastSuccessfulGeneratedAt": "2026-09-25T23:45:49.946Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-09-25T23:25:03.550Z",
+    "generatedAt": "2026-09-25T23:51:59.610Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
     "beforeMissing": 3,
@@ -37,27 +37,17 @@
     "rateLimitSource": "",
     "youtubeRequestsStarted": 30
   },
-  "failureDiagnostics": {
-    "rateLimited": false,
-    "rateLimitSource": "",
-    "retryAfter": "",
-    "blockedUntil": "",
-    "youtubeRequestsStarted": 30,
-    "candidateGeneratedAt": "2026-09-25T23:16:25.851Z",
-    "todayVideos": 469,
-    "todayWithViews": 466,
-    "todayMissingViews": 3
-  },
+  "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-09-25T23:08:06.031Z",
+    "generatedAt": "2026-09-25T23:50:59.528Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 151585,
+    "elapsedMs": 146337,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 62,
-    "watchChecked": 70,
-    "watchChanged": 68,
+    "clearedUntrustedLiveViewers": 63,
+    "watchChecked": 68,
+    "watchChanged": 67,
     "channelChecked": 0,
     "channelChanged": 0
   },
@@ -83,6 +73,6 @@
     ],
     "recoveredSubscriberItems": 0,
     "subscriberItemsAfterClean": 67,
-    "processedAt": "2026-09-25T23:09:07.102Z"
+    "processedAt": "2026-09-25T23:52:00.436Z"
   }
 }
