@@ -1,26 +1,26 @@
 {
   "status": "failed",
-  "attemptedAt": "2026-09-25T21:54:39.816Z",
-  "runId": "36192749577",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/36192749577",
+  "attemptedAt": "2026-09-25T22:21:38.380Z",
+  "runId": "36195117670",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/36195117670",
   "eventName": "workflow_dispatch",
-  "headSha": "48918e451e4c5813b387c8053131a00e92eee84d",
-  "message": "Reject non-retryable ranking quality failure failed (YouTube HTTP 429; circuit opened); today viewCount 41/197 (<240)",
+  "headSha": "9aad2ff799034791c3387b286fa805135641e76c",
+  "message": "Reject non-retryable ranking quality failure failed (YouTube HTTP 429; circuit opened); today viewCount 95/431 (<240)",
   "failedStep": "Reject non-retryable ranking quality failure",
   "lastSuccessfulGeneratedAt": "2026-09-25T15:47:44.067Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-09-25T21:54:18.130Z",
+    "generatedAt": "2026-09-25T22:21:17.204Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
-    "beforeMissing": 1128,
-    "afterMissing": 1122,
+    "beforeMissing": 1346,
+    "afterMissing": 1343,
     "api": {
       "checked": 0,
       "changed": 0
     },
     "fetch": {
-      "checked": 158,
-      "changed": 216
+      "checked": 131,
+      "changed": 178
     },
     "watch": {
       "checked": 0,
@@ -35,18 +35,18 @@
     "retryAfter": "",
     "blockedUntil": "",
     "rateLimitSource": "watch HTML",
-    "youtubeRequestsStarted": 159
+    "youtubeRequestsStarted": 132
   },
   "failureDiagnostics": {
     "rateLimited": true,
     "rateLimitSource": "watch HTML",
     "retryAfter": "",
     "blockedUntil": "",
-    "youtubeRequestsStarted": 159,
-    "candidateGeneratedAt": "2026-09-25T21:46:33.937Z",
-    "todayVideos": 197,
-    "todayWithViews": 41,
-    "todayMissingViews": 156
+    "youtubeRequestsStarted": 132,
+    "candidateGeneratedAt": "2026-09-25T22:14:25.688Z",
+    "todayVideos": 431,
+    "todayWithViews": 95,
+    "todayMissingViews": 336
   },
   "liveDetailPostProcess": {
     "generatedAt": "2026-09-25T15:54:35.072Z",
