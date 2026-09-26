@@ -89,21 +89,21 @@ jobs:
           });
           NODE
 
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright in temporary verifier
+        run: |
+          mkdir -p /tmp/ranking-theme-check
+          cd /tmp/ranking-theme-check
+          npm init -y
+          npm install playwright@1.52.0
+          npx playwright install --with-deps chromium
 
       - name: Capture and validate light/dark UI
+        working-directory: /tmp/ranking-theme-check
         env:
           VISUAL_DIR: /tmp/ranking-theme-visual
         run: |
