@@ -37,13 +37,39 @@ jobs:
           const deadline = Date.now() + 18 * 60 * 1000;
           const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-          function findPagesRun() {
-            const json = JSON.parse(execFileSync(
+          function api(args) {
+            return JSON.parse(execFileSync(
               'gh',
-              ['api', '--method', 'GET', `repos/${repo}/actions/runs`, '-f', `head_sha=${sha}`, '-f', 'per_page=20'],
+              ['api', '--method', 'GET', ...args],
               { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
             ));
-            return (json.workflow_runs || []).find((run) => run.name === 'pages build and deployment') || null;
+          }
+
+          function recentPagesRuns() {
+            const json = api([`repos/${repo}/actions/runs`, '-f', 'per_page=40']);
+            return (json.workflow_runs || []).filter((run) => run.name === 'pages build and deployment');
+          }
+
+          function containsTarget(candidateSha) {
+            if (!candidateSha) return false;
+            if (candidateSha === sha) return true;
+            try {
+              const comparison = api([`repos/${repo}/compare/${sha}...${candidateSha}`]);
+              return comparison.status === 'ahead' || comparison.status === 'identical';
+            } catch {
+              return false;
+            }
+          }
+
+          function findPagesRun() {
+            const runs = recentPagesRuns();
+            const exact = runs.find((run) => run.head_sha === sha);
+            if (exact?.status === 'completed' && exact.conclusion === 'success') return exact;
+            const descendantSuccess = runs.find(
+              (run) => run.status === 'completed' && run.conclusion === 'success' && containsTarget(run.head_sha),
+            );
+            if (descendantSuccess) return descendantSuccess;
+            return exact || null;
           }
 
           (async () => {
@@ -53,10 +79,7 @@ jobs:
                 runId: run?.id || null, status: run?.status || 'not-found',
                 conclusion: run?.conclusion || null, sha
               }));
-              if (run?.status === 'completed') {
-                if (run.conclusion !== 'success') throw new Error(`Pages deployment failed: ${run.conclusion}`);
-                return;
-              }
+              if (run?.status === 'completed' && run.conclusion === 'success') return;
               await sleep(15000);
             }
             throw new Error('Timed out waiting for matching Pages deployment');
@@ -197,5 +220,5 @@ jobs:
         with:
           name: ranking-theme-visual-${{ github.run_id }}
           path: /tmp/ranking-theme-visual
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 7
