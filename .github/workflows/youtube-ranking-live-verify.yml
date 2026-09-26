@@ -41,12 +41,23 @@ jobs:
           const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
           function pagesRun() {
-            const json = JSON.parse(execFileSync('gh',
-              ['api', '--method', 'GET', `repos/${repo}/actions/runs`, '-f', 'per_page=60'],
-              { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }));
-            return json.workflow_runs.find((run) =>
-              run.name === 'pages build and deployment' &&
-              (specificRunId ? String(run.id) === specificRunId : run.head_sha === targetSha));
+            if (specificRunId) {
+              try {
+                return JSON.parse(execFileSync(
+                  'gh',
+                  ['api', '--method', 'GET', `repos/${repo}/actions/runs/${specificRunId}`],
+                  { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
+                ));
+              } catch {
+                return null;
+              }
+            }
+            const json = JSON.parse(execFileSync(
+              'gh',
+              ['api', '--method', 'GET', `repos/${repo}/actions/runs`, '-f', `head_sha=${targetSha}`, '-f', 'per_page=20'],
+              { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
+            ));
+            return (json.workflow_runs || []).find((run) => run.name === 'pages build and deployment') || null;
           }
 
           async function main() {
