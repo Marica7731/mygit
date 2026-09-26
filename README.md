@@ -20,6 +20,7 @@
 - 黑名单、排序方式和筛选条件会保存到 `localStorage`，刷新后自动恢复；搜索框只作用于当前页面，刷新后会重置。
 - 直播页、今日页和本月页都支持选择最近 7 天内的抓取快照，用于回看某个时间点的排行。
 - 支持复制当前视图 TSV、下载当前视图 JSON、导出当前视图 PNG 截图。
+- 默认保持现有浅色界面；顶部搜索工具条右侧提供主题切换按钮，可手动切换深色夜间主题，选择会保存在浏览器 `localStorage` 中并跨页面保留。
 
 ## 抓取规则
 
@@ -102,8 +103,10 @@ node scripts/write-ranking-groups.js
 - `assets/styles.css`：页面布局和移动端样式。
 - `assets/ui-overrides.css`：移动端紧凑布局、卡片信息密度和覆盖层样式。
 - `assets/ui-overrides.js`：默认标题过滤、黑白名单 chip、直播指标展示和头像兜底逻辑。
+- `assets/theme.css`、`assets/theme-toggle.js`：在不改动默认浅色 UI 的前提下提供手动深色主题切换、主题持久化和夜间配色覆盖。
 - `package.json`：Node.js 依赖和本地检查、抓取、预览命令。
 - `.github/workflows/youtube-ranking.yml`：定时抓取并提交数据的 GitHub Actions workflow。
+- `.github/workflows/ui-theme-visual.yml`：仅在主题/UI 文件变更时等待对应 Pages 部署，使用远程 Playwright 检查浅色/深色切换与持久化，并上传桌面、移动端验收截图。
 - `CNAME`：GitHub Pages 自定义域名，内容为 `ytb.culua.com`。
 - `docs/`：交接说明和 GitHub connector 操作记录。
 - `.gitignore`：排除依赖、缓存、cookie、token、私钥和 LocalSend 缓存。

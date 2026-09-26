@@ -1,0 +1,201 @@
+name: Verify ranking theme UI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/ui-theme-visual.yml"
+      - "assets/theme.css"
+      - "assets/theme-toggle.js"
+      - "index.html"
+      - "live.html"
+      - "today.html"
+      - "month.html"
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ranking-theme-visual
+  cancel-in-progress: true
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SITE_ORIGIN: https://ytb.culua.com
+    steps:
+      - name: Wait for matching Pages deployment
+        run: |
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process');
+          const repo = process.env.GITHUB_REPOSITORY;
+          const sha = process.env.GITHUB_SHA;
+          const deadline = Date.now() + 18 * 60 * 1000;
+          const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+          function findPagesRun() {
+            const json = JSON.parse(execFileSync(
+              'gh',
+              ['api', '--method', 'GET', `repos/${repo}/actions/runs`, '-f', `head_sha=${sha}`, '-f', 'per_page=20'],
+              { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
+            ));
+            return (json.workflow_runs || []).find((run) => run.name === 'pages build and deployment') || null;
+          }
+
+          (async () => {
+            while (Date.now() < deadline) {
+              const run = findPagesRun();
+              console.log('[visual] Pages ' + JSON.stringify({
+                runId: run?.id || null, status: run?.status || 'not-found',
+                conclusion: run?.conclusion || null, sha
+              }));
+              if (run?.status === 'completed') {
+                if (run.conclusion !== 'success') throw new Error(`Pages deployment failed: ${run.conclusion}`);
+                return;
+              }
+              await sleep(15000);
+            }
+            throw new Error('Timed out waiting for matching Pages deployment');
+          })().catch((error) => {
+            console.error('[visual] ' + error.message);
+            process.exitCode = 1;
+          });
+          NODE
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Capture and validate light/dark UI
+        env:
+          VISUAL_DIR: /tmp/ranking-theme-visual
+        run: |
+          mkdir -p "$VISUAL_DIR"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const { chromium } = require('playwright');
+
+          const origin = process.env.SITE_ORIGIN;
+          const out = process.env.VISUAL_DIR;
+          const cacheBust = process.env.GITHUB_RUN_ID;
+          const pages = ['index.html', 'live.html', 'today.html', 'month.html'];
+
+          function intersects(a, b) {
+            return !(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top);
+          }
+
+          async function inspectLayout(page, label) {
+            const result = await page.evaluate(() => {
+              const nav = document.querySelector('.page-nav')?.getBoundingClientRect();
+              const toggle = document.getElementById('theme-mode-toggle')?.getBoundingClientRect();
+              const toolbar = document.querySelector('.filter-toolbar')?.getBoundingClientRect();
+              return {
+                theme: document.documentElement.dataset.theme || 'light',
+                storedTheme: localStorage.getItem('ytb-ranking-theme-v1') || '',
+                buttonPressed: document.getElementById('theme-mode-toggle')?.getAttribute('aria-pressed'),
+                nav: nav && { left: nav.left, top: nav.top, right: nav.right, bottom: nav.bottom, width: nav.width, height: nav.height },
+                toggle: toggle && { left: toggle.left, top: toggle.top, right: toggle.right, bottom: toggle.bottom, width: toggle.width, height: toggle.height },
+                toolbar: toolbar && { left: toolbar.left, top: toolbar.top, right: toolbar.right, bottom: toolbar.bottom, width: toolbar.width, height: toolbar.height },
+                cards: document.querySelectorAll('.video-card:not([hidden])').length,
+              };
+            });
+            if (!result.toggle || !result.nav || !result.toolbar) throw new Error(label + ': expected UI controls missing');
+            if (intersects(result.nav, result.toggle)) throw new Error(label + ': theme button overlaps top navigation');
+            return result;
+          }
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+            const page = await context.newPage();
+            const report = { checkedPages: [], screenshots: {}, layouts: {} };
+
+            for (const pathname of pages) {
+              await page.goto(`${origin}/${pathname}?theme-visual=${cacheBust}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+              await page.waitForSelector('#theme-mode-toggle', { state: 'visible', timeout: 20000 });
+              report.checkedPages.push({
+                pathname,
+                toggle: await page.locator('#theme-mode-toggle').count(),
+                theme: await page.evaluate(() => document.documentElement.dataset.theme || 'light'),
+              });
+            }
+
+            await page.goto(`${origin}/today.html?theme-visual=${cacheBust}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+            await page.waitForSelector('#theme-mode-toggle', { state: 'visible', timeout: 20000 });
+            await page.waitForSelector('.video-card', { state: 'visible', timeout: 30000 });
+            await page.evaluate(() => {
+              localStorage.removeItem('ytb-ranking-theme-v1');
+              document.documentElement.removeAttribute('data-theme');
+            });
+            await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 });
+            await page.waitForSelector('#theme-mode-toggle', { state: 'visible', timeout: 20000 });
+            await page.waitForSelector('.video-card', { state: 'visible', timeout: 30000 });
+
+            report.layouts.desktopLight = await inspectLayout(page, 'desktop-light');
+            if (report.layouts.desktopLight.theme !== 'light' || report.layouts.desktopLight.buttonPressed !== 'false') {
+              throw new Error('desktop-light: default theme is not light');
+            }
+            await page.screenshot({ path: `${out}/desktop-light.png`, fullPage: false });
+            report.screenshots.desktopLight = 'desktop-light.png';
+
+            await page.click('#theme-mode-toggle');
+            await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark');
+            report.layouts.desktopDark = await inspectLayout(page, 'desktop-dark');
+            if (report.layouts.desktopDark.storedTheme !== 'dark' || report.layouts.desktopDark.buttonPressed !== 'true') {
+              throw new Error('desktop-dark: theme did not persist');
+            }
+            await page.screenshot({ path: `${out}/desktop-dark.png`, fullPage: false });
+            report.screenshots.desktopDark = 'desktop-dark.png';
+
+            await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 });
+            await page.waitForSelector('#theme-mode-toggle', { state: 'visible', timeout: 20000 });
+            await page.waitForSelector('.video-card', { state: 'visible', timeout: 30000 });
+            if (await page.evaluate(() => document.documentElement.dataset.theme) !== 'dark') {
+              throw new Error('reload: persisted dark theme was lost');
+            }
+
+            await page.setViewportSize({ width: 390, height: 844 });
+            report.layouts.mobileDark = await inspectLayout(page, 'mobile-dark');
+            await page.screenshot({ path: `${out}/mobile-dark.png`, fullPage: false });
+            report.screenshots.mobileDark = 'mobile-dark.png';
+
+            await page.click('#theme-mode-toggle');
+            await page.waitForFunction(() => document.documentElement.dataset.theme !== 'dark');
+            report.layouts.mobileLight = await inspectLayout(page, 'mobile-light');
+            if (report.layouts.mobileLight.storedTheme !== '' || report.layouts.mobileLight.buttonPressed !== 'false') {
+              throw new Error('mobile-light: returning to light mode did not clear preference');
+            }
+            await page.screenshot({ path: `${out}/mobile-light.png`, fullPage: false });
+            report.screenshots.mobileLight = 'mobile-light.png';
+
+            fs.writeFileSync(`${out}/report.json`, JSON.stringify(report, null, 2));
+            console.log('[visual] UI REPORT ' + JSON.stringify(report));
+            await browser.close();
+          })().catch((error) => {
+            console.error('[visual] FAILED: ' + error.message);
+            process.exitCode = 1;
+          });
+          NODE
+
+      - name: Upload visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ranking-theme-visual-${{ github.run_id }}
+          path: /tmp/ranking-theme-visual
+          if-no-files-found: error
+          retention-days: 7
