@@ -30,6 +30,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           YTB_RANKING_FAILURE_COOLDOWN_MINUTES: "12"
+          YTB_RANKING_STALE_QUEUE_MINUTES: "20"
         run: |
           node <<'NODE'
           const { execFileSync } = require('node:child_process');
@@ -38,14 +39,42 @@ jobs:
           const repo = process.env.GITHUB_REPOSITORY;
           const eventName = process.env.GITHUB_EVENT_NAME || '';
           const cooldownMinutes = Number(process.env.YTB_RANKING_FAILURE_COOLDOWN_MINUTES || 12);
+          const staleQueueMinutes = Number(process.env.YTB_RANKING_STALE_QUEUE_MINUTES || 20);
           const raw = execFileSync(
             'gh',
             ['api', '--method', 'GET', `repos/${repo}/actions/workflows/youtube-ranking.yml/runs`, '-f', 'per_page=20'],
             { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
           );
-          const runs = JSON.parse(raw).workflow_runs || [];
+          let runs = JSON.parse(raw).workflow_runs || [];
           const now = Date.now();
           const activeStatuses = new Set(['queued', 'in_progress', 'waiting', 'requested', 'pending']);
+          const staleQueueStatuses = new Set(['queued', 'requested', 'pending']);
+          const staleQueueMs = Math.max(1, staleQueueMinutes) * 60 * 1000;
+          const staleQueued = runs.find((run) => {
+            const queuedAt = Date.parse(run.created_at || run.run_started_at || '');
+            return staleQueueStatuses.has(run.status) && Number.isFinite(queuedAt) && now - queuedAt >= staleQueueMs;
+          });
+
+          if (staleQueued) {
+            const ageMinutes = Math.floor((now - Date.parse(staleQueued.created_at || staleQueued.run_started_at)) / 60000);
+            console.warn(
+              `Recover stale update run #${staleQueued.run_number}: ${staleQueued.status} for ${ageMinutes}m; cancelling before redispatch.`,
+            );
+            try {
+              execFileSync(
+                'gh',
+                ['api', '--method', 'POST', `repos/${repo}/actions/runs/${staleQueued.id}/cancel`],
+                { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
+              );
+              runs = runs.filter((run) => String(run.id) !== String(staleQueued.id));
+              console.log(`Cancelled stale update run #${staleQueued.run_number}; replacement dispatch is allowed.`);
+            } catch (error) {
+              console.warn(
+                `Failed to cancel stale update run #${staleQueued.run_number}; keeping it as a blocker: ${error.message}`,
+              );
+            }
+          }
+
           const recentMs = 3 * 60 * 1000;
           const blocking = runs.find((run) => {
             const activityAt = Date.parse(run.updated_at || run.run_started_at || run.created_at || '');
