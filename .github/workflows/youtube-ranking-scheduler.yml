@@ -58,21 +58,12 @@ jobs:
           if (staleQueued) {
             const ageMinutes = Math.floor((now - Date.parse(staleQueued.created_at || staleQueued.run_started_at)) / 60000);
             console.warn(
-              `Recover stale update run #${staleQueued.run_number}: ${staleQueued.status} for ${ageMinutes}m; cancelling before redispatch.`,
+              `Recover stale update run #${staleQueued.run_number}: ${staleQueued.status} for ${ageMinutes}m; allowing a replacement dispatch.`,
             );
-            try {
-              execFileSync(
-                'gh',
-                ['api', '--method', 'POST', `repos/${repo}/actions/runs/${staleQueued.id}/cancel`],
-                { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
-              );
-              runs = runs.filter((run) => String(run.id) !== String(staleQueued.id));
-              console.log(`Cancelled stale update run #${staleQueued.run_number}; replacement dispatch is allowed.`);
-            } catch (error) {
-              console.warn(
-                `Failed to cancel stale update run #${staleQueued.run_number}; keeping it as a blocker: ${error.message}`,
-              );
-            }
+            runs = runs.filter((run) => String(run.id) !== String(staleQueued.id));
+            console.log(
+              'GitHub does not allow cancelling a merely queued run through the cancel endpoint; a new run in the same concurrency group will supersede the stale pending run.',
+            );
           }
 
           const recentMs = 3 * 60 * 1000;
