@@ -1,52 +1,52 @@
 {
   "status": "failed",
-  "attemptedAt": "2026-10-03T23:21:43.984Z",
-  "runId": "37160670437",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/37160670437",
-  "eventName": "push",
-  "headSha": "c6d3f5c30d6178d222fbe5f4b41729a72fd07151",
+  "attemptedAt": "2026-10-03T23:50:21.881Z",
+  "runId": "37162200133",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/37162200133",
+  "eventName": "workflow_dispatch",
+  "headSha": "5c2e7cbe621f93c7d43c62d216378ffc63496237",
   "message": "Run release gates failed",
   "failedStep": "Run release gates",
   "lastSuccessfulGeneratedAt": "2026-10-03T22:58:17.237Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-10-03T23:20:43.635Z",
+    "generatedAt": "2026-10-03T23:49:22.385Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
-    "beforeMissing": 12,
-    "afterMissing": 12,
+    "beforeMissing": 15,
+    "afterMissing": 15,
     "api": {
       "checked": 0,
       "changed": 0
     },
     "fetch": {
-      "checked": 12,
-      "changed": 12
+      "checked": 15,
+      "changed": 15
     },
     "watch": {
-      "checked": 12,
+      "checked": 15,
       "changed": 0
     },
     "oembed": {
       "checked": 24,
-      "changed": 45,
+      "changed": 42,
       "failed": 0
     },
     "rateLimited": false,
     "retryAfter": "",
     "blockedUntil": "",
     "rateLimitSource": "",
-    "youtubeRequestsStarted": 48
+    "youtubeRequestsStarted": 54
   },
   "failureDiagnostics": {
     "rateLimited": false,
     "rateLimitSource": "",
     "retryAfter": "",
     "blockedUntil": "",
-    "youtubeRequestsStarted": 48,
-    "candidateGeneratedAt": "2026-10-03T23:13:59.978Z",
-    "todayVideos": 293,
-    "todayWithViews": 281,
-    "todayMissingViews": 12
+    "youtubeRequestsStarted": 54,
+    "candidateGeneratedAt": "2026-10-03T23:41:08.990Z",
+    "todayVideos": 567,
+    "todayWithViews": 552,
+    "todayMissingViews": 15
   },
   "liveDetailPostProcess": {
     "generatedAt": "2026-10-03T23:04:37.588Z",
