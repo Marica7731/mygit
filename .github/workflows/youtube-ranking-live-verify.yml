@@ -160,6 +160,21 @@ jobs:
               const timestamp = Number(item.publishedTimestamp);
               return !Number.isFinite(timestamp) || timestamp < start || timestamp > end;
             }).length;
+            const itemKey = (item) => {
+              const videoId = String(item.videoId || item.id || '').trim();
+              if (videoId) return `video:${videoId}`;
+              const url = String(item.watchUrl || item.url || '').trim();
+              if (url) return `url:${url}`;
+              return [
+                'fallback',
+                String(item.keyword || item.group || '').trim(),
+                String(item.title || '').trim(),
+                String(item.channelName || item.channel || '').trim(),
+                Number.isFinite(Number(item.publishedTimestamp)) ? Number(item.publishedTimestamp) : '',
+              ].join('|');
+            };
+            const uniqueCount = (items) => new Set(items.map(itemKey)).size;
+            const snapshotUnion = windows.snapshotUnion || {};
             const windowEvidence = {
               monthKind: windows.month?.kind,
               monthStart: windows.month?.start,
@@ -172,6 +187,18 @@ jobs:
               weekDurationMs: windows.week?.durationMs,
               weekItems: weekItems.length,
               weekItemsOutsideWindow: countOutside(weekItems, weekStart, weekEnd),
+              snapshotUnionEnabled: snapshotUnion.enabled,
+              snapshotUnionSource: windows.source,
+              snapshotUnionSourceGroups: snapshotUnion.sourceGroups,
+              snapshotUnionFilesRead: snapshotUnion.filesRead,
+              snapshotUnionItemsScanned: snapshotUnion.itemsScanned,
+              snapshotUnionOutputCap: snapshotUnion.outputCap,
+              snapshotUnionMonthCount: snapshotUnion.monthCount,
+              snapshotUnionWeekCount: snapshotUnion.weekCount,
+              snapshotUnionCurrentRawMonth: snapshotUnion.currentRawInWindow?.month,
+              snapshotUnionCurrentRawWeek: snapshotUnion.currentRawInWindow?.week,
+              monthUniqueItems: uniqueCount(monthItems),
+              weekUniqueItems: uniqueCount(weekItems),
               htmlHasMonthGroup: /data-source-group="month"/.test(monthHtml),
               htmlHasWeekGroup: /data-source-group="week"/.test(weekHtml),
               monthSnapshotPolicy: monthSnapshotIndex.retentionPolicy,
@@ -191,6 +218,27 @@ jobs:
               throw new Error(`Live week window is not a rolling 168h window: ${JSON.stringify(windowEvidence)}`);
             if (windowEvidence.weekItemsOutsideWindow !== 0)
               throw new Error(`Live week items outside the 7-day window: ${JSON.stringify(windowEvidence)}`);
+            if (windowEvidence.snapshotUnionEnabled !== true ||
+                !String(windowEvidence.snapshotUnionSource || '').startsWith('snapshot-union') ||
+                !(Number(windowEvidence.snapshotUnionFilesRead) > 0) ||
+                !(Number(windowEvidence.snapshotUnionItemsScanned) > 0))
+              throw new Error(`Live formal windows are not built from historical snapshots: ${JSON.stringify(windowEvidence)}`);
+            const missingSnapshotGroups = ['month', 'week', 'today', 'live']
+              .filter((group) => !Array.isArray(windowEvidence.snapshotUnionSourceGroups) ||
+                !windowEvidence.snapshotUnionSourceGroups.includes(group));
+            if (missingSnapshotGroups.length)
+              throw new Error(`Live snapshot union is missing history groups: ${missingSnapshotGroups.join(', ')}`);
+            if (windowEvidence.snapshotUnionOutputCap !== null)
+              throw new Error(`Live formal window output is capped: ${JSON.stringify(windowEvidence)}`);
+            if (Number(windowEvidence.snapshotUnionMonthCount) !== monthItems.length ||
+                Number(windowEvidence.snapshotUnionWeekCount) !== weekItems.length)
+              throw new Error(`Live snapshot-union counts do not match formal groups: ${JSON.stringify(windowEvidence)}`);
+            if (Number(windowEvidence.snapshotUnionCurrentRawMonth) > monthItems.length ||
+                Number(windowEvidence.snapshotUnionCurrentRawWeek) > weekItems.length)
+              throw new Error(`Live snapshot union lost current-pool items: ${JSON.stringify(windowEvidence)}`);
+            if (windowEvidence.monthUniqueItems !== monthItems.length ||
+                windowEvidence.weekUniqueItems !== weekItems.length)
+              throw new Error(`Live formal windows contain duplicate videos: ${JSON.stringify(windowEvidence)}`);
             // The first deployment after this migration may still carry the old
             // schema-1 index until youtube-ranking.yml archives with keep-all.
             // Accept only that missing-policy transition; once present, enforce it.

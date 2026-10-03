@@ -22,6 +22,7 @@ on:
       - "scripts/build-ranking-frontend.js"
       - "scripts/lib/**"
       - "scripts/validate-ranking-windows.js"
+      - "scripts/verify-snapshot-union.js"
       - "scripts/verify-pages.js"
       - "scripts/verify-page-behavior.js"
       - "scripts/verify-snapshot-retention.js"

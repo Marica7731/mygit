@@ -4,7 +4,7 @@
   "private": true,
   "description": "GitHub Pages static ranking pages for YouTube 歌枠 / 弾き語り search results.",
   "scripts": {
-    "check": "node scripts/check-js-syntax.js && node scripts/build-ranking-frontend.js --check && npm run blocklist:validate && node scripts/verify-pages.js && node scripts/validate-ranking-windows.js && node scripts/write-ranking-groups.js --check && node scripts/verify-snapshot-retention.js",
+    "check": "node scripts/check-js-syntax.js && node scripts/build-ranking-frontend.js --check && npm run blocklist:validate && node scripts/verify-pages.js && node scripts/verify-snapshot-union.js && node scripts/validate-ranking-windows.js && node scripts/write-ranking-groups.js --check && node scripts/verify-snapshot-retention.js",
     "build:frontend": "node scripts/build-ranking-frontend.js",
     "windows:apply": "node scripts/apply-ranking-windows.js",
     "windows:validate": "node scripts/validate-ranking-windows.js",

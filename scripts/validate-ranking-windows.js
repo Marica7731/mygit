@@ -8,6 +8,7 @@ const {
   formatDate,
   startOfCalendarMonth,
 } = require("./lib/ranking-window");
+const { snapshotItemKey } = require("./lib/snapshot-union");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const DATA_FILE = path.join(ROOT_DIR, "data", "youtube-ranking.json");
@@ -60,15 +61,107 @@ function main() {
     errors.push(`month window must start on day 01 in ${DEFAULT_TIME_ZONE}, got ${monthStartDay}`);
   }
 
-  // sourceItemCount describes the raw crawl pool, so it must stay at least as
-  // large as the retained month window.
-  if (Number(windows.sourceItemCount) < monthGroup.items.length) {
+  const sourceItemCount = Number(windows.sourceItemCount);
+  if (!Number.isFinite(sourceItemCount) || sourceItemCount < 0) {
+    errors.push(`rankingWindows.sourceItemCount must be a finite nonnegative count, got ${windows.sourceItemCount}`);
+  }
+
+  validateSnapshotUnion(errors, windows, monthGroup, weekGroup);
+
+  report(errors);
+}
+
+function validateSnapshotUnion(errors, windows, monthGroup, weekGroup) {
+  const union = windows.snapshotUnion;
+  if (!union || typeof union !== "object") {
+    // Old payloads were created before snapshot union existed. They still pass
+    // the window checks; the first workflow run adds and then enforces union
+    // metadata.
+    return;
+  }
+
+  if (union.enabled !== true) {
+    errors.push("rankingWindows.snapshotUnion.enabled must be true after snapshot history is available");
+    return;
+  }
+  if (!String(windows.source || "").startsWith("snapshot-union")) {
+    errors.push("rankingWindows.source must identify snapshot-union output when snapshotUnion.enabled is true");
+  }
+
+  const numericFields = [
+    "filesRead",
+    "itemsScanned",
+    "missingFiles",
+    "skippedBeforeWindow",
+    "currentRawItemCount",
+    "monthCount",
+    "weekCount",
+  ];
+  for (const field of numericFields) {
+    const value = Number(union[field]);
+    if (!Number.isFinite(value) || value < 0) {
+      errors.push(`rankingWindows.snapshotUnion.${field} must be a finite nonnegative count, got ${union[field]}`);
+    }
+  }
+  if (Number(union.filesRead) <= 0) {
+    errors.push("rankingWindows.snapshotUnion.filesRead must be > 0 when snapshot union is enabled");
+  }
+  const expectedSourceGroups = ["month", "week", "today", "live"];
+  const sourceGroups = new Set(Array.isArray(union.sourceGroups) ? union.sourceGroups : []);
+  const missingSourceGroups = expectedSourceGroups.filter((group) => !sourceGroups.has(group));
+  if (missingSourceGroups.length) {
     errors.push(
-      `rankingWindows.sourceItemCount (${windows.sourceItemCount}) must be >= month items (${monthGroup.items.length})`,
+      `rankingWindows.snapshotUnion.sourceGroups is missing required history: ${missingSourceGroups.join(", ")}`,
+    );
+  }
+  if (Number(union.itemsScanned) <= 0) {
+    errors.push("rankingWindows.snapshotUnion.itemsScanned must be > 0 when snapshot union is enabled");
+  }
+  validateUniqueItems(errors, "month", monthGroup.items);
+  validateUniqueItems(errors, "week", weekGroup.items);
+  if (Number(union.monthCount) !== monthGroup.items.length) {
+    errors.push(
+      `rankingWindows.snapshotUnion.monthCount (${union.monthCount}) must equal month items (${monthGroup.items.length})`,
+    );
+  }
+  if (Number(union.weekCount) !== weekGroup.items.length) {
+    errors.push(
+      `rankingWindows.snapshotUnion.weekCount (${union.weekCount}) must equal week items (${weekGroup.items.length})`,
     );
   }
 
-  report(errors);
+  const currentRaw = union.currentRawInWindow;
+  if (!currentRaw || typeof currentRaw !== "object") {
+    errors.push("rankingWindows.snapshotUnion.currentRawInWindow must be an object");
+    return;
+  }
+  for (const name of ["month", "week"]) {
+    const rawCount = Number(currentRaw[name]);
+    const unionCount = Number(name === "month" ? union.monthCount : union.weekCount);
+    if (!Number.isFinite(rawCount) || rawCount < 0) {
+      errors.push(`rankingWindows.snapshotUnion.currentRawInWindow.${name} must be a finite nonnegative count`);
+    } else if (unionCount < rawCount) {
+      errors.push(
+        `rankingWindows.snapshotUnion.${name} union count (${unionCount}) must be >= current raw in-window count (${rawCount})`,
+      );
+    }
+  }
+  if (union.outputCap !== null) {
+    errors.push("rankingWindows.snapshotUnion.outputCap must be null; formal window output has no item cap");
+  }
+}
+
+function validateUniqueItems(errors, name, items) {
+  const seen = new Set();
+  const duplicates = new Set();
+  for (const item of items) {
+    const key = snapshotItemKey(item);
+    if (seen.has(key)) duplicates.add(key);
+    seen.add(key);
+  }
+  if (duplicates.size) {
+    errors.push(`groups.${name}: ${duplicates.size} duplicate snapshot-union key(s) remain`);
+  }
 }
 
 function checkWindowSpec(errors, name, spec, kind, expectedStart, expectedEnd) {

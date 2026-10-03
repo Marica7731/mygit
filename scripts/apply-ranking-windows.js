@@ -8,19 +8,16 @@ const {
   formatDate,
   startOfCalendarMonth,
 } = require("./lib/ranking-window");
+const { loadSnapshotUnion, unionWindowItems } = require("./lib/snapshot-union");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
-const DATA_FILE = path.join(ROOT_DIR, "data", "youtube-ranking.json");
+const DATA_DIR = path.join(ROOT_DIR, "data");
+const DATA_FILE = path.join(DATA_DIR, "youtube-ranking.json");
 
 const KEYWORDS = ["歌枠", "弾き語り"];
 
 function main() {
   const payload = readJson(DATA_FILE);
-
-  if (payload?.rankingWindows?.applied === true) {
-    console.log("[ranking-windows] already applied; nothing to do.");
-    return;
-  }
 
   const monthGroup = payload?.groups?.month;
   if (!monthGroup || !Array.isArray(monthGroup.items)) {
@@ -32,34 +29,74 @@ function main() {
     throw new Error("groups.month.updatedAt is missing or invalid; cannot resolve ranking windows");
   }
 
+  const previousWindows =
+    payload.rankingWindows && payload.rankingWindows.applied === true ? payload.rankingWindows : null;
+  const currentItems = monthGroup.items;
+  const currentGroupIsWindowed = Boolean(monthGroup.window);
+  const currentRawItemCount = currentGroupIsWindowed
+    ? finiteCount(previousWindows?.sourceItemCount, currentItems.length)
+    : currentItems.length;
   const monthStart = startOfCalendarMonth(windowEnd, WINDOW_TIME_ZONE);
   const weekStart = windowEnd - WEEK_WINDOW_MS;
+  const snapshotHistory = loadSnapshotUnion(DATA_DIR, { start: weekStart, end: windowEnd });
+  const candidateBatches = [
+    { source: "current:groups.month.items", items: currentItems },
+    { source: "historical:snapshot-union", items: snapshotHistory.items },
+  ];
 
-  const sourceItems = monthGroup.items;
-  const weekItems = sourceItems.filter((item) => inWindow(item, weekStart, windowEnd));
-  const monthItems = sourceItems.filter((item) => inWindow(item, monthStart, windowEnd));
+  const monthItems = unionWindowItems(candidateBatches, monthStart, windowEnd);
+  const weekItems = unionWindowItems(candidateBatches, weekStart, windowEnd);
+  const snapshotsFound = snapshotHistory.filesRead > 0;
 
   // A window can legitimately be empty in the first minutes of a month or week.
   // Warn loudly instead of failing the whole pipeline on an honest empty result.
   if (!monthItems.length) {
     console.warn(
       `[ranking-windows] WARNING: calendar-month window ${formatDate(monthStart, WINDOW_TIME_ZONE)}` +
-        `..${formatDate(windowEnd, WINDOW_TIME_ZONE)} selected 0 of ${sourceItems.length} items`,
+        `..${formatDate(windowEnd, WINDOW_TIME_ZONE)} selected 0 items`,
     );
   }
   if (!weekItems.length) {
     console.warn(
       `[ranking-windows] WARNING: 7-day window ${formatDate(weekStart, WINDOW_TIME_ZONE)}` +
-        `..${formatDate(windowEnd, WINDOW_TIME_ZONE)} selected 0 of ${sourceItems.length} items`,
+        `..${formatDate(windowEnd, WINDOW_TIME_ZONE)} selected 0 items`,
     );
   }
 
+  const currentRawMonthItems = currentItems.filter((item) => inWindow(item, monthStart, windowEnd));
+  const currentRawWeekItems = currentItems.filter((item) => inWindow(item, weekStart, windowEnd));
   const windows = {
     applied: true,
     appliedAt: new Date().toISOString(),
     timeZone: WINDOW_TIME_ZONE,
-    source: "groups.month.items",
-    sourceItemCount: sourceItems.length,
+    source: snapshotsFound ? "snapshot-union+groups.month.items" : "groups.month.items",
+    sourceItemCount: currentRawItemCount,
+    sourceItemCountMeaning: "raw crawl pool size before snapshot-union output",
+    snapshotUnion: {
+      enabled: snapshotsFound,
+      source: snapshotsFound ? "historical snapshots + current groups.month.items" : "current groups.month.items",
+      sourceGroups: snapshotHistory.sourceGroups,
+      filesRead: snapshotHistory.filesRead,
+      itemsScanned: snapshotHistory.itemsScanned,
+      missingFiles: snapshotHistory.missingFiles,
+      skippedBeforeWindow: snapshotHistory.skippedBeforeWindow,
+      currentRawItemCount,
+      currentRawInWindow: {
+        month: currentGroupIsWindowed
+          ? finiteCount(
+              previousWindows?.snapshotUnion?.currentRawInWindow?.month,
+              currentRawMonthItems.length,
+            )
+          : currentRawMonthItems.length,
+        week: currentGroupIsWindowed
+          ? finiteCount(previousWindows?.snapshotUnion?.currentRawInWindow?.week, currentRawWeekItems.length)
+          : currentRawWeekItems.length,
+      },
+      monthCount: monthItems.length,
+      weekCount: weekItems.length,
+      dedupeKey: "videoId | url | keyword/title/channel/publishedTimestamp",
+      outputCap: null,
+    },
     week: buildWindow("rolling", weekStart, windowEnd, WEEK_WINDOW_MS),
     month: buildWindow("calendar-month", monthStart, windowEnd, windowEnd - monthStart),
   };
@@ -70,10 +107,20 @@ function main() {
 
   fs.writeFileSync(DATA_FILE, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
   console.log(
-    `[ranking-windows] timezone=${WINDOW_TIME_ZONE} month=${monthItems.length}/${sourceItems.length} ` +
-      `week=${weekItems.length}/${sourceItems.length} ` +
+    `[ranking-windows] timezone=${WINDOW_TIME_ZONE} month=${monthItems.length} ` +
+      `week=${weekItems.length} rawPool=${currentRawItemCount} ` +
+      `snapshots=${snapshotHistory.filesRead} scanned=${snapshotHistory.itemsScanned} ` +
       `monthStart=${formatDate(monthStart, WINDOW_TIME_ZONE)} windowEnd=${formatDate(windowEnd, WINDOW_TIME_ZONE)}`,
   );
+}
+
+function finiteCount(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : fallback;
+}
+
+function countInWindow(items, start, end) {
+  return items.filter((item) => inWindow(item, start, end)).length;
 }
 
 function buildWindow(kind, start, end, durationMs) {
@@ -94,7 +141,8 @@ function buildWeekGroup(monthGroup, items, start, end) {
     sourceGroup: "week",
     label: "近7天热度",
     title: "近7天歌枠 / 弾き語り热度排行",
-    description: "发布时间落在最近 7 天（168 小时）内的结果，按 YouTube 原始顺序展示。",
+    description:
+      "Historical snapshots and the current crawl pool, merged by published time and deduplicated by video. No output cap.",
     items,
     keywords: keywordsByGroup(items),
     sources: rescopeSources(monthGroup.sources, items),
@@ -104,14 +152,13 @@ function buildWeekGroup(monthGroup, items, start, end) {
 
 function applyMonthWindow(monthGroup, items, start, end) {
   monthGroup.items = items;
+  monthGroup.description =
+    "Historical snapshots and the current crawl pool, merged by published time and deduplicated by video. No output cap.";
   monthGroup.keywords = keywordsByGroup(items);
   monthGroup.sources = rescopeSources(monthGroup.sources, items);
   monthGroup.window = buildWindow("calendar-month", start, end, end - start);
 }
 
-// Keep source-level crawl metadata (reachedBottom / truncatedByLimit) so quality
-// gates can still tell a healthy crawl from an incomplete one; only the retained
-// item counts are narrowed to the window.
 function rescopeSources(sources, items) {
   if (!Array.isArray(sources)) return sources;
   return sources.map((source) => ({

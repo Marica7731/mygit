@@ -51,7 +51,7 @@ const SOURCE_GROUPS = {
   month: {
     label: "本月热度",
     title: "本月歌枠 / 弾き語り热度排行",
-    description: "YouTube 本月筛选结果，每个来源最多保留 500 条。",
+    description: "Raw monthly search pool used as one input to the snapshot union; formal output is not capped.",
   },
 };
 
