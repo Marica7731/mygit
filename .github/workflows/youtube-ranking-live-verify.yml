@@ -176,7 +176,6 @@ jobs:
               throw new Error(`Live week window is not a rolling 168h window: ${JSON.stringify(windowEvidence)}`);
             if (windowEvidence.weekItemsOutsideWindow !== 0)
               throw new Error(`Live week items outside the 7-day window: ${JSON.stringify(windowEvidence)}`);
-            if (windowEvidence.monthSnapshotPolicy !== 'keep-all' || windowEvidence.monthSnapshotCount < 1)
             // The first deployment after this migration may still carry the old
             // schema-1 index until youtube-ranking.yml archives with keep-all.
             // Accept only that missing-policy transition; once present, enforce it.
