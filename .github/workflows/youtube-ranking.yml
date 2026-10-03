@@ -255,7 +255,15 @@ jobs:
           node scripts/write-ranking-groups.js --check
 
       - name: Run release gates
-        run: npm run verify
+        run: |
+          set +e
+          npm run verify 2>&1 | tee /tmp/release-gate.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Release gate failed with exit code $status"
+            tail -n 120 /tmp/release-gate.log | sed 's/^/::error:: /'
+            exit "$status"
+          fi
 
       - name: Commit updated data
         env:
