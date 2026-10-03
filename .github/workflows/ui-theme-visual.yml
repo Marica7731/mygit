@@ -11,6 +11,7 @@ on:
       - "live.html"
       - "today.html"
       - "month.html"
+  workflow_dispatch:
 
 permissions:
   actions: read
