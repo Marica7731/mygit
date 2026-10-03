@@ -55,19 +55,34 @@ jobs:
                 return null;
               }
             }
-            const json = JSON.parse(execFileSync(
+            const api = (args) => JSON.parse(execFileSync(
               'gh',
-              ['api', '--method', 'GET', `repos/${repo}/actions/runs`, '-f', `head_sha=${targetSha}`, '-f', 'per_page=20'],
+              ['api', '--method', 'GET', ...args],
               { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
             ));
-            return (json.workflow_runs || []).find((run) => run.name === 'pages build and deployment') || null;
+            const runs = api([`repos/${repo}/actions/runs`, '-f', 'per_page=40']).workflow_runs || [];
+            const pages = runs.filter((run) => run.name === 'pages build and deployment');
+            const exact = pages.find((run) => run.head_sha === targetSha) || null;
+            if (exact?.status === 'completed' && exact.conclusion === 'success') return exact;
+            const descendant = pages.find((run) => {
+              if (run.status !== 'completed' || run.conclusion !== 'success' || !run.head_sha) return false;
+              if (run.head_sha === targetSha) return true;
+              try {
+                const comparison = api([`repos/${repo}/compare/${targetSha}...${run.head_sha}`]);
+                return comparison.status === 'ahead' || comparison.status === 'identical';
+              } catch {
+                return false;
+              }
+            });
+            return descendant || exact;
           }
 
           async function main() {
             let deployed;
             while (Date.now() < deadline) {
               deployed = pagesRun();
-              if (deployed?.status === 'completed') break;
+              if (specificRunId && deployed?.status === 'completed') break;
+              if (deployed?.status === 'completed' && deployed.conclusion === 'success') break;
               console.log(`[online] waiting for Pages run at SHA ${targetSha}: ${deployed?.status || 'not found'}`);
               await sleep(20000);
             }
