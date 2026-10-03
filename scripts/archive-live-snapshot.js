@@ -5,10 +5,10 @@ const ROOT = path.resolve(__dirname, "..");
 const DATA_PATH = path.join(ROOT, "data", "youtube-ranking.json");
 const DATA_DIR = path.join(ROOT, "data");
 const SNAPSHOT_GROUPS = snapshotGroups();
-const RETENTION_DAYS = positiveInteger(
-  process.env.YTB_RANKING_SNAPSHOT_DAYS || process.env.YTB_RANKING_LIVE_SNAPSHOT_DAYS,
-  7,
-);
+// Snapshot history is append-only by default. Pruning is opt-in only: deleting
+// snapshots here would destroy the data the ranking windows are built from.
+const RETENTION_DAYS = snapshotRetentionDays();
+const RETENTION_ENABLED = RETENTION_DAYS > 0;
 const RETENTION_MS = RETENTION_DAYS * 24 * 60 * 60 * 1000;
 const SNAPSHOT_TIME_ZONE = process.env.YTB_RANKING_SNAPSHOT_TIME_ZONE || "Asia/Taipei";
 
@@ -32,7 +32,7 @@ function archiveGroupSnapshot(payload, groupName) {
   const capturedAt = parseDate(group.updatedAt || group.collectedAt || payload.generatedAt || payload.collectedAt) || new Date();
   const now = new Date();
   const snapshotId = formatSnapshotId(capturedAt);
-  const expiresAt = new Date(capturedAt.getTime() + RETENTION_MS);
+  const expiresAt = RETENTION_ENABLED ? new Date(capturedAt.getTime() + RETENTION_MS) : null;
   const file = `${snapshotId}.json`;
   const snapshotPath = path.join(snapshotDir, file);
   const index = loadIndex(indexPath);
@@ -43,8 +43,10 @@ function archiveGroupSnapshot(payload, groupName) {
   const nextSnapshots = new Map();
   for (const entry of Array.isArray(index.snapshots) ? index.snapshots : []) {
     if (!entry || !isSafeSnapshotId(entry.id)) continue;
-    const entryDate = parseDate(entry.capturedAt || entry.generatedAt || entry.id);
-    if (!entryDate || now.getTime() - entryDate.getTime() > RETENTION_MS) continue;
+    if (RETENTION_ENABLED) {
+      const entryDate = parseDate(entry.capturedAt || entry.generatedAt || entry.id);
+      if (!entryDate || now.getTime() - entryDate.getTime() > RETENTION_MS) continue;
+    }
     if (!fs.existsSync(path.join(snapshotDir, `${entry.id}.json`))) continue;
     nextSnapshots.set(entry.id, normalizeEntry(entry, groupName));
   }
@@ -58,7 +60,7 @@ function archiveGroupSnapshot(payload, groupName) {
     snapshotType: groupName,
     generatedAt: capturedAt.toISOString(),
     capturedAt: capturedAt.toISOString(),
-    expiresAt: expiresAt.toISOString(),
+    ...(expiresAt ? { expiresAt: expiresAt.toISOString() } : {}),
     label: formatSnapshotLabel(capturedAt),
     itemCount: summary.itemCount,
     videoCount: summary.videoCount,
@@ -71,20 +73,22 @@ function archiveGroupSnapshot(payload, groupName) {
     return Date.parse(b.capturedAt || b.generatedAt || "") - Date.parse(a.capturedAt || a.generatedAt || "");
   });
 
-  pruneSnapshotFiles(snapshotDir, new Set(snapshots.map((entry) => `${entry.id}.json`)));
+  if (RETENTION_ENABLED) pruneSnapshotFiles(snapshotDir, new Set(snapshots.map((entry) => `${entry.id}.json`)));
 
   writeJson(indexPath, {
-    schemaVersion: 1,
+    schemaVersion: 2,
     snapshotType: groupName,
     group: groupName,
     generatedAt: now.toISOString(),
+    retentionPolicy: RETENTION_ENABLED ? "retention-days" : "keep-all",
     retentionDays: RETENTION_DAYS,
     retainedDays: RETENTION_DAYS,
     latestSnapshotId: snapshots[0]?.id || "",
     snapshots,
   });
 
-  console.log(`[snapshot] ${groupName}: wrote ${file}; retained ${snapshots.length} snapshot(s) for ${RETENTION_DAYS} days.`);
+  const policy = RETENTION_ENABLED ? `${RETENTION_DAYS} days` : "keep-all";
+  console.log(`[snapshot] ${groupName}: wrote ${file}; retained ${snapshots.length} snapshot(s) (${policy}).`);
 }
 
 function buildSnapshot(payload, groupName, group, snapshotId, capturedAt, expiresAt) {
@@ -95,7 +99,7 @@ function buildSnapshot(payload, groupName, group, snapshotId, capturedAt, expire
     snapshotId,
     generatedAt: capturedAt.toISOString(),
     collectedAt: capturedAt.toISOString(),
-    expiresAt: expiresAt.toISOString(),
+    ...(expiresAt ? { expiresAt: expiresAt.toISOString() } : {}),
     target: payload.target,
     limits: payload.limits,
     locale: payload.locale,
@@ -198,9 +202,13 @@ function parseDate(value) {
   return Number.isFinite(timestamp) ? new Date(timestamp) : null;
 }
 
-function positiveInteger(value, fallback) {
-  const number = Number(value);
-  return Number.isInteger(number) && number > 0 ? number : fallback;
+// 0 / unset means keep every snapshot forever. Anything else is an explicit,
+// opt-in request to prune; malformed values fall back to keep-all.
+function snapshotRetentionDays() {
+  const raw = process.env.YTB_RANKING_SNAPSHOT_DAYS ?? process.env.YTB_RANKING_LIVE_SNAPSHOT_DAYS;
+  if (raw == null || raw === "") return 0;
+  const number = Number(raw);
+  return Number.isInteger(number) && number > 0 ? number : 0;
 }
 
 function isSafeSnapshotId(value) {
@@ -212,11 +220,11 @@ function snapshotDirForGroup(groupName) {
 }
 
 function snapshotGroups() {
-  const raw = process.env.YTB_RANKING_SNAPSHOT_GROUPS || "live,today,month";
-  const supported = new Set(["live", "today", "month"]);
+  const raw = process.env.YTB_RANKING_SNAPSHOT_GROUPS || "live,today,week,month";
+  const supported = new Set(["live", "today", "week", "month"]);
   const groups = raw
     .split(",")
     .map((value) => value.trim())
     .filter((value) => supported.has(value));
-  return groups.length ? Array.from(new Set(groups)) : ["live", "today", "month"];
+  return groups.length ? Array.from(new Set(groups)) : ["live", "today", "week", "month"];
 }

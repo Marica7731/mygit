@@ -7,6 +7,9 @@ on:
       - ".github/workflows/youtube-ranking-live-verify.yml"
       - "data/youtube-ranking.json"
       - "data/youtube-ranking-status.json"
+      - "data/youtube-ranking-week.json"
+      - "week.html"
+      - "month.html"
   workflow_run:
     workflows: ["pages build and deployment"]
     types: [completed]
@@ -78,7 +81,11 @@ jobs:
               completedAt: deployed.updated_at, url: deployed.html_url
             }));
 
-            const paths = ['/today.html', '/data/youtube-ranking.json', '/data/youtube-ranking-status.json'];
+            const paths = [
+              '/today.html', '/month.html', '/week.html',
+              '/data/youtube-ranking.json', '/data/youtube-ranking-status.json',
+              '/data/youtube-ranking-week.json', '/data/month-snapshots/index.json',
+            ];
             let checked;
             for (let attempt = 1; attempt <= 6; attempt++) {
               checked = await Promise.all(paths.map(async (pathname) => {
@@ -95,8 +102,14 @@ jobs:
             console.log('[online] HTTP evidence ' + JSON.stringify(info));
             if (checked.some((x) => x.status !== 200)) throw new Error('Live page or JSON HTTP status is not 200');
 
-            const html = checked[0].body, ranking = JSON.parse(checked[1].body);
-            const status = JSON.parse(checked[2].body);
+            const bodyByPath = Object.fromEntries(checked.map((entry) => [entry.pathname, entry.body]));
+            const html = bodyByPath['/today.html'];
+            const monthHtml = bodyByPath['/month.html'];
+            const weekHtml = bodyByPath['/week.html'];
+            const ranking = JSON.parse(bodyByPath['/data/youtube-ranking.json']);
+            const status = JSON.parse(bodyByPath['/data/youtube-ranking-status.json']);
+            const weekData = JSON.parse(bodyByPath['/data/youtube-ranking-week.json']);
+            const monthSnapshotIndex = JSON.parse(bodyByPath['/data/month-snapshots/index.json']);
             const today = ranking.groups?.today?.items || [];
             const validViews = today.filter((item) =>
               item.statusType !== 'live' && item.statusType !== 'upcoming' && Number(item.viewCount) > 0).length;
@@ -117,6 +130,62 @@ jobs:
             if (status.status !== 'success') throw new Error('Online ranking status is not success');
             if (today.length >= 240 && validViews < 240)
               throw new Error(`Online viewCount quality insufficient: ${validViews}/${today.length}`);
+
+            const windows = ranking.rankingWindows || {};
+            const monthItems = ranking.groups?.month?.items || [];
+            const weekItems = weekData.groups?.week?.items || [];
+            const monthStart = Date.parse(windows.month?.start || '');
+            const monthEnd = Date.parse(windows.month?.end || '');
+            const weekStart = Date.parse(windows.week?.start || '');
+            const weekEnd = Date.parse(windows.week?.end || '');
+            const monthStartDay = Number.isFinite(monthStart) && windows.month?.timeZone
+              ? new Intl.DateTimeFormat('en-CA', { timeZone: windows.month.timeZone, day: '2-digit' }).format(new Date(monthStart))
+              : '';
+            const countOutside = (items, start, end) => items.filter((item) => {
+              const timestamp = Number(item.publishedTimestamp);
+              return !Number.isFinite(timestamp) || timestamp < start || timestamp > end;
+            }).length;
+            const windowEvidence = {
+              monthKind: windows.month?.kind,
+              monthStart: windows.month?.start,
+              monthStartDay,
+              monthSourceItems: windows.sourceItemCount,
+              monthItems: monthItems.length,
+              monthItemsOutsideWindow: countOutside(monthItems, monthStart, monthEnd),
+              weekKind: windows.week?.kind,
+              weekStart: windows.week?.start,
+              weekDurationMs: windows.week?.durationMs,
+              weekItems: weekItems.length,
+              weekItemsOutsideWindow: countOutside(weekItems, weekStart, weekEnd),
+              htmlHasMonthGroup: /data-source-group="month"/.test(monthHtml),
+              htmlHasWeekGroup: /data-source-group="week"/.test(weekHtml),
+              monthSnapshotPolicy: monthSnapshotIndex.retentionPolicy,
+              monthSnapshotCount: (monthSnapshotIndex.snapshots || []).length,
+              monthSnapshotRetentionPending: monthSnapshotIndex.retentionPolicy == null,
+            };
+            console.log('[online] WINDOW EVIDENCE ' + JSON.stringify(windowEvidence));
+            if (!windowEvidence.htmlHasMonthGroup || !windowEvidence.htmlHasWeekGroup)
+              throw new Error('Live month.html or week.html group marker missing');
+            if (windowEvidence.monthKind !== 'calendar-month' || windowEvidence.monthStartDay !== '01')
+              throw new Error(`Live month window is not a calendar month: ${JSON.stringify(windowEvidence)}`);
+            if (windowEvidence.monthItemsOutsideWindow !== 0)
+              throw new Error(`Live month items outside the calendar-month window: ${JSON.stringify(windowEvidence)}`);
+            if (!(Number(windowEvidence.monthSourceItems) > 0))
+              throw new Error(`Live month crawl pool is empty: ${JSON.stringify(windowEvidence)}`);
+            if (windowEvidence.weekKind !== 'rolling' || Number(windowEvidence.weekDurationMs) !== 7 * 24 * 60 * 60 * 1000)
+              throw new Error(`Live week window is not a rolling 168h window: ${JSON.stringify(windowEvidence)}`);
+            if (windowEvidence.weekItemsOutsideWindow !== 0)
+              throw new Error(`Live week items outside the 7-day window: ${JSON.stringify(windowEvidence)}`);
+            if (windowEvidence.monthSnapshotPolicy !== 'keep-all' || windowEvidence.monthSnapshotCount < 1)
+            // The first deployment after this migration may still carry the old
+            // schema-1 index until youtube-ranking.yml archives with keep-all.
+            // Accept only that missing-policy transition; once present, enforce it.
+            const retentionReady = windowEvidence.monthSnapshotPolicy === 'keep-all';
+            const retentionPending = windowEvidence.monthSnapshotRetentionPending;
+            if ((!retentionReady && !retentionPending) || windowEvidence.monthSnapshotCount < 1)
+              throw new Error(`Live snapshot history is not keep-all: ${JSON.stringify(windowEvidence)}`);
+            if (retentionPending)
+              console.warn('[online] snapshot retention migration pending; will enforce keep-all after the next archive');
           }
           main().catch((error) => { console.error('[online] VERIFICATION FAILED: ' + error.message); process.exitCode = 1; });
           NODE

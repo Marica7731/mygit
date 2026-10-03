@@ -14,6 +14,17 @@ on:
       - "live.html"
       - "today.html"
       - "month.html"
+      - "week.html"
+      - "package.json"
+      - "package-lock.json"
+      - "assets/youtube-ranking.source.js"
+      - "scripts/apply-ranking-windows.js"
+      - "scripts/build-ranking-frontend.js"
+      - "scripts/lib/**"
+      - "scripts/validate-ranking-windows.js"
+      - "scripts/verify-pages.js"
+      - "scripts/verify-page-behavior.js"
+      - "scripts/verify-snapshot-retention.js"
       - "scripts/blocked-vtuber-matcher.js"
       - "scripts/blocked-vtuber-utils.js"
       - "scripts/check-blocked-vtuber-sync.js"
@@ -52,6 +63,10 @@ jobs:
       YTB_RANKING_LIVE_LIMIT: "500"
       YTB_RANKING_TODAY_LIMIT: "500"
       YTB_RANKING_MONTH_LIMIT: "500"
+      # Ranking windows are computed in Asia/Taipei (UTC+8), the site's local day.
+      YTB_RANKING_WINDOW_TIME_ZONE: "Asia/Taipei"
+      # 0 means keep every snapshot; historical snapshot files are never pruned.
+      YTB_RANKING_SNAPSHOT_DAYS: "0"
       YTB_RANKING_SCROLL_TO_BOTTOM_GROUPS: "live,today"
       YTB_RANKING_ENRICH_LIVE_DETAILS: "0"
       YTB_RANKING_LIVE_DETAIL_LIMIT: "5"
@@ -110,7 +125,7 @@ jobs:
           node-version: "20"
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
@@ -222,12 +237,24 @@ jobs:
       - name: Validate duration data
         run: node scripts/validate-duration-quality.js
 
+      # Derive the 7-day tab and narrow month to the current calendar month from
+      # collected date fields. This runs after collection-size validation so the
+      # raw crawl is still what those gates inspect.
+      - name: Apply ranking windows
+        run: node scripts/apply-ranking-windows.js
+
+      - name: Validate ranking windows
+        run: node scripts/validate-ranking-windows.js
+
       - name: Archive ranking snapshots
         run: |
           node scripts/archive-live-snapshot.js
           node scripts/validate-live-snapshots.js
           node scripts/write-ranking-groups.js
           node scripts/write-ranking-groups.js --check
+
+      - name: Run release gates
+        run: npm run verify
 
       - name: Commit updated data
         env:
@@ -248,7 +275,7 @@ jobs:
           node scripts/validate-live-snapshots.js
           node scripts/write-ranking-groups.js
           node scripts/write-ranking-groups.js --check
-          git add assets/blocked-vtuber-channels.js index.html live.html today.html month.html data/youtube-ranking.json data/youtube-ranking-live.json data/youtube-ranking-today.json data/youtube-ranking-month.json data/youtube-ranking-status.json data/live-snapshots data/today-snapshots data/month-snapshots
+          git add assets/blocked-vtuber-channels.js index.html live.html today.html week.html month.html data/youtube-ranking.json data/youtube-ranking-live.json data/youtube-ranking-today.json data/youtube-ranking-month.json data/youtube-ranking-week.json data/youtube-ranking-status.json data/live-snapshots data/today-snapshots data/week-snapshots data/month-snapshots
           if git diff --cached --quiet; then
             echo "No data changes to commit."
           else
@@ -264,7 +291,7 @@ jobs:
               node scripts/validate-live-snapshots.js
               node scripts/write-ranking-groups.js
               node scripts/write-ranking-groups.js --check
-              git add assets/blocked-vtuber-channels.js index.html live.html today.html month.html data/youtube-ranking.json data/youtube-ranking-live.json data/youtube-ranking-today.json data/youtube-ranking-month.json data/youtube-ranking-status.json data/live-snapshots data/today-snapshots data/month-snapshots
+              git add assets/blocked-vtuber-channels.js index.html live.html today.html week.html month.html data/youtube-ranking.json data/youtube-ranking-live.json data/youtube-ranking-today.json data/youtube-ranking-month.json data/youtube-ranking-week.json data/youtube-ranking-status.json data/live-snapshots data/today-snapshots data/week-snapshots data/month-snapshots
               git diff --cached --quiet && exit 0
               git commit -m "chore: 更新 YouTube 排行数据和状态"
               git push

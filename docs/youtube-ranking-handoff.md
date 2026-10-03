@@ -1,5 +1,12 @@
 # YouTube 排行页交接文档
 
+> **⚠️ 本文档已过期，仅作历史记录。**
+>
+> 下面“尚未完成”中列出的抓取脚本、排行 JSON、正式页面和 workflow **现在都已存在并在生产运行**。
+> 当前事实源请看 [`README.md`](../README.md) 与 [`AGENTS.md`](../AGENTS.md)：项目为 `Marica7731/mygit`，
+> 线上站点 `https://ytb.culua.com/`；核心采集脚本是 `scripts/update-youtube-ranking.js`，
+> 主更新 workflow 是 `.github/workflows/youtube-ranking.yml`，调度器约每 10 分钟触发一次。
+
 ## 当前状态
 
 本仓库用于发布 YouTube 歌枠 / 弾き語り排行静态页面。
@@ -15,11 +22,7 @@
 
 尚未完成：
 
-- 未实现 YouTube 抓取脚本。
-- 未实现排行数据 JSON。
-- 未实现直播 / 今日 / 本月三个正式静态页面。
-- 未创建定时更新 workflow。
-- GitHub Pages 设置和 DNS 生效状态需要在网页端确认。
+原先“尚未完成”的内容已全部实现，见 `README.md` 的文件清单与 GitHub Actions 章节。
 
 ## 仓库信息
 

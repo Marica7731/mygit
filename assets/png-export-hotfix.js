@@ -375,6 +375,7 @@
 
   function pageTitle() {
     if (GROUP === "today") return "今日热度";
+    if (GROUP === "week") return "近7天热度";
     if (GROUP === "month") return "本月热度";
     return "直播 / 预约";
   }

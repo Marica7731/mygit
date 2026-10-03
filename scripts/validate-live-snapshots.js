@@ -45,7 +45,10 @@ function validateIndex(index, groupName, snapshotDir) {
     return errors;
   }
 
-  const retentionDays = Number(index.retentionDays || index.retainedDays || 7);
+  // "keep-all" is the default retention policy: old snapshots are legal, and are
+  // expected to outlive any fixed number of days.
+  const retentionDays = Number(index.retentionDays ?? index.retainedDays ?? 0);
+  const keepAll = index.retentionPolicy === "keep-all" || !Number.isFinite(retentionDays) || retentionDays <= 0;
   const retentionMs = retentionDays * 24 * 60 * 60 * 1000;
   const generatedAt = Date.parse(index.generatedAt || "");
 
@@ -53,18 +56,20 @@ function validateIndex(index, groupName, snapshotDir) {
   if (index.snapshotType && index.snapshotType !== groupName) errors.push(`${groupName}: index.snapshotType must be ${groupName}`);
   if (index.group && index.group !== groupName) errors.push(`${groupName}: index.group must be ${groupName}`);
   if (!Number.isFinite(generatedAt)) errors.push(`${groupName}: index.generatedAt must be a valid timestamp`);
-  if (!Number.isFinite(retentionMs) || retentionMs <= 0) errors.push(`${groupName}: index.retentionDays must be positive`);
+  if (!keepAll && (!Number.isFinite(retentionMs) || retentionMs <= 0)) {
+    errors.push(`${groupName}: index.retentionDays must be positive when retentionPolicy is not keep-all`);
+  }
   if (!Array.isArray(index.snapshots)) errors.push(`${groupName}: index.snapshots must be an array`);
 
   const seen = new Set();
   for (const entry of Array.isArray(index.snapshots) ? index.snapshots : []) {
-    validateSnapshotEntry({ entry, groupName, snapshotDir, generatedAt, retentionMs, retentionDays, seen, errors });
+    validateSnapshotEntry({ entry, groupName, snapshotDir, generatedAt, retentionMs, retentionDays, keepAll, seen, errors });
   }
 
   return errors;
 }
 
-function validateSnapshotEntry({ entry, groupName, snapshotDir, generatedAt, retentionMs, retentionDays, seen, errors }) {
+function validateSnapshotEntry({ entry, groupName, snapshotDir, generatedAt, retentionMs, retentionDays, keepAll, seen, errors }) {
   const id = String(entry?.id || "");
   if (!/^[0-9]{8}T[0-9]{6}Z$/.test(id)) errors.push(`${groupName}: invalid snapshot id: ${id || "(empty)"}`);
   if (seen.has(id)) errors.push(`${groupName}: duplicate snapshot id: ${id}`);
@@ -84,19 +89,24 @@ function validateSnapshotEntry({ entry, groupName, snapshotDir, generatedAt, ret
   if (snapshot.group && snapshot.group !== groupName) errors.push(`${groupName}/${fileName}: group must be ${groupName}`);
   if (!Array.isArray(items)) errors.push(`${groupName}/${fileName}: groups.${groupName}.items must be an array`);
   if (!Number.isFinite(capturedAt)) errors.push(`${groupName}/${fileName}: capturedAt/generatedAt must be valid`);
-  if (Number.isFinite(generatedAt) && Number.isFinite(capturedAt) && generatedAt - capturedAt > retentionMs + 60 * 1000) {
+  if (
+    !keepAll &&
+    Number.isFinite(generatedAt) &&
+    Number.isFinite(capturedAt) &&
+    generatedAt - capturedAt > retentionMs + 60 * 1000
+  ) {
     errors.push(`${groupName}/${fileName}: snapshot is older than ${retentionDays} day retention`);
   }
 }
 
 function snapshotGroups() {
-  const raw = process.env.YTB_RANKING_SNAPSHOT_GROUPS || "live,today,month";
-  const supported = new Set(["live", "today", "month"]);
+  const raw = process.env.YTB_RANKING_SNAPSHOT_GROUPS || "live,today,week,month";
+  const supported = new Set(["live", "today", "week", "month"]);
   const groups = raw
     .split(",")
     .map((value) => value.trim())
     .filter((value) => supported.has(value));
-  return groups.length ? Array.from(new Set(groups)) : ["live", "today", "month"];
+  return groups.length ? Array.from(new Set(groups)) : ["live", "today", "week", "month"];
 }
 
 function readJson(filePath) {

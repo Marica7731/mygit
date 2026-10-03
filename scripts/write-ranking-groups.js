@@ -3,7 +3,7 @@ const path = require("node:path");
 
 const ROOT = process.cwd();
 const DATA_FILE = path.join(ROOT, "data", "youtube-ranking.json");
-const GROUPS = ["live", "today", "month"];
+const GROUPS = ["live", "today", "week", "month"];
 const CHECK_ONLY = process.argv.includes("--check");
 const FRONTEND_OMIT_ITEM_FIELDS = ["searchableText"];
 

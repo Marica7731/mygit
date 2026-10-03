@@ -5,7 +5,8 @@
   const SNAPSHOT_PARAM = "snapshot";
   const PAGE_SIZE = 99;
   const TWO_COLUMN_PAGE_SIZE = 98;
-  const TIME_FILTER_KEY = `ytb-ranking-time-filter-v1:${GROUP}`;
+  const TIME_FILTER_KEY_PREFIX = "ytb-ranking-time-filter-v1:";
+  const TIME_FILTER_GROUPS = ["live", "today", "week", "month"];
   const MIN_VIEWS_FILTER_KEY = `ytb-ranking-min-views-v1:${GROUP}`;
   const REGIONAL_VTUBER_BLOCKLIST = window.BlockedVtuberChannels || { entries: [], blocklistHash: "", listVersion: "" };
   const DEFAULT_BLOCKED_PATTERNS = [
@@ -23,6 +24,7 @@
   let rankingReferenceMs = NaN;
   let originalKeywordCounts = new Map();
   let originalTotalCount = 0;
+  let allGroupItems = [];
   let snapshotIndex = null;
   let controlsReady = false;
   let updateQueued = false;
@@ -40,6 +42,7 @@
 
   function boot() {
     lockAutoLayout();
+    clearLegacyTimeFilterState();
     installControlBar();
     installBackToTopButton();
     loadRankingData().finally(() => scheduleUpdate());
@@ -69,6 +72,19 @@
     delete state.search;
     state.layoutMode = "auto";
     localStorage.setItem(key, JSON.stringify(state));
+  }
+
+  // Publish-time filtering is session-local on purpose. A value persisted under
+  // this key used to survive across visits and silently turn the month tab into a
+  // 7-day or 24-hour view, which then inflated the "过滤" counter.
+  function clearLegacyTimeFilterState() {
+    for (const group of TIME_FILTER_GROUPS) {
+      try {
+        localStorage.removeItem(`${TIME_FILTER_KEY_PREFIX}${group}`);
+      } catch {
+        // Storage can be unavailable in privacy modes; the default stays "all".
+      }
+    }
   }
 
   function patchStatePersistence() {
@@ -385,7 +401,9 @@
       </div>
     `;
     document.body.append(popover);
-    setTimeFilterValue(localStorage.getItem(TIME_FILTER_KEY) || "all", { persist: false, update: false });
+    // Always start from "all" so a stale selection from an earlier visit cannot
+    // silently hide most of this tab's results.
+    setTimeFilterValue("all", { update: false });
     popover.addEventListener("click", (event) => {
       const button = event.target.closest("[data-time-filter-value]");
       if (!button) return;
@@ -560,7 +578,7 @@
     const cards = rankingCards();
     if (!cards.length) {
       renderPagination(0, 1, PAGE_SIZE);
-      updateDataSummary([]);
+      updateDataSummary();
       return;
     }
 
@@ -590,7 +608,7 @@
     }
 
     renderPagination(totalItems, pageCount, pageSize);
-    updateDataSummary(eligibleCards);
+    updateDataSummary();
   }
 
   function rankingCards() {
@@ -726,11 +744,11 @@
       { value: "12", label: "12小时内" },
       { value: "24", label: "24小时内" },
     ];
-    if (GROUP === "month") {
+    if (GROUP === "week" || GROUP === "month") {
       base.push(
         { value: "72", label: "3天内" },
         { value: "168", label: "1周内" },
-        { value: "672", label: "4周内" },
+        ...(GROUP === "month" ? [{ value: "672", label: "4周内" }] : []),
       );
     }
     return base;
@@ -746,7 +764,6 @@
     const next = validValues.has(String(value)) ? String(value) : "all";
     const input = document.getElementById("time-filter");
     if (input) input.value = next;
-    if (options.persist !== false) localStorage.setItem(TIME_FILTER_KEY, next);
     document.querySelectorAll("[data-time-filter-value]").forEach((button) => {
       const selected = button.dataset.timeFilterValue === next;
       button.classList.toggle("is-selected", selected);
@@ -810,10 +827,13 @@
       rankingReferenceMs = Date.parse(group.updatedAt || group.collectedAt || data?.generatedAt || data?.collectedAt || "");
       const items = group.items || [];
       itemByVideoId = new Map(items.filter((item) => item.videoId).map((item) => [item.videoId, item]));
-      originalKeywordCounts = sourceKeywordCounts(group, items);
-      originalTotalCount = Array.from(originalKeywordCounts.values()).reduce((sum, value) => sum + value, 0);
+      allGroupItems = items;
+      originalKeywordCounts = items.length ? keywordCounts(items) : sourceKeywordCounts(group, items);
+      originalTotalCount =
+        items.length || Array.from(originalKeywordCounts.values()).reduce((sum, value) => sum + value, 0);
     } catch {
       rankingReferenceMs = NaN;
+      allGroupItems = [];
       originalKeywordCounts = new Map();
       originalTotalCount = 0;
       itemByVideoId = new Map();
@@ -918,8 +938,7 @@
     chip.setAttribute("aria-expanded", String(timePopoverOpen));
     if (!chip.dataset.timeBaseTitle) chip.dataset.timeBaseTitle = chip.getAttribute("title") || clean(chip.textContent);
     chip.title = `${chip.dataset.timeBaseTitle} / 点击选择发布时间`;
-    setTimeFilterValue(document.getElementById("time-filter")?.value || localStorage.getItem(TIME_FILTER_KEY) || "all", {
-      persist: false,
+    setTimeFilterValue(document.getElementById("time-filter")?.value || "all", {
       update: false,
     });
   }
@@ -979,31 +998,45 @@
     syncToolbarCollapsed();
   }
 
-  function updateDataSummary(eligibleCards) {
+  function updateDataSummary() {
     const sourceBar = document.getElementById("source-chip-bar");
     if (!sourceBar) return;
+    const timeLimitMs = currentTimeLimitMs();
+    const minViews = currentMinViews();
+    const searchText = clean(document.querySelector('[data-state="search"]')?.value);
     const countState = currentCountState();
     const hasActiveFilter = Boolean(
-      currentTimeLimitMs() != null ||
-        currentMinViews() != null ||
-        clean(document.querySelector('[data-state="search"]')?.value) ||
+      timeLimitMs != null ||
+        minViews != null ||
+        searchText ||
         (countState && countState.visible !== countState.total),
     );
-    const counts = new Map([
-      ["歌枠", hasActiveFilter ? 0 : originalKeywordCounts.get("歌枠") || 0],
-      ["弾き語り", hasActiveFilter ? 0 : originalKeywordCounts.get("弾き語り") || 0],
-    ]);
-    for (const card of eligibleCards || []) {
-      if (!hasActiveFilter) break;
-      const item = itemForCard(card);
-      const keyword = normalizedKeyword(item?.keyword || item?.group || card.textContent);
-      if (!counts.has(keyword)) continue;
-      counts.set(keyword, counts.get(keyword) + 1);
-    }
-    const currentTotal = Array.from(counts.values()).reduce((sum, value) => sum + value, 0);
-    const baselineTotal = countState?.total || originalTotalCount || currentTotal;
-    const filtered = hasActiveFilter ? Math.max(0, baselineTotal - currentTotal) : 0;
+
+    // Summarize the complete filtered item set from data. Deriving these numbers
+    // from rendered cards made them climb while the batched renderer was still
+    // appending, which produced impossible "过滤" totals.
     const parts = ["歌枠", "弾き語り"];
+    const counts = new Map(parts.map((key) => [key, 0]));
+    let currentTotal = 0;
+    for (const item of summaryRows()) {
+      const keyword = normalizedKeyword(item?.keyword || item?.group);
+      if (!counts.has(keyword)) continue;
+      if (timeLimitMs != null && !matchesTimeFilter(item, timeLimitMs)) continue;
+      if (minViews != null && !matchesMinViewsFilter(item, minViews)) continue;
+      counts.set(keyword, (counts.get(keyword) || 0) + 1);
+      currentTotal += 1;
+    }
+
+    // Prefer the app's own universe so the three displayed numbers always sum to
+    // exactly the number of items this tab is working with.
+    const appTotal = window.__YTB_RANKING_TOTAL_ITEM_COUNT__;
+    const baselineTotal = Number.isFinite(appTotal)
+      ? appTotal
+      : countState?.total ||
+        parts.reduce((sum, key) => sum + (originalKeywordCounts.get(key) || 0), 0) ||
+        originalTotalCount ||
+        currentTotal;
+    const filtered = hasActiveFilter ? Math.max(0, baselineTotal - currentTotal) : 0;
     const labels = filtered > 0 ? [...parts, "过滤"] : parts;
     const values = filtered > 0 ? [...parts.map((key) => counts.get(key) || 0), filtered] : parts.map((key) => counts.get(key) || 0);
     sourceBar.innerHTML = `<span class="source-summary-chip">${labels.join(" / ")} = ${values.join(" / ")}</span>`;
@@ -1012,6 +1045,11 @@
       chip.setAttribute("aria-hidden", "true");
     });
     hideInternalFilterChips();
+  }
+
+  function summaryRows() {
+    const visibleItems = window.__YTB_RANKING_VISIBLE_ITEMS__;
+    return Array.isArray(visibleItems) ? visibleItems : allGroupItems;
   }
 
   function hideInternalFilterChips() {
@@ -1098,7 +1136,7 @@
   }
 
   function isSnapshotGroup() {
-    return ["live", "today", "month"].includes(GROUP);
+    return ["live", "today", "week", "month"].includes(GROUP);
   }
 
   function snapshotIndexUrl() {
@@ -1118,6 +1156,7 @@
       live: "最新直播",
       today: "最新今日",
       month: "最新本月",
+      week: "最新7天",
     };
     return labels[GROUP] || "最新";
   }
@@ -1127,6 +1166,7 @@
       live: "直播快照",
       today: "今日快照",
       month: "本月快照",
+      week: "7天快照",
     };
     return labels[GROUP] || "快照";
   }

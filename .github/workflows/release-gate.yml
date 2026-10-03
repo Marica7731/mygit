@@ -1,0 +1,55 @@
+name: Release gate
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/release-gate.yml"
+      - "assets/**"
+      - "config/**"
+      - "scripts/**"
+      - "docs/**"
+      - "*.html"
+      - "README.md"
+      - "AGENTS.md"
+      - "package.json"
+      - "package-lock.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run release gates
+        run: npm run verify
+
+      - name: Refuse uncommitted generated assets
+        run: |
+          if ! git diff --exit-code; then
+            echo "::error::Generated files are stale; run 'npm run build:frontend' and 'node scripts/write-ranking-groups.js'."
+            exit 1
+          fi

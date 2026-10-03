@@ -8,17 +8,22 @@
 
 - `live.html`：展示歌枠直播 / 预约、弾き語り直播 / 预约。
 - `today.html`：展示今日歌枠热度排行、今日弾き語り热度排行。
-- `month.html`：展示本月歌枠热度排行、本月弾き語り热度排行。
+- `week.html`：展示近 7 天（滚动 168 小时）歌枠 / 弾き語り热度排行。
+- `month.html`：展示**自然月**（本月 1 日 00:00 至今，时区 `Asia/Taipei`）歌枠 / 弾き語り热度排行，不再使用滚动 30 天窗口。
 - `index.html`：站点入口，默认展示直播 / 预约页。
 - 默认保留 YouTube 页面原始顺序，筛选和排序只影响前端视图，不修改 JSON 原始顺序。
 - 页面默认把 `歌枠` 和 `弾き語り` 混合成一个排行流，卡片标出关键词；需要拆看时可以直接搜索 `歌枠` 或 `弾き語り`。
 - 移动端默认收起筛选面板，首屏直接呈现筛选工具条和排行主体。
 - 关闭筛选面板后，顶部会用不同颜色的 chip 展示当前白名单搜索词和黑名单词。
 - 每条视频保留 `originalRank`，当前视图中另行计算 `visibleRank`。
-- 前端支持搜索、黑名单筛选、最小时长筛选、今日/本月时间筛选和多种排序。
+- 前端支持搜索、黑名单筛选、最小时长筛选、发布时间筛选和多种排序。
 - 排行卡片按页展示：自动布局每页 99 个；实际两列布局每页 98 个。
-- 黑名单、排序方式和筛选条件会保存到 `localStorage`，刷新后自动恢复；搜索框只作用于当前页面，刷新后会重置。
+- 黑名单和排序方式会保存到 `localStorage`，刷新后自动恢复；搜索框只作用于当前页面，刷新后会重置。
+- **发布时间筛选不写入 `localStorage`**，每次打开页面都从“全部时间”开始；旧版本遗留的 `ytb-ranking-time-filter-v1:*` 键会在启动时删除。
+  这样月榜不会再被上一次的“1周内 / 24小时内”残留悄悄缩成 7 天视图。
 - 直播页、今日页和本月页都支持选择最近 7 天内的抓取快照，用于回看某个时间点的排行。
+- 顶部 `歌枠 / 弾き語り / 过滤` 汇总从**完整数据集**计算，不再依赖分批渲染中的 DOM 卡片；三个数字之和始终等于该 tab 的总条目数。
+- 快照默认 `keep-all`：历史快照永不删除；只有显式设置 `YTB_RANKING_SNAPSHOT_DAYS` 为正整数才会启用按天清理。
 - 支持复制当前视图 TSV、下载当前视图 JSON、导出当前视图 PNG 截图。
 - 默认保持现有浅色界面；顶部搜索工具条右侧提供主题切换按钮，可手动切换深色夜间主题，选择会保存在浏览器 `localStorage` 中并跨页面保留。
 
@@ -29,6 +34,24 @@
 - month：每个来源最多获取 500 条，达到 500 条即可停止。
 - 如果页面到底时不足 500 条，按实际数量保存。
 - 直播页不额外过滤 upcoming / 即将开始 / 预约内容。
+
+### 时间窗口（7 天与自然月）
+
+YouTube 的 `month` 搜索源本身是一个滚动约 30 天的抓取池，`update-youtube-ranking.js` 写入的 `groups.month.items` 只是原始池。
+质量校验通过后，`scripts/apply-ranking-windows.js` 用每条记录的 `publishedTimestamp` 派生两个正式窗口：
+
+| tab | 窗口 | 定义 |
+| --- | --- | --- |
+| `week` | 近 7 天 | `windowEnd - 168h` 到 `windowEnd`（滚动） |
+| `month` | 自然月 | 当月 1 日 00:00（`Asia/Taipei`，UTC+8）到 `windowEnd`（月初至今） |
+
+- `windowEnd` 取 `groups.month.updatedAt`，即本次抓取完成时间。
+- 两个窗口都从同一个抓取池派生，不会额外增加 YouTube 请求。
+- 派生结果写入 `groups.week`、重算后的 `groups.month`，以及 `data/youtube-ranking-week.json` / `data/youtube-ranking-month.json`。
+- 窗口元数据落在顶层 `payload.rankingWindows` 和各 group 的 `window` 字段，包含 `kind`、`timeZone`、`start`、`end`、`durationMs`。
+- `scripts/validate-ranking-windows.js` 会重新计算窗口并断言：month 必须从 01 日开始、week 必须正好 168 小时、所有条目都在窗口内、keyword 与 source 计数一致。
+- 脚本是幂等的：已应用过会直接跳过；每次新抓取产出新的原始 `groups.month` 后会重新应用。
+- 派生在 `validate-youtube-ranking.js` **之后**运行，因此抓取量阈值仍然针对原始池判定。
 
 默认环境变量：
 
@@ -75,7 +98,7 @@ python3 -m http.server 8080
 
 然后打开 <http://localhost:8080/>。
 
-生成当前三组排行快照：
+生成当前四组排行快照：
 
 ```bash
 npm run snapshot
@@ -83,20 +106,48 @@ npm run validate:snapshots
 node scripts/write-ranking-groups.js
 ```
 
+应用 / 校验时间窗口（抓取后必须执行）：
+
+```bash
+npm run windows:apply
+npm run windows:validate
+```
+
+发布门禁（静态检查 + 数据校验 + 浏览器行为回归）：
+
+```bash
+npm run check          # 不启动浏览器的静态与数据门禁
+npm run verify:pages   # Playwright 行为门禁
+npm run verify         # 两者串联，CI 发布前必跑
+```
+
+修改前端源码后重新生成 chunk：
+
+```bash
+npm run build:frontend
+```
+
 ## 文件清单
 
 - `scripts/update-youtube-ranking.js`：Playwright 抓取脚本，生成 `data/youtube-ranking.json`。
-- `scripts/write-ranking-groups.js`：从主排行数据生成 `data/youtube-ranking-live.json`、`data/youtube-ranking-today.json`、`data/youtube-ranking-month.json`，并裁掉前端可即时重建的冗余字段，减少各页面刷新时下载的数据量。
-- `scripts/archive-live-snapshot.js`：把当前 `groups.live / groups.today / groups.month` 分别写入 `data/<group>-snapshots/`，并清理 7 天以前的快照。
+- `scripts/write-ranking-groups.js`：从主排行数据生成 `data/youtube-ranking-{live,today,week,month}.json`，并裁掉前端可即时重建的冗余字段，减少各页面刷新时下载的数据量。
+- `scripts/apply-ranking-windows.js`：从原始 `groups.month` 派生 `groups.week`（近 7 天）并把 `groups.month` 改成自然月，写入 `rankingWindows` 元数据。
+- `scripts/validate-ranking-windows.js`：门禁脚本，重算并断言两个窗口与条目范围、计数一致性。
+- `scripts/archive-live-snapshot.js`：把当前 `groups.live / today / week / month` 分别写入 `data/<group>-snapshots/`；**默认 `keep-all`，不清理任何历史快照**。
+- `scripts/validate-live-snapshots.js`：校验四组快照索引和文件存在性；`keep-all` 索引不再报“超过保留期”。
+- `scripts/build-ranking-frontend.js`：由 `assets/youtube-ranking.source.js` 生成 `youtube-ranking.chunk*.js` 和 loader；`--check` 模式用于门禁。
+- `scripts/verify-pages.js`、`scripts/verify-page-behavior.js`、`scripts/verify-snapshot-retention.js`：发布门禁，分别检查页面/资源接线、浏览器行为、快照不被删除。
 - `scripts/validate-live-snapshots.js`：校验三组快照索引、文件存在性和保留期。
 - `data/youtube-ranking.json`：前端读取的数据文件，由脚本或 GitHub Actions 更新。
-- `data/youtube-ranking-live.json`, `data/youtube-ranking-today.json`, `data/youtube-ranking-month.json`：三组当前页分组数据，保留主数据 envelope 但只包含对应 `groups.<group>`；前端版会省略 `searchableText`，搜索改用标题、频道、视频 ID 和 URL 即时拼接。
-- `data/live-snapshots/index.json`, `data/today-snapshots/index.json`, `data/month-snapshots/index.json`：三组快照索引，给前端快照下拉框读取。
-- `data/live-snapshots/*.json`, `data/today-snapshots/*.json`, `data/month-snapshots/*.json`：三组历史快照，只保存对应 `groups.<group>`，默认保留 7 天。
+- `data/youtube-ranking-{live,today,week,month}.json`：四组当前页分组数据，保留主数据 envelope 但只包含对应 `groups.<group>`；前端版会省略 `searchableText`，搜索改用标题、频道、视频 ID 和 URL 即时拼接。
+- `data/{live,today,week,month}-snapshots/index.json`：四组快照索引，给前端快照下拉框读取；`retentionPolicy` 为 `keep-all`。
+- `data/{live,today,week,month}-snapshots/*.json`：四组历史快照，只保存对应 `groups.<group>`；**永久保留，不会被自动清理**。
 - `index.html`：站点入口，默认展示直播 / 预约排行。
 - `live.html`：直播 / 预约排行页面。
 - `today.html`：今日热度排行页面。
+- `week.html`：近 7 天热度排行页面。
 - `month.html`：本月热度排行页面。
+- `assets/youtube-ranking.source.js`：前端核心应用的**唯一可编辑源文件**；`assets/youtube-ranking.chunk*.js` 全部由它生成。
 - `assets/youtube-ranking.js`：前端脚本 loader。
 - `assets/youtube-ranking.chunk*.js`：前端搜索、筛选、排序、状态持久化、分批卡片渲染和导出逻辑的拆分脚本块。
 - `assets/ranking-controls.js`：分页、外置搜索框、横向滚动工具条、顶部栏折叠、最低播放量筛选、返回顶部、时间筛选、三组快照选择、排行 JSON 单页共享缓存和自动布局锁定的前端控制层。
@@ -106,6 +157,8 @@ node scripts/write-ranking-groups.js
 - `assets/theme.css`、`assets/theme-toggle.js`：在不改动默认浅色 UI 的前提下提供手动深色主题切换、主题持久化和夜间配色覆盖。
 - `package.json`：Node.js 依赖和本地检查、抓取、预览命令。
 - `.github/workflows/youtube-ranking.yml`：定时抓取并提交数据的 GitHub Actions workflow。
+- `.github/workflows/release-gate.yml`：代码变更时的发布门禁，跑 `npm run verify` 并拒绝未提交的生成文件。
+- `.github/workflows/youtube-ranking-live-verify.yml`：部署后在线验收，检查月榜自然月窗口、7 天 tab、快照 `keep-all`。
 - `.github/workflows/ui-theme-visual.yml`：仅在主题/UI 文件变更时等待对应 Pages 部署，使用远程 Playwright 检查浅色/深色切换与持久化，并上传桌面、移动端验收截图。
 - `CNAME`：GitHub Pages 自定义域名，内容为 `ytb.culua.com`。
 - `docs/`：交接说明和 GitHub connector 操作记录。
@@ -145,7 +198,22 @@ reachedBottom, truncatedByLimit, searchableText, collectedAt
 - `workflow_dispatch`：手动触发。
 - `concurrency`：同一分支串行执行，不取消正在运行的抓取任务。
 - `permissions: contents: write`：使用 GitHub Actions 自带 `GITHUB_TOKEN` 提交更新后的 `data/youtube-ranking.json` 和 `data/youtube-ranking-<group>.json`。
-- 成功校验后会运行 `scripts/archive-live-snapshot.js`、`scripts/validate-live-snapshots.js` 和 `scripts/write-ranking-groups.js --check`，同一 commit 写入最新主数据、三组分组数据和 `data/live-snapshots/`、`data/today-snapshots/`、`data/month-snapshots/`。
+- 成功校验后会依次运行 `scripts/apply-ranking-windows.js` → `scripts/validate-ranking-windows.js` → `scripts/archive-live-snapshot.js` → `scripts/validate-live-snapshots.js` → `scripts/write-ranking-groups.js`，同一 commit 写入最新主数据、四组分组数据和 `data/{live,today,week,month}-snapshots/`。
+- 提交前会执行 `npm run verify`（发布门禁）；任一静态、数据或浏览器行为检查失败就不发布。
+- `YTB_RANKING_SNAPSHOT_DAYS=0`：显式声明 `keep-all`，不会删除任何历史快照。
+- `YTB_RANKING_WINDOW_TIME_ZONE=Asia/Taipei`：自然月窗口使用的时区。
+
+`.github/workflows/release-gate.yml` 支持：
+
+- `pull_request` 与 `push`（仅代码路径）：执行 `npm ci`、`npx playwright install chromium`、`npm run verify`。
+- 生成物门禁：若 `git diff` 有输出，说明 chunk 或分组 JSON 忘了重新生成，直接失败。
+
+`.github/workflows/youtube-ranking-live-verify.yml` 在 Pages 部署后额外验收：
+
+- `/month.html`、`/week.html` 存在且 group 标记正确；
+- `month` 窗口 `kind=calendar-month` 且从 01 日开始、无越界条目；
+- `week` 窗口为 `rolling` 且正好 `604800000ms`、无越界条目；
+- `data/month-snapshots/index.json` 的 `retentionPolicy` 为 `keep-all`。
 
 `.github/workflows/youtube-ranking-chain.yml` 支持：
 
