@@ -261,6 +261,13 @@ jobs:
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             echo "::error::Release gate failed with exit code $status"
+            {
+              echo "### Release gate failure"
+              echo
+              echo '```text'
+              tail -n 120 /tmp/release-gate.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
             tail -n 120 /tmp/release-gate.log | sed 's/^/::error:: /'
             exit "$status"
           fi

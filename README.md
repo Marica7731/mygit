@@ -39,6 +39,7 @@
 
 YouTube 的 `month` 搜索源本身是一个滚动约 30 天的抓取池，`update-youtube-ranking.js` 写入的 `groups.month.items` 只是当前原始池。
 质量校验通过后，`scripts/apply-ranking-windows.js` 会读取 `data/{month,week,today,live}-snapshots/` 的全部历史快照，与当前原始池合并，再按 `publishedTimestamp` 派生两个正式窗口：
+历史读取起点是自然月月初；`week` 再从这同一批月历史中筛选，因此月初快照不会在生成月榜前被跳过。
 
 | tab | 窗口 | 定义 |
 | --- | --- | --- |

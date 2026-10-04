@@ -38,7 +38,9 @@ function main() {
     : currentItems.length;
   const monthStart = startOfCalendarMonth(windowEnd, WINDOW_TIME_ZONE);
   const weekStart = windowEnd - WEEK_WINDOW_MS;
-  const snapshotHistory = loadSnapshotUnion(DATA_DIR, { start: weekStart, end: windowEnd });
+  // Read from the first day of the month so early monthly snapshots are not
+  // discarded before both formal windows are derived from the same union.
+  const snapshotHistory = loadSnapshotUnion(DATA_DIR, { start: monthStart, end: windowEnd });
   const candidateBatches = [
     { source: "current:groups.month.items", items: currentItems },
     { source: "historical:snapshot-union", items: snapshotHistory.items },
@@ -76,6 +78,7 @@ function main() {
       enabled: snapshotsFound,
       source: snapshotsFound ? "historical snapshots + current groups.month.items" : "current groups.month.items",
       sourceGroups: snapshotHistory.sourceGroups,
+      historyStart: new Date(monthStart).toISOString(),
       filesRead: snapshotHistory.filesRead,
       itemsScanned: snapshotHistory.itemsScanned,
       missingFiles: snapshotHistory.missingFiles,

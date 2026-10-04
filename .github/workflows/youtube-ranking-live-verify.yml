@@ -197,6 +197,7 @@ jobs:
               snapshotUnionWeekCount: snapshotUnion.weekCount,
               snapshotUnionCurrentRawMonth: snapshotUnion.currentRawInWindow?.month,
               snapshotUnionCurrentRawWeek: snapshotUnion.currentRawInWindow?.week,
+              snapshotUnionHistoryStart: snapshotUnion.historyStart,
               monthUniqueItems: uniqueCount(monthItems),
               weekUniqueItems: uniqueCount(weekItems),
               htmlHasMonthGroup: /data-source-group="month"/.test(monthHtml),
@@ -223,6 +224,9 @@ jobs:
                 !(Number(windowEvidence.snapshotUnionFilesRead) > 0) ||
                 !(Number(windowEvidence.snapshotUnionItemsScanned) > 0))
               throw new Error(`Live formal windows are not built from historical snapshots: ${JSON.stringify(windowEvidence)}`);
+            if (!windowEvidence.snapshotUnionHistoryStart ||
+                Date.parse(windowEvidence.snapshotUnionHistoryStart) !== Date.parse(windowEvidence.monthStart))
+              throw new Error(`Live snapshot history does not start at the calendar month start: ${JSON.stringify(windowEvidence)}`);
             const missingSnapshotGroups = ['month', 'week', 'today', 'live']
               .filter((group) => !Array.isArray(windowEvidence.snapshotUnionSourceGroups) ||
                 !windowEvidence.snapshotUnionSourceGroups.includes(group));

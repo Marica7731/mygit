@@ -87,6 +87,11 @@ function validateSnapshotUnion(errors, windows, monthGroup, weekGroup) {
   if (!String(windows.source || "").startsWith("snapshot-union")) {
     errors.push("rankingWindows.source must identify snapshot-union output when snapshotUnion.enabled is true");
   }
+  if (union.historyStart !== undefined && Date.parse(union.historyStart) !== Date.parse(windows.month?.start)) {
+    errors.push(
+      `rankingWindows.snapshotUnion.historyStart (${union.historyStart}) must match calendar month start (${windows.month?.start})`,
+    );
+  }
 
   const numericFields = [
     "filesRead",

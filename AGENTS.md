@@ -24,6 +24,7 @@
 3. **`week` 必须是滚动 168 小时**，并在导航里存在 `7天` tab。
 4. **正式 `week` / `month` 由历史快照并集去重生成，不设输出上限。**
    - 候选源为当前 `groups.month.items` 加 `data/{month,week,today,live}-snapshots/` 全部索引快照。
+   - 历史读取起点必须是自然月月初（`rankingWindows.snapshotUnion.historyStart`），7 天结果再从同一批历史中筛选，不能以 `weekStart` 为快照读取起点。
    - 按 `publishedTimestamp` 过滤后，以 `videoId` 为主键去重；缺失时回退 URL 或关键词/标题/频道/发布时间组合。
    - `rankingWindows.snapshotUnion.outputCap` 必须为 `null`；不得对正式结果使用 `.slice()` 或其它数量截断。
    - `sourceItemCount` 只表示原始抓取池大小，可以小于并集结果，不代表月榜上限。
