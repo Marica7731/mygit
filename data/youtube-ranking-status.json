@@ -1,15 +1,15 @@
 {
-  "status": "success",
-  "attemptedAt": "2026-10-04T04:31:35.029Z",
-  "runId": "37176470460",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/37176470460",
+  "status": "failed",
+  "attemptedAt": "2026-10-04T04:48:35.326Z",
+  "runId": "37177286082",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/37177286082",
   "eventName": "workflow_dispatch",
-  "headSha": "4bc8b264dd3a47131f62e937bd49b9a9ebe00503",
-  "message": "ranking update passed",
-  "failedStep": "",
+  "headSha": "e40ed3c871e3374ade5004680e7c2b4e13f8f472",
+  "message": "Run release gates failed",
+  "failedStep": "Run release gates",
   "lastSuccessfulGeneratedAt": "2026-10-04T04:22:55.953Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-10-04T04:30:53.119Z",
+    "generatedAt": "2026-10-04T04:47:46.432Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
     "beforeMissing": 15,
@@ -28,7 +28,7 @@
     },
     "oembed": {
       "checked": 24,
-      "changed": 44,
+      "changed": 43,
       "failed": 0
     },
     "rateLimited": false,
@@ -37,7 +37,17 @@
     "rateLimitSource": "",
     "youtubeRequestsStarted": 54
   },
-  "failureDiagnostics": null,
+  "failureDiagnostics": {
+    "rateLimited": false,
+    "rateLimitSource": "",
+    "retryAfter": "",
+    "blockedUntil": "",
+    "youtubeRequestsStarted": 54,
+    "candidateGeneratedAt": "2026-10-04T04:39:26.418Z",
+    "todayVideos": 535,
+    "todayWithViews": 520,
+    "todayMissingViews": 15
+  },
   "liveDetailPostProcess": {
     "generatedAt": "2026-10-04T04:29:16.823Z",
     "limit": 120,
