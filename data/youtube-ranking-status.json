@@ -1,52 +1,52 @@
 {
   "status": "failed",
-  "attemptedAt": "2026-10-04T00:24:51.213Z",
-  "runId": "37164062428",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/37164062428",
+  "attemptedAt": "2026-10-04T00:49:08.511Z",
+  "runId": "37165280966",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/37165280966",
   "eventName": "push",
-  "headSha": "30adc725edde53d9c135384a9edea567e0f3c7a4",
-  "message": "Run release gates failed",
-  "failedStep": "Run release gates",
+  "headSha": "3eaa7ef440190b5669bbe8e2954a406122f84e49",
+  "message": "previous ranking step failed",
+  "failedStep": "previous ranking step",
   "lastSuccessfulGeneratedAt": "2026-10-03T22:58:17.237Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-10-04T00:24:03.136Z",
+    "generatedAt": "2026-10-04T00:48:18.525Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
-    "beforeMissing": 15,
-    "afterMissing": 15,
+    "beforeMissing": 14,
+    "afterMissing": 14,
     "api": {
       "checked": 0,
       "changed": 0
     },
     "fetch": {
-      "checked": 15,
-      "changed": 15
+      "checked": 14,
+      "changed": 14
     },
     "watch": {
-      "checked": 15,
-      "changed": 0
+      "checked": 14,
+      "changed": 1
     },
     "oembed": {
       "checked": 24,
-      "changed": 44,
+      "changed": 43,
       "failed": 0
     },
     "rateLimited": false,
     "retryAfter": "",
     "blockedUntil": "",
     "rateLimitSource": "",
-    "youtubeRequestsStarted": 54
+    "youtubeRequestsStarted": 52
   },
   "failureDiagnostics": {
     "rateLimited": false,
     "rateLimitSource": "",
     "retryAfter": "",
     "blockedUntil": "",
-    "youtubeRequestsStarted": 54,
-    "candidateGeneratedAt": "2026-10-04T00:16:04.240Z",
-    "todayVideos": 551,
-    "todayWithViews": 536,
-    "todayMissingViews": 15
+    "youtubeRequestsStarted": 52,
+    "candidateGeneratedAt": "2026-10-04T00:40:05.999Z",
+    "todayVideos": 539,
+    "todayWithViews": 525,
+    "todayMissingViews": 14
   },
   "liveDetailPostProcess": {
     "generatedAt": "2026-10-03T23:04:37.588Z",
