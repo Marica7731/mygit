@@ -238,7 +238,7 @@ jobs:
       - name: Validate duration data
         run: node scripts/validate-duration-quality.js
 
-      # Derive the 7-day tab and narrow month to the current calendar month from
+      # Derive the 7-day tab and rolling month (one calendar month back) from
       # collected date fields. This runs after collection-size validation so the
       # raw crawl is still what those gates inspect.
       - name: Apply ranking windows

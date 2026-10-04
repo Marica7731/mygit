@@ -154,8 +154,31 @@ jobs:
             const monthEnd = Date.parse(windows.month?.end || '');
             const weekStart = Date.parse(windows.week?.start || '');
             const weekEnd = Date.parse(windows.week?.end || '');
-            const monthStartDay = Number.isFinite(monthStart) && windows.month?.timeZone
-              ? new Intl.DateTimeFormat('en-CA', { timeZone: windows.month.timeZone, day: '2-digit' }).format(new Date(monthStart))
+            const monthTimeZone = windows.month?.timeZone || 'Asia/Taipei';
+            const monthParts = (timestamp) => Number.isFinite(timestamp)
+              ? Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+                  timeZone: monthTimeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+                  hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+                }).formatToParts(new Date(timestamp)).map((part) => [part.type, part.value]))
+              : null;
+            const monthStartParts = monthParts(monthStart);
+            const monthEndParts = monthParts(monthEnd);
+            const monthStartDate = monthStartParts
+              ? `${monthStartParts.year}-${monthStartParts.month}-${monthStartParts.day}`
+              : '';
+            const monthStartIsMidnight = Boolean(
+              monthStartParts && monthStartParts.hour === '00' &&
+              monthStartParts.minute === '00' && monthStartParts.second === '00',
+            );
+            const endYear = Number(monthEndParts?.year);
+            const endMonth = Number(monthEndParts?.month);
+            const endDay = Number(monthEndParts?.day);
+            let expectedYear = endYear;
+            let expectedMonth = endMonth - 1;
+            if (expectedMonth < 1) { expectedMonth = 12; expectedYear -= 1; }
+            const expectedLastDay = new Date(Date.UTC(expectedYear, expectedMonth, 0)).getUTCDate();
+            const expectedMonthStartDay = Number.isFinite(expectedYear) && Number.isFinite(expectedMonth) && Number.isFinite(endDay)
+              ? `${String(expectedYear).padStart(4, '0')}-${String(expectedMonth).padStart(2, '0')}-${String(Math.min(endDay, expectedLastDay)).padStart(2, '0')}`
               : '';
             const countOutside = (items, start, end) => items.filter((item) => {
               const timestamp = Number(item.publishedTimestamp);
@@ -175,11 +198,17 @@ jobs:
               ].join('|');
             };
             const uniqueCount = (items) => new Set(items.map(itemKey)).size;
+            const monthDurationMs = monthEnd - monthStart;
+            const monthDurationDays = monthDurationMs / (24 * 60 * 60 * 1000);
             const snapshotUnion = windows.snapshotUnion || {};
             const windowEvidence = {
               monthKind: windows.month?.kind,
               monthStart: windows.month?.start,
-              monthStartDay,
+              monthStartDate,
+              monthExpectedStartDay: expectedMonthStartDay,
+              monthStartIsMidnight,
+              monthDurationMs,
+              monthDurationDays,
               monthSourceItems: windows.sourceItemCount,
               monthItems: monthItems.length,
               monthItemsOutsideWindow: countOutside(monthItems, monthStart, monthEnd),
@@ -210,10 +239,15 @@ jobs:
             console.log('[online] WINDOW EVIDENCE ' + JSON.stringify(windowEvidence));
             if (!windowEvidence.htmlHasMonthGroup || !windowEvidence.htmlHasWeekGroup)
               throw new Error('Live month.html or week.html group marker missing');
-            if (windowEvidence.monthKind !== 'calendar-month' || windowEvidence.monthStartDay !== '01')
-              throw new Error(`Live month window is not a calendar month: ${JSON.stringify(windowEvidence)}`);
+            if (
+              windowEvidence.monthKind !== 'rolling-month' ||
+              windowEvidence.monthStartDate !== windowEvidence.monthExpectedStartDay ||
+              !windowEvidence.monthStartIsMidnight ||
+              !(windowEvidence.monthDurationDays >= 28 && windowEvidence.monthDurationDays < 32)
+            )
+              throw new Error(`Live month window is not a rolling month: ${JSON.stringify(windowEvidence)}`);
             if (windowEvidence.monthItemsOutsideWindow !== 0)
-              throw new Error(`Live month items outside the calendar-month window: ${JSON.stringify(windowEvidence)}`);
+              throw new Error(`Live month items outside the rolling-month window: ${JSON.stringify(windowEvidence)}`);
             if (!(Number(windowEvidence.monthSourceItems) > 0))
               throw new Error(`Live month crawl pool is empty: ${JSON.stringify(windowEvidence)}`);
             if (windowEvidence.weekKind !== 'rolling' || Number(windowEvidence.weekDurationMs) !== 7 * 24 * 60 * 60 * 1000)
@@ -227,7 +261,7 @@ jobs:
               throw new Error(`Live formal windows are not built from historical snapshots: ${JSON.stringify(windowEvidence)}`);
             if (!windowEvidence.snapshotUnionHistoryStart ||
                 Date.parse(windowEvidence.snapshotUnionHistoryStart) !== Date.parse(windowEvidence.monthStart))
-              throw new Error(`Live snapshot history does not start at the calendar month start: ${JSON.stringify(windowEvidence)}`);
+              throw new Error(`Live snapshot history does not start at the rolling-month start: ${JSON.stringify(windowEvidence)}`);
             const missingSnapshotGroups = ['month', 'week', 'today', 'live']
               .filter((group) => !Array.isArray(windowEvidence.snapshotUnionSourceGroups) ||
                 !windowEvidence.snapshotUnionSourceGroups.includes(group));

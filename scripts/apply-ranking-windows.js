@@ -6,7 +6,7 @@ const {
   DEFAULT_TIME_ZONE: WINDOW_TIME_ZONE,
   WEEK_WINDOW_MS,
   formatDate,
-  startOfCalendarMonth,
+  startOfRollingMonth,
 } = require("./lib/ranking-window");
 const { loadSnapshotUnion, unionWindowItems } = require("./lib/snapshot-union");
 
@@ -36,9 +36,9 @@ function main() {
   const currentRawItemCount = currentGroupIsWindowed
     ? finiteCount(previousWindows?.sourceItemCount, currentItems.length)
     : currentItems.length;
-  const monthStart = startOfCalendarMonth(windowEnd, WINDOW_TIME_ZONE);
+  const monthStart = startOfRollingMonth(windowEnd, WINDOW_TIME_ZONE);
   const weekStart = windowEnd - WEEK_WINDOW_MS;
-  // Read from the first day of the month so early monthly snapshots are not
+  // Read from the rolling-month start so early snapshots are not
   // discarded before both formal windows are derived from the same union.
   const snapshotHistory = loadSnapshotUnion(DATA_DIR, { start: monthStart, end: windowEnd });
   const candidateBatches = [
@@ -50,11 +50,11 @@ function main() {
   const weekItems = unionWindowItems(candidateBatches, weekStart, windowEnd);
   const snapshotsFound = snapshotHistory.filesRead > 0;
 
-  // A window can legitimately be empty in the first minutes of a month or week.
+  // A window can legitimately be empty in the first minutes of a rolling month or week.
   // Warn loudly instead of failing the whole pipeline on an honest empty result.
   if (!monthItems.length) {
     console.warn(
-      `[ranking-windows] WARNING: calendar-month window ${formatDate(monthStart, WINDOW_TIME_ZONE)}` +
+      `[ranking-windows] WARNING: rolling-month window ${formatDate(monthStart, WINDOW_TIME_ZONE)}` +
         `..${formatDate(windowEnd, WINDOW_TIME_ZONE)} selected 0 items`,
     );
   }
@@ -101,7 +101,7 @@ function main() {
       outputCap: null,
     },
     week: buildWindow("rolling", weekStart, windowEnd, WEEK_WINDOW_MS),
-    month: buildWindow("calendar-month", monthStart, windowEnd, windowEnd - monthStart),
+    month: buildWindow("rolling-month", monthStart, windowEnd, windowEnd - monthStart),
   };
 
   payload.groups.week = buildWeekGroup(monthGroup, weekItems, weekStart, windowEnd);
@@ -159,7 +159,7 @@ function applyMonthWindow(monthGroup, items, start, end) {
     "Historical snapshots and the current crawl pool, merged by published time and deduplicated by video. No output cap.";
   monthGroup.keywords = keywordsByGroup(items);
   monthGroup.sources = rescopeSources(monthGroup.sources, items);
-  monthGroup.window = buildWindow("calendar-month", start, end, end - start);
+  monthGroup.window = buildWindow("rolling-month", start, end, end - start);
 }
 
 function rescopeSources(sources, items) {

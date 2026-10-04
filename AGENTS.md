@@ -20,11 +20,11 @@
    - 只有显式把 `YTB_RANKING_SNAPSHOT_DAYS` 设成正整数才允许按天清理。
    - 不要用 `rm`、`git rm` 或批量重写去清理 `data/*-snapshots/`。
    - `scripts/verify-snapshot-retention.js` 会在每次 `npm run check` 中回归这一点。
-2. **`month` 必须是自然月**（当月 1 日 00:00 `Asia/Taipei` 至今），不是滚动 30 天。
+2. **`month` 必须是滚动月**（一个月前的今天 00:00 `Asia/Taipei` 至今，月末自动夹取），不是自然月或固定 30 天。
 3. **`week` 必须是滚动 168 小时**，并在导航里存在 `7天` tab。
 4. **正式 `week` / `month` 由历史快照并集去重生成，不设输出上限。**
    - 候选源为当前 `groups.month.items` 加 `data/{month,week,today,live}-snapshots/` 全部索引快照。
-   - 历史读取起点必须是自然月月初（`rankingWindows.snapshotUnion.historyStart`），7 天结果再从同一批历史中筛选，不能以 `weekStart` 为快照读取起点。
+   - 历史读取起点必须是滚动月起点（`rankingWindows.snapshotUnion.historyStart === rankingWindows.month.start`），7 天结果再从同一批历史中筛选，不能以 `weekStart` 为快照读取起点。
    - 按 `publishedTimestamp` 过滤后，以 `videoId` 为主键去重；缺失时回退 URL 或关键词/标题/频道/发布时间组合。
    - `rankingWindows.snapshotUnion.outputCap` 必须为 `null`；不得对正式结果使用 `.slice()` 或其它数量截断。
    - `sourceItemCount` 只表示原始抓取池大小，可以小于并集结果，不代表月榜上限。
@@ -46,7 +46,7 @@
 1. `scripts/update-youtube-ranking.js` — 产出原始抓取池。
 2. 指标 / 时长 / 规范化脚本。
 3. `scripts/validate-youtube-ranking.js` — **针对原始池**校验抓取量。
-4. `scripts/apply-ranking-windows.js` — 读取历史快照与当前原始池，去重生成 `week` 和自然月 `month`。
+4. `scripts/apply-ranking-windows.js` — 读取历史快照与当前原始池，去重生成 `week` 和滚动月 `month`。
 5. `scripts/validate-ranking-windows.js` — 窗口、并集元数据、无输出上限和去重唯一性门禁。
 6. `scripts/archive-live-snapshot.js` → `validate-live-snapshots.js` → `write-ranking-groups.js`。
 7. `npm run verify` — 发布门禁，通过后才提交。
@@ -65,7 +65,7 @@ npm run verify
 ```
 
 `npm run check` 覆盖：JS 语法、生成物与源文件同步、blocklist、页面/资源接线、快照并集单测、时间窗口与并集门禁、分组 JSON 一致性、快照不被删除。
-`npm run verify:pages` 用 Playwright 验证：旧 localStorage 时间筛选被清除、汇总数字稳定且自洽、7 天 tab 与自然月窗口在真实页面上生效。
+`npm run verify:pages` 用 Playwright 验证：旧 localStorage 时间筛选被清除、汇总数字稳定且自洽、7 天 tab 与滚动月窗口在真实页面上生效。
 
 `.github/workflows/release-gate.yml` 是代码变更的门禁；`.github/workflows/youtube-ranking.yml` 提交数据前会再跑一次；`.github/workflows/youtube-ranking-live-verify.yml` 负责部署后线上验收。
 

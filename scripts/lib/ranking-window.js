@@ -46,6 +46,37 @@ function startOfCalendarMonth(instant, timeZone = DEFAULT_TIME_ZONE) {
   return corrected === first ? first : corrected;
 }
 
+// Epoch ms of 00:00 on the same day one calendar month before `instant`,
+// observed in `timeZone`. Month-end dates clamp to the target month's last day.
+function startOfRollingMonth(instant, timeZone = DEFAULT_TIME_ZONE) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(instant));
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const year = Number(values.year);
+  const month = Number(values.month);
+  const day = Number(values.day);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    throw new Error(`cannot resolve rolling month for ${new Date(instant).toISOString()} in ${timeZone}`);
+  }
+
+  let targetYear = year;
+  let targetMonth = month - 1;
+  if (targetMonth < 1) {
+    targetMonth = 12;
+    targetYear -= 1;
+  }
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate();
+  const targetDay = Math.min(day, lastDay);
+  const utcMidnight = Date.UTC(targetYear, targetMonth - 1, targetDay, 0, 0, 0, 0);
+  const first = utcMidnight - zoneOffsetMs(utcMidnight, timeZone);
+  const corrected = utcMidnight - zoneOffsetMs(first, timeZone);
+  return corrected === first ? first : corrected;
+}
+
 function formatDate(timestamp, timeZone = DEFAULT_TIME_ZONE) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
@@ -65,5 +96,6 @@ module.exports = {
   WEEK_WINDOW_MS,
   formatDate,
   startOfCalendarMonth,
+  startOfRollingMonth,
   zoneOffsetMs,
 };

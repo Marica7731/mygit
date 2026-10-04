@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
 const { chromium } = require("playwright");
+const { startOfRollingMonth } = require("./lib/ranking-window");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const TIMEOUT_MS = 60000;
@@ -179,13 +180,20 @@ async function checkDataWindows(failures) {
   const windows = payload.rankingWindows || {};
   const month = windows.month || {};
   const week = windows.week || {};
-  const monthStart = new Date(month.start || 0);
-  const day = new Intl.DateTimeFormat("en-CA", {
-    timeZone: month.timeZone || "Asia/Taipei",
-    day: "2-digit",
-  }).format(monthStart);
-  if (month.kind !== "calendar-month" || day !== "01") {
-    failures.push(`month window must start on day 01 of the calendar month, got ${month.start} (${month.kind})`);
+  const monthStartMs = Date.parse(month.start || "");
+  const monthEndMs = Date.parse(month.end || "");
+  const expectedMonthStartMs = Number.isFinite(monthEndMs)
+    ? startOfRollingMonth(monthEndMs, month.timeZone || "Asia/Taipei")
+    : NaN;
+  if (
+    month.kind !== "rolling-month" ||
+    !Number.isFinite(monthStartMs) ||
+    monthStartMs !== expectedMonthStartMs ||
+    Number(month.durationMs) !== monthEndMs - monthStartMs
+  ) {
+    failures.push(
+      `month window must start one calendar month before its end, got ${month.start}..${month.end} (${month.kind})`,
+    );
   }
   if (week.kind !== "rolling" || Number(week.durationMs) !== 7 * 24 * 60 * 60 * 1000) {
     failures.push(`week window must be a rolling 168h window, got ${JSON.stringify(week)}`);

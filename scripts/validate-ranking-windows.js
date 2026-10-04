@@ -6,7 +6,7 @@ const {
   DEFAULT_TIME_ZONE,
   WEEK_WINDOW_MS,
   formatDate,
-  startOfCalendarMonth,
+  startOfRollingMonth,
 } = require("./lib/ranking-window");
 const { snapshotItemKey } = require("./lib/snapshot-union");
 
@@ -45,21 +45,14 @@ function main() {
     return;
   }
 
-  const expectedMonthStart = startOfCalendarMonth(windowEnd, DEFAULT_TIME_ZONE);
+  const expectedMonthStart = startOfRollingMonth(windowEnd, DEFAULT_TIME_ZONE);
   const expectedWeekStart = windowEnd - WEEK_WINDOW_MS;
-  checkWindowSpec(errors, "month", windows.month, "calendar-month", expectedMonthStart, windowEnd);
+  checkWindowSpec(errors, "month", windows.month, "rolling-month", expectedMonthStart, windowEnd);
   checkWindowSpec(errors, "week", windows.week, "rolling", expectedWeekStart, windowEnd);
 
   checkGroupWindow(errors, "month", monthGroup, expectedMonthStart, windowEnd);
   checkGroupWindow(errors, "week", weekGroup, expectedWeekStart, windowEnd);
 
-  const monthStartDay = new Intl.DateTimeFormat("en-CA", {
-    timeZone: DEFAULT_TIME_ZONE,
-    day: "2-digit",
-  }).format(new Date(expectedMonthStart));
-  if (monthStartDay !== "01") {
-    errors.push(`month window must start on day 01 in ${DEFAULT_TIME_ZONE}, got ${monthStartDay}`);
-  }
 
   const sourceItemCount = Number(windows.sourceItemCount);
   if (!Number.isFinite(sourceItemCount) || sourceItemCount < 0) {
@@ -89,7 +82,7 @@ function validateSnapshotUnion(errors, windows, monthGroup, weekGroup) {
   }
   if (Date.parse(union.historyStart) !== Date.parse(windows.month?.start)) {
     errors.push(
-      `rankingWindows.snapshotUnion.historyStart (${union.historyStart}) must match calendar month start (${windows.month?.start})`,
+      `rankingWindows.snapshotUnion.historyStart (${union.historyStart}) must match rolling-month start (${windows.month?.start})`,
     );
   }
 
@@ -183,8 +176,10 @@ function checkWindowSpec(errors, name, spec, kind, expectedStart, expectedEnd) {
   if (Date.parse(spec.end) !== expectedEnd) {
     errors.push(`rankingWindows.${name}.end must be ${new Date(expectedEnd).toISOString()}, got ${spec.end}`);
   }
-  if (name === "week" && Number(spec.durationMs) !== WEEK_WINDOW_MS) {
-    errors.push(`rankingWindows.week.durationMs must be ${WEEK_WINDOW_MS}, got ${spec.durationMs}`);
+  if (Number(spec.durationMs) !== expectedEnd - expectedStart) {
+    errors.push(
+      `rankingWindows.${name}.durationMs must be ${expectedEnd - expectedStart}, got ${spec.durationMs}`,
+    );
   }
 }
 
@@ -196,6 +191,9 @@ function checkGroupWindow(errors, name, group, start, end) {
   }
   if (Date.parse(window.start) !== start || Date.parse(window.end) !== end) {
     errors.push(`groups.${name}.window does not match rankingWindows.${name}`);
+  }
+  if (Number(window.durationMs) !== end - start) {
+    errors.push(`groups.${name}.window.durationMs must be ${end - start}, got ${window.durationMs}`);
   }
 
   const outside = (group.items || []).filter((item) => {
