@@ -269,6 +269,8 @@ jobs:
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
             tail -n 120 /tmp/release-gate.log | sed 's/^/::error:: /'
+            diagnostics=$(tail -n 80 /tmp/release-gate.log | tr '\n' '|' | cut -c1-12000)
+            echo "::error::RELEASE_GATE_LOG ${diagnostics}"
             exit "$status"
           fi
 
