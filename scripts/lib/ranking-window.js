@@ -88,7 +88,8 @@ function formatDate(timestamp, timeZone = DEFAULT_TIME_ZONE) {
     hour12: false,
   }).formatToParts(new Date(timestamp));
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}`;
+  const hour = String(Number(values.hour) % 24).padStart(2, "0");
+  return `${values.year}-${values.month}-${values.day} ${hour}:${values.minute}`;
 }
 
 module.exports = {

@@ -167,8 +167,8 @@ jobs:
               ? `${monthStartParts.year}-${monthStartParts.month}-${monthStartParts.day}`
               : '';
             const monthStartIsMidnight = Boolean(
-              monthStartParts && monthStartParts.hour === '00' &&
-              monthStartParts.minute === '00' && monthStartParts.second === '00',
+              monthStartParts && Number(monthStartParts.hour) % 24 === 0 &&
+              Number(monthStartParts.minute) === 0 && Number(monthStartParts.second) === 0,
             );
             const endYear = Number(monthEndParts?.year);
             const endMonth = Number(monthEndParts?.month);
