@@ -43,48 +43,75 @@ async function main() {
 async function checkMonthResetsStaleTimeFilter(browser, origin, failures) {
   const storage = { "ytb-ranking-time-filter-v1:month": "168", "ytb-ranking-time-filter-v1:week": "24" };
   const page = await openPage(browser, origin, "month.html", storage, failures);
-  const samples = [];
-  for (let index = 0; index < 3; index += 1) {
-    await page.waitForTimeout(900);
-    samples.push(await page.evaluate(() => ({
-      timeFilter: document.getElementById("time-filter")?.value,
-      summary: document.getElementById("source-chip-bar")?.innerText.trim() || "",
-      nav: [...document.querySelectorAll(".page-nav a")].map((node) => node.textContent).join(","),
-      persisted: (() => {
-        try {
-          return {
-            month: localStorage.getItem("ytb-ranking-time-filter-v1:month"),
-            week: localStorage.getItem("ytb-ranking-time-filter-v1:week"),
-          };
-        } catch {
-          return {};
-        }
-      })(),
-    })));
+  let stable = false;
+  try {
+    await page.waitForFunction(() => {
+      const summary = document.getElementById("source-chip-bar")?.innerText.trim() || "";
+      const timeFilter = document.getElementById("time-filter")?.value;
+      const nav = [...document.querySelectorAll(".page-nav a")].map((node) => node.textContent).join(",");
+      const ready = timeFilter === "all" && nav === "直播,今日,7天,本月" &&
+        /^歌枠 \/ 弾き語り = \d+ \/ \d+$/.test(summary);
+      const previous = window.__YTB_STABLE_SUMMARY__;
+      const count = ready && previous === summary ? Number(window.__YTB_STABLE_SUMMARY_COUNT__ || 0) + 1 : 0;
+      window.__YTB_STABLE_SUMMARY__ = summary;
+      window.__YTB_STABLE_SUMMARY_COUNT__ = count;
+      return count >= 3;
+    }, null, { timeout: TIMEOUT_MS, polling: 200 });
+    stable = true;
+  } catch {
+    // Fall through to the detailed state check below.
   }
 
-  const first = samples[0];
-  if (first.timeFilter !== "all") {
-    failures.push(`month.html restored a stale time filter (${first.timeFilter}); expected "all"`);
+  const state = await page.evaluate(() => ({
+    timeFilter: document.getElementById("time-filter")?.value,
+    summary: document.getElementById("source-chip-bar")?.innerText.trim() || "",
+    nav: [...document.querySelectorAll(".page-nav a")].map((node) => node.textContent).join(","),
+    stableCount: Number(window.__YTB_STABLE_SUMMARY_COUNT__ || 0),
+    persisted: (() => {
+      try {
+        return {
+          month: localStorage.getItem("ytb-ranking-time-filter-v1:month"),
+          week: localStorage.getItem("ytb-ranking-time-filter-v1:week"),
+        };
+      } catch {
+        return {};
+      }
+    })(),
+  }));
+  if (!stable) {
+    failures.push(`month.html summary did not stabilize: ${JSON.stringify(state)}`);
   }
-  if (first.persisted.month !== null || first.persisted.week !== null) {
+  if (state.timeFilter !== "all") {
+    failures.push(`month.html restored a stale time filter (${state.timeFilter}); expected "all"`);
+  }
+  if (state.persisted.month !== null || state.persisted.week !== null) {
     failures.push("legacy localStorage time-filter keys were not cleared");
   }
-  if (first.nav !== "直播,今日,7天,本月") {
-    failures.push(`month.html nav must be 直播,今日,7天,本月, got ${first.nav}`);
+  if (state.nav !== "直播,今日,7天,本月") {
+    failures.push(`month.html nav must be 直播,今日,7天,本月, got ${state.nav}`);
   }
-  if (samples.some((sample) => sample.summary !== first.summary)) {
-    failures.push(`month.html summary is not stable while rendering: ${samples.map((sample) => sample.summary).join(" | ")}`);
-  }
-  if (!/歌枠 \/ 弾き語り = \d+ \/ \d+$/.test(first.summary)) {
-    failures.push(`month.html with no filters must not report 过滤, got "${first.summary}"`);
+  if (!/歌枠 \/ 弾き語り = \d+ \/ \d+$/.test(state.summary)) {
+    failures.push(`month.html with no filters must not report 过滤, got "${state.summary}"`);
   }
   await page.close();
 }
 
 async function checkSummaryInvariant(browser, origin, fileName, storage, failures) {
   const page = await openPage(browser, origin, fileName, storage, failures);
-  await page.waitForTimeout(2500);
+  let ready = false;
+  try {
+    await page.waitForFunction(() => {
+      const summary = document.getElementById("source-chip-bar")?.innerText.trim() || "";
+      const total = window.__YTB_RANKING_TOTAL_ITEM_COUNT__;
+      if (!Number.isInteger(total) || total <= 0 || !summary.includes("=")) return false;
+      const numbers = (summary.split("=")[1] || "").split("/").map((value) => Number(value.trim()))
+        .filter((value) => Number.isFinite(value));
+      return numbers.reduce((value, sum) => sum + value, 0) === total;
+    }, null, { timeout: TIMEOUT_MS, polling: 200 });
+    ready = true;
+  } catch {
+    // Fall through to the detailed invariant check below.
+  }
   const state = await page.evaluate(() => ({
     summary: document.getElementById("source-chip-bar")?.innerText.trim() || "",
     total: window.__YTB_RANKING_TOTAL_ITEM_COUNT__,
@@ -95,6 +122,7 @@ async function checkSummaryInvariant(browser, origin, fileName, storage, failure
     .map((value) => Number(value.trim()))
     .filter((value) => Number.isFinite(value));
   const sum = numbers.reduce((value, total) => total + value, 0);
+  if (!ready) failures.push(`${fileName}: summary invariant did not stabilize within timeout ("${state.summary}")`);
   if (!Number.isInteger(state.total) || sum !== state.total) {
     failures.push(`${fileName}: summary numbers total ${sum}, expected app total ${state.total} ("${state.summary}")`);
   }
@@ -106,7 +134,24 @@ async function checkSummaryInvariant(browser, origin, fileName, storage, failure
 
 async function checkWeekTab(browser, origin, failures) {
   const page = await openPage(browser, origin, "week.html", {}, failures);
-  await page.waitForTimeout(2500);
+  let ready = false;
+  try {
+    await page.waitForFunction(() => {
+      const summary = document.getElementById("source-chip-bar")?.innerText.trim() || "";
+      const total = window.__YTB_RANKING_TOTAL_ITEM_COUNT__;
+      const cards = document.querySelectorAll(".video-card").length;
+      const active = document.querySelector(".page-nav a[aria-current]")?.textContent || "";
+      const timeFilter = document.getElementById("time-filter")?.value;
+      if (!Number.isInteger(total) || total <= 0 || cards === 0 || active !== "7天" || timeFilter !== "all" ||
+          summary.includes("过滤")) return false;
+      const numbers = (summary.split("=")[1] || "").split("/").map((value) => Number(value.trim()))
+        .filter((value) => Number.isFinite(value));
+      return numbers.reduce((value, sum) => sum + value, 0) === total;
+    }, null, { timeout: TIMEOUT_MS, polling: 200 });
+    ready = true;
+  } catch {
+    // Fall through to the detailed checks below.
+  }
   const state = await page.evaluate(() => ({
     summary: document.getElementById("source-chip-bar")?.innerText.trim() || "",
     total: window.__YTB_RANKING_TOTAL_ITEM_COUNT__,
@@ -119,6 +164,7 @@ async function checkWeekTab(browser, origin, failures) {
     .map((value) => Number(value.trim()))
     .filter((value) => Number.isFinite(value));
   const sum = numbers.reduce((value, total) => total + value, 0);
+  if (!ready) failures.push(`week.html summary invariant did not stabilize within timeout ("${state.summary}")`);
   if (state.active !== "7天") failures.push(`week.html active nav must be 7天, got ${state.active}`);
   if (!Number.isInteger(state.total)) failures.push(`week.html app did not publish a total item count`);
   if (state.total > 0 && state.cards === 0) failures.push(`week.html rendered no cards (total=${state.total})`);
