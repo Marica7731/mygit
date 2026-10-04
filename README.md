@@ -53,6 +53,7 @@ YouTube 的 `month` 搜索源本身是一个滚动约 30 天的抓取池，`upda
 - 快照缺字段时，较新的当前项优先，并用较旧快照补齐缺失的播放量、时长和封面等字段。
 - 派生结果写入 `groups.week`、重算后的 `groups.month`，以及 `data/youtube-ranking-week.json` / `data/youtube-ranking-month.json`。
 - 窗口元数据落在顶层 `payload.rankingWindows` 和各 group 的 `window` 字段，包含 `kind`、`timeZone`、`start`、`end`、`durationMs`。
+- 窗口标签统一把午夜格式化为 `00:00`，兼容 Node.js 20 的 `Intl` 午夜 `24` 表示。
 - `rankingWindows.sourceItemCount` 表示本次原始抓取池大小，不是并集结果大小；`rankingWindows.snapshotUnion` 记录快照来源、扫描量、窗口前跳过数、当前池窗口命中数、并集数量和 `outputCap: null`。
 - `scripts/validate-ranking-windows.js` 会重新计算窗口并断言：month 必须是结束时间往前一个日历月的起点、week 必须正好 168 小时、所有条目都在窗口内、keyword 与 source 计数一致、并集数量不倒退、去重键唯一。
 - 脚本可重复执行：每次都会从历史快照重建正式窗口，迁移旧数据时也不会因 `rankingWindows.applied === true` 提前返回。
