@@ -1,52 +1,52 @@
 {
   "status": "failed",
-  "attemptedAt": "2026-10-04T00:06:08.213Z",
-  "runId": "37162284350",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/37162284350",
+  "attemptedAt": "2026-10-04T00:24:51.213Z",
+  "runId": "37164062428",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/37164062428",
   "eventName": "push",
-  "headSha": "1b5ba5e91e146361366733f13e245d12d0149567",
-  "message": "previous ranking step failed",
-  "failedStep": "previous ranking step",
+  "headSha": "30adc725edde53d9c135384a9edea567e0f3c7a4",
+  "message": "Run release gates failed",
+  "failedStep": "Run release gates",
   "lastSuccessfulGeneratedAt": "2026-10-03T22:58:17.237Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-10-04T00:05:11.033Z",
+    "generatedAt": "2026-10-04T00:24:03.136Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
-    "beforeMissing": 13,
-    "afterMissing": 13,
+    "beforeMissing": 15,
+    "afterMissing": 15,
     "api": {
       "checked": 0,
       "changed": 0
     },
     "fetch": {
-      "checked": 13,
-      "changed": 13
+      "checked": 15,
+      "changed": 15
     },
     "watch": {
-      "checked": 13,
+      "checked": 15,
       "changed": 0
     },
     "oembed": {
       "checked": 24,
-      "changed": 41,
+      "changed": 44,
       "failed": 0
     },
     "rateLimited": false,
     "retryAfter": "",
     "blockedUntil": "",
     "rateLimitSource": "",
-    "youtubeRequestsStarted": 50
+    "youtubeRequestsStarted": 54
   },
   "failureDiagnostics": {
     "rateLimited": false,
     "rateLimitSource": "",
     "retryAfter": "",
     "blockedUntil": "",
-    "youtubeRequestsStarted": 50,
-    "candidateGeneratedAt": "2026-10-03T23:57:49.046Z",
-    "todayVideos": 359,
-    "todayWithViews": 346,
-    "todayMissingViews": 13
+    "youtubeRequestsStarted": 54,
+    "candidateGeneratedAt": "2026-10-04T00:16:04.240Z",
+    "todayVideos": 551,
+    "todayWithViews": 536,
+    "todayMissingViews": 15
   },
   "liveDetailPostProcess": {
     "generatedAt": "2026-10-03T23:04:37.588Z",
