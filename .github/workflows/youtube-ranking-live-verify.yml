@@ -11,7 +11,7 @@ on:
       - "week.html"
       - "month.html"
   workflow_run:
-    workflows: ["pages build and deployment"]
+    workflows: ["pages build and deployment", "Deploy YouTube ranking Pages"]
     types: [completed]
   workflow_dispatch:
 
@@ -62,7 +62,10 @@ jobs:
               { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
             ));
             const runs = api([`repos/${repo}/actions/runs`, '-f', 'per_page=40']).workflow_runs || [];
-            const pages = runs.filter((run) => run.name === 'pages build and deployment');
+            const pages = runs.filter((run) => [
+              'pages build and deployment',
+              'Deploy YouTube ranking Pages',
+            ].includes(run.name));
             const exact = pages.find((run) => run.head_sha === targetSha) || null;
             if (exact?.status === 'completed' && exact.conclusion === 'success') return exact;
             const descendant = pages.find((run) => {

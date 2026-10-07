@@ -1,0 +1,100 @@
+name: Deploy YouTube ranking Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: youtube-ranking-pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout publish files only
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            /scripts/
+            /assets/
+            /config/
+            /docs/
+            /.github/
+            /data/*.json
+            /data/*-snapshots/index.json
+            /README.md
+            /package.json
+            /package-lock.json
+            /CNAME
+            /index.html
+            /month.html
+            /today.html
+            /live.html
+            /week.html
+            /favicon.ico
+            /.gitignore
+            /.nojekyll
+          sparse-checkout-cone-mode: false
+
+      - name: Validate bounded publish tree
+        run: |
+          set -euo pipefail
+          for path in \
+            index.html month.html today.html week.html live.html \
+            data/youtube-ranking.json data/youtube-ranking-week.json \
+            data/youtube-ranking-status.json \
+            data/month-snapshots/index.json \
+            data/week-snapshots/index.json \
+            data/today-snapshots/index.json \
+            data/live-snapshots/index.json
+          do
+            test -f "$path"
+          done
+          payload_count="$(
+            find data \
+              \( -path 'data/month-snapshots/*.json' \
+                 -o -path 'data/week-snapshots/*.json' \
+                 -o -path 'data/today-snapshots/*.json' \
+                 -o -path 'data/live-snapshots/*.json' \) \
+              ! -name index.json \
+              -type f | wc -l | tr -d ' '
+          )"
+          if [ "$payload_count" -ne 0 ]; then
+            echo "::error::Pages publish tree contains $payload_count historical snapshot payloads; sparse checkout must exclude them."
+            exit 1
+          fi
+          printf 'Publish tree validated; historical snapshot payloads=%s.\n' "$payload_count"
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload bounded Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: .
+          retention-days: 1
+
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
