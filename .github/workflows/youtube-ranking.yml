@@ -315,6 +315,24 @@ jobs:
               git push
             }
           fi
+
+      - name: Dispatch Pages deploy
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in 1 2 3; do
+            echo "Dispatching Pages deploy (attempt $attempt/3)."
+            if gh workflow run pages.yml --ref main --repo "$GITHUB_REPOSITORY"; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "::warning::Pages dispatch attempt $attempt failed; retrying in 10 seconds."
+              sleep 10
+            fi
+          done
+          echo "::error::Failed to dispatch Pages deploy after 3 attempts."
+          exit 1
       - name: Mark failed run
         if: failure()
         run: echo "previous ranking step" > /tmp/youtube-ranking-run-failed
