@@ -1,15 +1,6 @@
 name: Verify live YouTube ranking deployment
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/youtube-ranking-live-verify.yml"
-      - "data/youtube-ranking.json"
-      - "data/youtube-ranking-status.json"
-      - "data/youtube-ranking-week.json"
-      - "week.html"
-      - "month.html"
   workflow_run:
     workflows: ["pages build and deployment"]
     types: [completed]
