@@ -1,19 +1,19 @@
 {
   "status": "success",
-  "attemptedAt": "2026-10-11T16:53:01.013Z",
-  "runId": "38153942381",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/38153942381",
+  "attemptedAt": "2026-10-11T17:43:36.958Z",
+  "runId": "38157427264",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/38157427264",
   "eventName": "workflow_dispatch",
-  "headSha": "8ebd7c0628fc56c86211cdb775ac109b93f300b5",
+  "headSha": "fd93b716f8f55d8e8a9939a8bd507d7c8e6c897c",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-10-11T16:42:04.173Z",
+  "lastSuccessfulGeneratedAt": "2026-10-11T17:30:44.134Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-10-11T16:50:07.848Z",
+    "generatedAt": "2026-10-11T17:39:21.488Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
-    "beforeMissing": 0,
-    "afterMissing": 0,
+    "beforeMissing": 1,
+    "afterMissing": 1,
     "api": {
       "checked": 0,
       "changed": 0
@@ -27,37 +27,37 @@
       "changed": 0
     },
     "oembed": {
-      "checked": 24,
-      "changed": 40,
+      "checked": 0,
+      "changed": 0,
       "failed": 0
     },
-    "rateLimited": false,
+    "rateLimited": true,
     "retryAfter": "",
     "blockedUntil": "",
-    "rateLimitSource": "",
-    "youtubeRequestsStarted": 24
+    "rateLimitSource": "watch HTML",
+    "youtubeRequestsStarted": 1
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-10-11T16:48:39.990Z",
+    "generatedAt": "2026-10-11T17:37:57.603Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 217084,
+    "elapsedMs": 239198,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 105,
-    "watchChecked": 120,
-    "watchChanged": 114,
+    "clearedUntrustedLiveViewers": 95,
+    "watchChecked": 117,
+    "watchChanged": 120,
     "channelChecked": 0,
     "channelChanged": 0
   },
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
-    "clearedLiveDurationItems": 0,
+    "clearedLiveDurationItems": 2,
     "removedExplicitDirtyLiveItems": 0,
     "removedExplicitDirtyLiveSamples": [],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 127,
-    "processedAt": "2026-10-11T16:50:11.241Z"
+    "subscriberItemsAfterClean": 122,
+    "processedAt": "2026-10-11T17:39:22.198Z"
   }
 }
