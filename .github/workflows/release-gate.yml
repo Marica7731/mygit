@@ -32,6 +32,32 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /*
+            !/*/
+            /scripts/
+            /assets/
+            /config/
+            /docs/
+            /.github/
+            /data/*.json
+            /data/month-snapshots/index.json
+            /data/week-snapshots/index.json
+            /data/today-snapshots/index.json
+            /data/live-snapshots/index.json
+            /README.md
+            /package.json
+            /CNAME
+            /index.html
+            /month.html
+            /today.html
+            /live.html
+            /week.html
+            /favicon.ico
+            /.gitignore
+            /.nojekyll
+          sparse-checkout-cone-mode: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

@@ -1,4 +1,5 @@
 const fs = require("node:fs");
+const SPARSE_MODE = process.env.YTB_RANKING_SNAPSHOT_SPARSE === "1";
 const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -47,7 +48,8 @@ function archiveGroupSnapshot(payload, groupName) {
       const entryDate = parseDate(entry.capturedAt || entry.generatedAt || entry.id);
       if (!entryDate || now.getTime() - entryDate.getTime() > RETENTION_MS) continue;
     }
-    if (!fs.existsSync(path.join(snapshotDir, `${entry.id}.json`))) continue;
+    const entryFile = `${entry.id}.json`;
+    if (!fs.existsSync(path.join(snapshotDir, entryFile)) && !SPARSE_MODE) continue;
     nextSnapshots.set(entry.id, normalizeEntry(entry, groupName));
   }
 

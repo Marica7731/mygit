@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 const assert = require("node:assert");
+const { loadRankingUnionCache } = require("./lib/ranking-union-cache");
 const {
   loadSnapshotBatches,
   loadSnapshotUnion,
@@ -107,6 +108,10 @@ function main() {
   assert.strictEqual(unionLoaded.items.length, 1, "streaming snapshot union must retain only in-window deduped items");
   assert.strictEqual(unionLoaded.items[0].videoId, "old", "streaming snapshot union must keep the indexed item");
   require("node:fs").rmSync(fixtureDir, { recursive: true, force: true });
+
+  const missingCacheDir = require("node:fs").mkdtempSync(require("node:os").tmpdir() + "/ytb-ranking-union-cache-missing-");
+  assert.throws(() => loadRankingUnionCache(missingCacheDir), /required and must be valid JSON/);
+  require("node:fs").rmSync(missingCacheDir, { recursive: true, force: true });
 
   console.log("[verify-snapshot-union] passed");
 }

@@ -1171547,14 +1171547,14 @@
   },
   "rankingWindows": {
     "applied": true,
-    "appliedAt": "2026-10-12T18:06:53.828Z",
+    "appliedAt": "2026-10-12T19:34:28.581Z",
     "timeZone": "Asia/Taipei",
-    "source": "snapshot-union+groups.month.items",
+    "source": "snapshot-union-cache+groups.month.items",
     "sourceItemCount": 1000,
     "sourceItemCountMeaning": "raw crawl pool size before snapshot-union output",
     "snapshotUnion": {
       "enabled": true,
-      "source": "historical snapshots + current groups.month.items",
+      "source": "verified ranking-union-cache + current groups.month.items",
       "sourceGroups": [
         "month",
         "week",
@@ -1171562,11 +1171562,25 @@
         "live"
       ],
       "historyStart": "2026-09-12T16:00:00.000Z",
-      "filesRead": 3092,
-      "itemsScanned": 4872080,
+      "filesRead": 1,
+      "itemsScanned": 11084,
       "missingFiles": 0,
       "skippedBeforeWindow": 0,
       "currentRawItemCount": 1000,
+      "cache": {
+        "enabled": true,
+        "path": "data/ranking-union-cache.json",
+        "schemaVersion": 1,
+        "generatedAt": "2026-10-12T19:34:28.581Z",
+        "sourceCacheGeneratedAt": "2026-10-12T19:33:33.050Z",
+        "sourceGroups": [
+          "month",
+          "week",
+          "today",
+          "live"
+        ],
+        "itemsOutsideWindow": 0
+      },
       "currentRawInWindow": {
         "month": 1000,
         "week": 322

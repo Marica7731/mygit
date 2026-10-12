@@ -8,7 +8,8 @@ const {
   formatDate,
   startOfRollingMonth,
 } = require("./lib/ranking-window");
-const { loadSnapshotUnion, unionWindowItems } = require("./lib/snapshot-union");
+const { unionWindowItems } = require("./lib/snapshot-union");
+const { buildRankingUnionCache, loadRankingUnionCache, writeRankingUnionCache } = require("./lib/ranking-union-cache");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const DATA_DIR = path.join(ROOT_DIR, "data");
@@ -38,17 +39,18 @@ function main() {
     : currentItems.length;
   const monthStart = startOfRollingMonth(windowEnd, WINDOW_TIME_ZONE);
   const weekStart = windowEnd - WEEK_WINDOW_MS;
-  // Read from the rolling-month start so early snapshots are not
-  // discarded before both formal windows are derived from the same union.
-  const snapshotHistory = loadSnapshotUnion(DATA_DIR, { start: monthStart, end: windowEnd });
+  const appliedAt = new Date().toISOString();
+  // The cache is the verified historical union. Production checkouts are sparse
+  // and omit snapshot bodies; a bad or missing cache must fail instead of
+  // silently shrinking the formal windows to the current crawl pool.
+  const snapshotHistory = loadRankingUnionCache(DATA_DIR);
   const candidateBatches = [
     { source: "current:groups.month.items", items: currentItems },
-    { source: "historical:snapshot-union", items: snapshotHistory.items },
+    { source: "historical:ranking-union-cache", items: snapshotHistory.items },
   ];
 
   const monthItems = unionWindowItems(candidateBatches, monthStart, windowEnd);
   const weekItems = unionWindowItems(candidateBatches, weekStart, windowEnd);
-  const snapshotsFound = snapshotHistory.filesRead > 0;
 
   // A window can legitimately be empty in the first minutes of a rolling month or week.
   // Warn loudly instead of failing the whole pipeline on an honest empty result.
@@ -69,14 +71,14 @@ function main() {
   const currentRawWeekItems = currentItems.filter((item) => inWindow(item, weekStart, windowEnd));
   const windows = {
     applied: true,
-    appliedAt: new Date().toISOString(),
+    appliedAt,
     timeZone: WINDOW_TIME_ZONE,
-    source: snapshotsFound ? "snapshot-union+groups.month.items" : "groups.month.items",
+    source: "snapshot-union-cache+groups.month.items",
     sourceItemCount: currentRawItemCount,
     sourceItemCountMeaning: "raw crawl pool size before snapshot-union output",
     snapshotUnion: {
-      enabled: snapshotsFound,
-      source: snapshotsFound ? "historical snapshots + current groups.month.items" : "current groups.month.items",
+      enabled: snapshotHistory.filesRead > 0,
+      source: "verified ranking-union-cache + current groups.month.items",
       sourceGroups: snapshotHistory.sourceGroups,
       historyStart: new Date(monthStart).toISOString(),
       filesRead: snapshotHistory.filesRead,
@@ -84,6 +86,15 @@ function main() {
       missingFiles: snapshotHistory.missingFiles,
       skippedBeforeWindow: snapshotHistory.skippedBeforeWindow,
       currentRawItemCount,
+      cache: {
+        enabled: true,
+        path: "data/ranking-union-cache.json",
+        schemaVersion: 1,
+        generatedAt: appliedAt,
+        sourceCacheGeneratedAt: snapshotHistory.generatedAt,
+        sourceGroups: snapshotHistory.sourceGroups,
+        itemsOutsideWindow: snapshotHistory.itemsOutsideWindow,
+      },
       currentRawInWindow: {
         month: currentGroupIsWindowed
           ? finiteCount(
@@ -107,6 +118,10 @@ function main() {
   payload.groups.week = buildWeekGroup(monthGroup, weekItems, weekStart, windowEnd);
   applyMonthWindow(monthGroup, monthItems, monthStart, windowEnd);
   payload.rankingWindows = windows;
+
+  writeRankingUnionCache(DATA_DIR, buildRankingUnionCache(payload, {
+    sourceCacheGeneratedAt: windows.snapshotUnion.cache.sourceCacheGeneratedAt || windows.snapshotUnion.cache.generatedAt,
+  }));
 
   fs.writeFileSync(DATA_FILE, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
   console.log(

@@ -1,4 +1,5 @@
 const fs = require("node:fs");
+const SPARSE_MODE = process.env.YTB_RANKING_SNAPSHOT_SPARSE === "1";
 const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -78,6 +79,12 @@ function validateSnapshotEntry({ entry, groupName, snapshotDir, generatedAt, ret
   const fileName = entry.file || `${id}.json`;
   const snapshotPath = path.join(snapshotDir, fileName);
   if (!fs.existsSync(snapshotPath)) {
+    if (SPARSE_MODE) {
+      if (!Number.isFinite(Date.parse(entry.capturedAt || entry.generatedAt || ""))) {
+        errors.push(`${groupName}: sparse index entry ${fileName} must have capturedAt/generatedAt`);
+      }
+      return;
+    }
     errors.push(`${groupName}: missing snapshot file: ${fileName}`);
     return;
   }

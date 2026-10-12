@@ -94,7 +94,7 @@ jobs:
             const paths = [
               '/today.html', '/month.html', '/week.html',
               '/data/youtube-ranking.json', '/data/youtube-ranking-status.json',
-              '/data/youtube-ranking-week.json', '/data/month-snapshots/index.json',
+              '/data/youtube-ranking-week.json', '/data/ranking-union-cache.json', '/data/month-snapshots/index.json',
             ];
             let checked;
             for (let attempt = 1; attempt <= 6; attempt++) {
@@ -120,6 +120,7 @@ jobs:
             const status = JSON.parse(bodyByPath['/data/youtube-ranking-status.json']);
             const weekData = JSON.parse(bodyByPath['/data/youtube-ranking-week.json']);
             const monthSnapshotIndex = JSON.parse(bodyByPath['/data/month-snapshots/index.json']);
+            const unionCache = JSON.parse(bodyByPath['/data/ranking-union-cache.json']);
             const today = ranking.groups?.today?.items || [];
             const validViews = today.filter((item) =>
               item.statusType !== 'live' && item.statusType !== 'upcoming' && Number(item.viewCount) > 0).length;
@@ -229,6 +230,9 @@ jobs:
               monthSnapshotPolicy: monthSnapshotIndex.retentionPolicy,
               monthSnapshotCount: (monthSnapshotIndex.snapshots || []).length,
               monthSnapshotRetentionPending: monthSnapshotIndex.retentionPolicy == null,
+              unionCacheItems: unionCache.items?.length,
+              unionCacheGeneratedAt: unionCache.generatedAt,
+              unionCachePolicy: unionCache.snapshotUnion?.outputCap === null ? 'uncapped' : 'invalid',
             };
             console.log('[online] WINDOW EVIDENCE ' + JSON.stringify(windowEvidence));
             if (!windowEvidence.htmlHasMonthGroup || !windowEvidence.htmlHasWeekGroup)
@@ -272,6 +276,10 @@ jobs:
             if (windowEvidence.monthUniqueItems !== monthItems.length ||
                 windowEvidence.weekUniqueItems !== weekItems.length)
               throw new Error(`Live formal windows contain duplicate videos: ${JSON.stringify(windowEvidence)}`);
+            if (!(Number(windowEvidence.unionCacheItems) > 0) || unionCache.schemaVersion !== 1 ||
+                unionCache.snapshotUnion?.enabled !== true || unionCache.snapshotUnion?.outputCap !== null) {
+              throw new Error(`Live ranking union cache is missing or invalid: ${JSON.stringify({schemaVersion: unionCache.schemaVersion, snapshotUnion: unionCache.snapshotUnion})}`);
+            }
             // The first deployment after this migration may still carry the old
             // schema-1 index until youtube-ranking.yml archives with keep-all.
             // Accept only that missing-policy transition; once present, enforce it.

@@ -38,7 +38,7 @@
 ### 时间窗口（7 天与滚动月）
 
 YouTube 的 `month` 搜索源本身是一个滚动约 30 天的抓取池，`update-youtube-ranking.js` 写入的 `groups.month.items` 只是当前原始池。
-质量校验通过后，`scripts/apply-ranking-windows.js` 会读取 `data/{month,week,today,live}-snapshots/` 的全部历史快照，与当前原始池合并，再按 `publishedTimestamp` 派生两个正式窗口：
+质量校验通过后，`scripts/apply-ranking-windows.js` 会读取已验证的 `data/ranking-union-cache.json`（由四类历史快照并集生成），与当前原始池合并，再按 `publishedTimestamp` 派生两个正式窗口：
 历史读取起点是滚动月起点；`week` 再从这同一批历史中筛选，因此窗口起点附近的快照不会在生成月榜前被跳过。
 
 | tab | 窗口 | 定义 |
@@ -47,7 +47,7 @@ YouTube 的 `month` 搜索源本身是一个滚动约 30 天的抓取池，`upda
 | `month` | 滚动月 | `windowEnd` 所在日期往前一个日历月的 00:00（`Asia/Taipei`，UTC+8；月末夹取）到 `windowEnd` |
 
 - `windowEnd` 取 `groups.month.updatedAt`，即本次抓取完成时间。
-- 窗口生成阶段不会发起新的 YouTube 搜索；它只读取现有 JSON 快照并按 `publishedTimestamp` 过滤。
+- 窗口生成阶段不会发起新的 YouTube 搜索；它读取紧凑的历史并集缓存并按 `publishedTimestamp` 过滤。缓存缺失或损坏时流程失败，不能退化成只读当前 500 条池。
 - 并集按 `videoId` 去重；没有 `videoId` 时依次回退 URL、关键词/标题/频道/发布时间组合。同一视频命中两个搜索词时只保留一条。
 - 正式 `week` 与 `month` 输出都不做 `.slice()`，没有结果条数上限；原始抓取池仍保留安全上限，避免放大 YouTube 请求。
 - 快照缺字段时，较新的当前项优先，并用较旧快照补齐缺失的播放量、时长和封面等字段。
@@ -55,8 +55,9 @@ YouTube 的 `month` 搜索源本身是一个滚动约 30 天的抓取池，`upda
 - 窗口元数据落在顶层 `payload.rankingWindows` 和各 group 的 `window` 字段，包含 `kind`、`timeZone`、`start`、`end`、`durationMs`。
 - 窗口标签统一把午夜格式化为 `00:00`，兼容 Node.js 20 的 `Intl` 午夜 `24` 表示。
 - `rankingWindows.sourceItemCount` 表示本次原始抓取池大小，不是并集结果大小；`rankingWindows.snapshotUnion` 记录快照来源、扫描量、窗口前跳过数、当前池窗口命中数、并集数量和 `outputCap: null`。
-- `scripts/validate-ranking-windows.js` 会重新计算窗口并断言：month 必须是结束时间往前一个日历月的起点、week 必须正好 168 小时、所有条目都在窗口内、keyword 与 source 计数一致、并集数量不倒退、去重键唯一。
-- 脚本可重复执行：每次都会从历史快照重建正式窗口，迁移旧数据时也不会因 `rankingWindows.applied === true` 提前返回。
+- `scripts/validate-ranking-windows.js` 会重新计算窗口并断言：month 必须是结束时间往前一个日历月的起点、week 必须正好 168 小时、所有条目都在窗口内、keyword 与 source 计数一致、并集数量不倒退、去重键唯一；`scripts/verify-ranking-union-cache.js` 另外校验缓存与正式月榜逐项一致。
+- 脚本可重复执行：每次都会从当前原始池和上一轮并集缓存重建正式窗口，迁移旧数据时也不会因 `rankingWindows.applied === true` 提前返回。
+- GitHub Actions 使用 sparse checkout，只取缓存、快照索引和站点文件，不下载 12 GB 级历史快照正文；历史快照仍在仓库中按 `keep-all` 保存，月/周完整快照最长每日补档一次。
 - 派生在 `validate-youtube-ranking.js` **之后**运行，因此抓取量阈值仍然针对原始池判定。
 
 默认环境变量：
