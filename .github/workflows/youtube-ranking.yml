@@ -138,6 +138,8 @@ jobs:
             /data/live-snapshots/index.json
             /README.md
             /package.json
+            /package-lock.json
+            /AGENTS.md
             /CNAME
             /index.html
             /month.html
@@ -149,6 +151,12 @@ jobs:
             /.nojekyll
           sparse-checkout-cone-mode: false
         timeout-minutes: 45
+      - name: Validate sparse publish tree
+        run: |
+          set -euo pipefail
+          for path in index.html live.html today.html week.html month.html package-lock.json data/ranking-union-cache.json data/youtube-ranking.json data/youtube-ranking-live.json data/youtube-ranking-today.json data/youtube-ranking-week.json data/youtube-ranking-month.json data/live-snapshots/index.json data/today-snapshots/index.json data/week-snapshots/index.json data/month-snapshots/index.json; do
+            test -f "$path"
+          done
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
