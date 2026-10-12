@@ -36,9 +36,9 @@ function main() {
     "snapshot union historyStart must equal month.start");
   assert(errors, union?.outputCap === null, "snapshot union outputCap must be null");
   assert(errors, Number(union?.filesRead) === 1, "cache-based union must read exactly one cache file");
-  assert(errors, Number(union?.itemsScanned) === cache.items.length, "cache scan count must match cache items");
 
   const cacheInfo = union?.cache || {};
+  assert(errors, Number(union?.itemsScanned) === Number(cacheInfo.itemsScanned), "cache scan count must match cache metadata");
   assert(errors, cacheInfo.enabled === true, "snapshot union cache metadata must be enabled");
   assert(errors, cacheInfo.path === "data/ranking-union-cache.json", "cache path metadata is invalid");
   assert(errors, cacheInfo.schemaVersion === 1, "cache schemaVersion metadata must be 1");

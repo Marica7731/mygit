@@ -93,6 +93,7 @@ function main() {
         generatedAt: appliedAt,
         sourceCacheGeneratedAt: snapshotHistory.generatedAt,
         sourceGroups: snapshotHistory.sourceGroups,
+        itemsScanned: snapshotHistory.itemsScanned,
         itemsOutsideWindow: snapshotHistory.itemsOutsideWindow,
       },
       currentRawInWindow: {
