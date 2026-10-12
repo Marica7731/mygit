@@ -335,39 +335,37 @@ jobs:
           node scripts/update-ranking-status.js
           cp data/youtube-ranking-status.json /tmp/youtube-ranking-status.json
           cp data/ranking-union-cache.json /tmp/ranking-union-cache.json
-          git fetch origin main
-          git reset --hard origin/main
-          mkdir -p data
-          cp /tmp/youtube-ranking.json data/youtube-ranking.json
-          cp /tmp/youtube-ranking-status.json data/youtube-ranking-status.json
-          npm run blocklist:generate
-          YTB_RANKING_SNAPSHOT_GROUPS=live,today node scripts/archive-live-snapshot.js
-          YTB_RANKING_SNAPSHOT_SPARSE=1 node scripts/validate-live-snapshots.js
-          node scripts/write-ranking-groups.js
-          node scripts/write-ranking-groups.js --check
-          git add assets/blocked-vtuber-channels.js index.html live.html today.html week.html month.html data/youtube-ranking.json data/youtube-ranking-live.json data/youtube-ranking-today.json data/youtube-ranking-month.json data/youtube-ranking-week.json data/youtube-ranking-status.json data/ranking-union-cache.json data/live-snapshots data/today-snapshots data/week-snapshots data/month-snapshots
-          if git diff --cached --quiet; then
-            echo "No data changes to commit."
-          else
+          publish_attempt() {
+            set -e
+            git fetch origin main
+            git reset --hard origin/main
+            mkdir -p data
+            cp /tmp/youtube-ranking.json data/youtube-ranking.json
+            cp /tmp/youtube-ranking-status.json data/youtube-ranking-status.json
+            cp /tmp/ranking-union-cache.json data/ranking-union-cache.json
+            npm run blocklist:generate
+            YTB_RANKING_SNAPSHOT_GROUPS=live,today node scripts/archive-live-snapshot.js
+            YTB_RANKING_SNAPSHOT_SPARSE=1 node scripts/validate-live-snapshots.js
+            node scripts/write-ranking-groups.js
+            node scripts/write-ranking-groups.js --check
+            git add assets/blocked-vtuber-channels.js index.html live.html today.html week.html month.html data/youtube-ranking.json data/youtube-ranking-live.json data/youtube-ranking-today.json data/youtube-ranking-month.json data/youtube-ranking-week.json data/youtube-ranking-status.json data/ranking-union-cache.json data/live-snapshots data/today-snapshots data/week-snapshots data/month-snapshots
+            if git diff --cached --quiet; then
+              echo "No data changes to commit."
+              return 0
+            fi
             git commit -m "chore: 更新 YouTube 排行数据和状态"
-            git push || {
-              git fetch origin main
-              git reset --hard origin/main
-              mkdir -p data
-              cp /tmp/youtube-ranking.json data/youtube-ranking.json
-              cp /tmp/youtube-ranking-status.json data/youtube-ranking-status.json
-              cp /tmp/ranking-union-cache.json data/ranking-union-cache.json
-              npm run blocklist:generate
-              YTB_RANKING_SNAPSHOT_GROUPS=live,today node scripts/archive-live-snapshot.js
-              YTB_RANKING_SNAPSHOT_SPARSE=1 node scripts/validate-live-snapshots.js
-              node scripts/write-ranking-groups.js
-              node scripts/write-ranking-groups.js --check
-              git add assets/blocked-vtuber-channels.js index.html live.html today.html week.html month.html data/youtube-ranking.json data/youtube-ranking-live.json data/youtube-ranking-today.json data/youtube-ranking-month.json data/youtube-ranking-week.json data/youtube-ranking-status.json data/ranking-union-cache.json data/live-snapshots data/today-snapshots data/week-snapshots data/month-snapshots
-              git diff --cached --quiet && exit 0
-              git commit -m "chore: 更新 YouTube 排行数据和状态"
-              git push
-            }
-          fi
+            git push
+          }
+
+          for attempt in 1 2 3; do
+            if (publish_attempt); then
+              exit 0
+            fi
+            echo "Publish attempt $attempt/3 failed; retrying in 5 seconds."
+            sleep 5
+          done
+          echo "::error::Failed to publish ranking data after 3 attempts."
+          exit 1
 
       - name: Dispatch Pages deploy
         if: success()
