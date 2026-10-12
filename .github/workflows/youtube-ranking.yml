@@ -342,7 +342,7 @@ jobs:
           cp /tmp/youtube-ranking-status.json data/youtube-ranking-status.json
           npm run blocklist:generate
           YTB_RANKING_SNAPSHOT_GROUPS=live,today node scripts/archive-live-snapshot.js
-          node scripts/validate-live-snapshots.js
+          YTB_RANKING_SNAPSHOT_SPARSE=1 node scripts/validate-live-snapshots.js
           node scripts/write-ranking-groups.js
           node scripts/write-ranking-groups.js --check
           git add assets/blocked-vtuber-channels.js index.html live.html today.html week.html month.html data/youtube-ranking.json data/youtube-ranking-live.json data/youtube-ranking-today.json data/youtube-ranking-month.json data/youtube-ranking-week.json data/youtube-ranking-status.json data/ranking-union-cache.json data/live-snapshots data/today-snapshots data/week-snapshots data/month-snapshots
@@ -359,7 +359,7 @@ jobs:
               cp /tmp/ranking-union-cache.json data/ranking-union-cache.json
               npm run blocklist:generate
               YTB_RANKING_SNAPSHOT_GROUPS=live,today node scripts/archive-live-snapshot.js
-              node scripts/validate-live-snapshots.js
+              YTB_RANKING_SNAPSHOT_SPARSE=1 node scripts/validate-live-snapshots.js
               node scripts/write-ranking-groups.js
               node scripts/write-ranking-groups.js --check
               git add assets/blocked-vtuber-channels.js index.html live.html today.html week.html month.html data/youtube-ranking.json data/youtube-ranking-live.json data/youtube-ranking-today.json data/youtube-ranking-month.json data/youtube-ranking-week.json data/youtube-ranking-status.json data/ranking-union-cache.json data/live-snapshots data/today-snapshots data/week-snapshots data/month-snapshots
