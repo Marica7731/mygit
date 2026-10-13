@@ -1,4 +1,307 @@
 
+name: Update YouTube ranking
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/youtube-ranking.yml"
+      - "assets/blocked-vtuber-channels.js"
+      - "assets/ranking-controls.js"
+      - "config/blocked-vtuber-channels.json"
+      - "docs/taiwan-vtuber-blocklist.md"
+      - "index.html"
+      - "live.html"
+      - "today.html"
+      - "month.html"
+      - "week.html"
+      - "package.json"
+      - "package-lock.json"
+      - "assets/youtube-ranking.source.js"
+      - "scripts/apply-ranking-windows.js"
+      - "scripts/build-ranking-frontend.js"
+      - "scripts/lib/**"
+      - "scripts/validate-ranking-windows.js"
+      - "scripts/verify-snapshot-union.js"
+      - "scripts/verify-ranking-union-cache.js"
+      - "scripts/verify-pages.js"
+      - "scripts/verify-page-behavior.js"
+      - "scripts/verify-snapshot-retention.js"
+      - "scripts/blocked-vtuber-matcher.js"
+      - "scripts/blocked-vtuber-utils.js"
+      - "scripts/check-blocked-vtuber-sync.js"
+      - "scripts/generate-blocked-vtuber-channels.js"
+      - "scripts/validate-taiwan-vtuber-blocklist.js"
+      - "scripts/update-youtube-ranking.js"
+      - "scripts/enrich-live-details.js"
+      - "scripts/enrich-video-metrics.js"
+      - "scripts/merge-previous-view-metrics.js"
+      - "scripts/fill-duration-details.js"
+      - "scripts/clear-live-duration-fields.js"
+      - "scripts/fill-live-elapsed-duration.js"
+      - "scripts/fill-live-innertube-duration.js"
+      - "scripts/fill-live-relative-duration.js"
+      - "scripts/normalize-duration-fields.js"
+      - "scripts/validate-youtube-ranking.js"
+      - "scripts/validate-duration-quality.js"
+      - "scripts/archive-live-snapshot.js"
+      - "scripts/validate-live-snapshots.js"
+      - "scripts/write-ranking-groups.js"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: youtube-ranking-main
+  cancel-in-progress: true
+
+jobs:
+  update-ranking:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      YTB_RANKING_LIVE_LIMIT: "500"
+      YTB_RANKING_TODAY_LIMIT: "500"
+      YTB_RANKING_MONTH_LIMIT: "500"
+      # Ranking windows are computed in Asia/Taipei (UTC+8), the site's local day.
+      YTB_RANKING_WINDOW_TIME_ZONE: "Asia/Taipei"
+      # 0 means keep every snapshot; historical snapshot files are never pruned.
+      YTB_RANKING_SNAPSHOT_DAYS: "0"
+      # Index-only sparse checkouts preserve remote snapshot history without downloading bodies.
+      YTB_RANKING_SNAPSHOT_SPARSE: "1"
+      YTB_RANKING_SCROLL_TO_BOTTOM_GROUPS: "live,today"
+      YTB_RANKING_ENRICH_LIVE_DETAILS: "0"
+      YTB_RANKING_LIVE_DETAIL_LIMIT: "5"
+      YTB_RANKING_LIVE_DETAIL_DELAY_MS: "500"
+      YTB_RANKING_LIVE_DETAIL_NAVIGATION_TIMEOUT_MS: "15000"
+      YTB_RANKING_METRIC_DETAIL_LIMIT: "24"
+      YTB_RANKING_METRIC_FETCH_LIMIT: "280"
+      YTB_RANKING_METRIC_FETCH_CONCURRENCY: "1"
+      YTB_RANKING_METRIC_FETCH_TIMEOUT_MS: "10000"
+      YTB_RANKING_YOUTUBE_REQUEST_DELAY_MS: "1200"
+      YTB_RANKING_OEMBED_CHANNEL_LIMIT: "24"
+      YTB_RANKING_OEMBED_CHANNEL_CONCURRENCY: "1"
+      YTB_RANKING_OEMBED_CHANNEL_TIMEOUT_MS: "6000"
+      YTB_RANKING_METRIC_DETAIL_DELAY_MS: "900"
+      YTB_RANKING_METRIC_DETAIL_NAVIGATION_TIMEOUT_MS: "20000"
+      YTB_RANKING_LIVE_POST_DETAIL_LIMIT: "120"
+      YTB_RANKING_LIVE_POST_CHANNEL_LIMIT: "120"
+      YTB_RANKING_LIVE_POST_DELAY_MS: "550"
+      YTB_RANKING_LIVE_POST_NAVIGATION_TIMEOUT_MS: "12000"
+      YTB_RANKING_LIVE_POST_MAX_RUNTIME_MS: "420000"
+      YTB_RANKING_DURATION_DETAIL_LIMIT: "500"
+      YTB_RANKING_DURATION_API_LIMIT: "1600"
+      YTB_RANKING_LIVE_DURATION_DETAIL_LIMIT: "120"
+      YTB_RANKING_DURATION_FETCH_CONCURRENCY: "4"
+      YTB_RANKING_DURATION_FETCH_TIMEOUT_MS: "10000"
+      YTB_RANKING_DURATION_PLAYWRIGHT_LIMIT: "160"
+      YTB_RANKING_DURATION_PLAYWRIGHT_DELAY_MS: "600"
+      YTB_RANKING_DURATION_PLAYWRIGHT_NAVIGATION_TIMEOUT_MS: "15000"
+      YTB_RANKING_DURATION_INCLUDE_LIVE: "0"
+      YTB_RANKING_LIVE_ELAPSED_LIMIT: "120"
+      YTB_RANKING_LIVE_ELAPSED_DELAY_MS: "300"
+      YTB_RANKING_LIVE_ELAPSED_NAVIGATION_TIMEOUT_MS: "10000"
+      YTB_RANKING_LIVE_INNERTUBE_LIMIT: "120"
+      YTB_RANKING_LIVE_INNERTUBE_CONCURRENCY: "4"
+      YTB_RANKING_LIVE_INNERTUBE_TIMEOUT_MS: "8000"
+      YTB_RANKING_LIVE_RELATIVE_DURATION_LIMIT: "120"
+      YTB_RANKING_LIVE_RELATIVE_DURATION_DELAY_MS: "2500"
+      YTB_RANKING_LIVE_RELATIVE_DURATION_NAVIGATION_TIMEOUT_MS: "15000"
+      YTB_RANKING_LIVE_RELATIVE_DURATION_SIGNAL_TIMEOUT_MS: "8000"
+      YTB_RANKING_MIN_VIEW_COVERAGE: "0.8"
+      YTB_RANKING_MIN_KEYWORD_VIEW_COVERAGE: "0.75"
+      YTB_RANKING_MIN_LIVE_ITEMS: "20"
+      YTB_RANKING_MIN_TODAY_VIDEOS: "240"
+      YTB_RANKING_MIN_MONTH_VIDEOS: "300"
+      YTB_RANKING_MIN_LIVE_SUBSCRIBER_COVERAGE: "0.85"
+      YTB_RANKING_MIN_DURATION_COVERAGE: "0.95"
+      YTB_RANKING_MIN_KEYWORD_DURATION_COVERAGE: "0.95"
+      YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /*
+            !/*/
+            /scripts/
+            /assets/
+            /config/
+            /docs/
+            /.github/
+            /data/*.json
+            /data/month-snapshots/index.json
+            /data/week-snapshots/index.json
+            /data/today-snapshots/index.json
+            /data/live-snapshots/index.json
+            /README.md
+            /package.json
+            /package-lock.json
+            /AGENTS.md
+            /CNAME
+            /index.html
+            /month.html
+            /week.html
+            /today.html
+            /live.html
+            /favicon.ico
+            /.gitignore
+            /.nojekyll
+          sparse-checkout-cone-mode: false
+        timeout-minutes: 45
+      - name: Validate sparse publish tree
+        run: |
+          set -euo pipefail
+          for path in index.html live.html today.html week.html month.html package-lock.json data/ranking-union-cache.json data/youtube-ranking.json data/youtube-ranking-live.json data/youtube-ranking-today.json data/youtube-ranking-week.json data/youtube-ranking-month.json data/live-snapshots/index.json data/today-snapshots/index.json data/week-snapshots/index.json data/month-snapshots/index.json; do
+            test -f "$path"
+          done
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Generate regional VTuber blocklist assets
+        run: npm run blocklist:generate
+
+      - name: Validate regional VTuber blocklist
+        run: npm run blocklist:validate
+
+      - name: Snapshot previous ranking data
+        run: |
+          git fetch origin main
+          git show origin/main:data/youtube-ranking.json > /tmp/youtube-ranking-previous.json || true
+
+      - name: Update ranking data
+        run: node scripts/update-youtube-ranking.js
+
+      - name: Check initial view signal
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const payload = JSON.parse(fs.readFileSync('data/youtube-ranking.json', 'utf8'));
+          const warnings = [];
+          const hasViewSignal = (item) => Number(item.viewCount) > 0 || /[0-9０-９][0-9０-９,，.．]*\s*(?:億|亿|万|萬|千|K|M|B)?\s*(?:回視聴|視聴回数|views?|次观看|次觀看|播放)/i.test(String(item.viewText || ''));
+          for (const group of ['today', 'month']) {
+            const videos = (payload.groups?.[group]?.items || []).filter((item) => item.statusType !== 'live' && item.statusType !== 'upcoming');
+            if (videos.length < 30) continue;
+            const withViews = videos.filter(hasViewSignal).length;
+            const ratio = withViews / videos.length;
+            console.log(`[initial-view] ${group}: ${withViews}/${videos.length} (${Math.round(ratio * 1000) / 10}%)`);
+            if (ratio < 0.1) warnings.push(`${group}: initial view signal ${withViews}/${videos.length} below 10%`);
+          }
+          if (warnings.length) {
+            console.warn('[initial-view] low initial view signal; continuing to detail enrichment and final validation.');
+            for (const warning of warnings) console.warn(`- ${warning}`);
+          }
+          NODE
+
+      - name: Enrich live channel metrics
+        timeout-minutes: 10
+        continue-on-error: true
+        run: node scripts/enrich-live-details.js
+
+      # Reuse already observed videoId counts before expensive watch-page calls.
+      - name: Recover previous view metrics
+        run: node scripts/merge-previous-view-metrics.js
+
+      - name: Enrich video view metrics
+        id: enrich_video_metrics
+        timeout-minutes: 18
+        run: node scripts/enrich-video-metrics.js
+
+      - name: Fill missing durations
+        if: steps.enrich_video_metrics.outputs.rate_limited != 'true'
+        timeout-minutes: 20
+        run: node scripts/fill-duration-details.js
+
+      - name: Skip live duration enrichment
+        run: echo "Live page hides duration by design; skip live elapsed and Innertube duration enrichment."
+
+      - name: Normalize duration fields
+        run: node scripts/normalize-duration-fields.js
+
+      - name: Clear live duration fields
+        run: node scripts/clear-live-duration-fields.js
+
+      - name: Validate ranking data
+        id: validate_ranking
+        continue-on-error: true
+        run: node scripts/validate-youtube-ranking.js
+
+      - name: Retry ranking data with conservative settings
+        # An HTTP 429 also disables this recrawl via validator.retryable=false.
+        if: steps.validate_ranking.outcome == 'failure' && steps.validate_ranking.outputs.retryable == 'true'
+        env:
+          YTB_RANKING_SCROLL_TO_BOTTOM_GROUPS: "live,today,month"
+          YTB_RANKING_MAX_SCROLLS: "220"
+          YTB_RANKING_SCROLL_DELAY_MS: "2000"
+          YTB_RANKING_INITIAL_DELAY_MS: "4000"
+          YTB_RANKING_NAVIGATION_TIMEOUT_MS: "90000"
+          YTB_RANKING_METRIC_FETCH_CONCURRENCY: "1"
+          YTB_RANKING_METRIC_FETCH_TIMEOUT_MS: "10000"
+          YTB_RANKING_OEMBED_CHANNEL_CONCURRENCY: "1"
+          YTB_RANKING_OEMBED_CHANNEL_TIMEOUT_MS: "10000"
+          YTB_RANKING_DURATION_FETCH_CONCURRENCY: "2"
+          YTB_RANKING_DURATION_FETCH_TIMEOUT_MS: "12000"
+        run: |
+          echo "::warning::Initial ranking validation failed. Retrying once with conservative scroll and fetch settings."
+          node scripts/update-youtube-ranking.js
+          node scripts/enrich-live-details.js
+          node scripts/enrich-video-metrics.js
+          node scripts/merge-previous-view-metrics.js
+          node scripts/fill-duration-details.js
+          echo "Live page hides duration by design; skip live elapsed and Innertube duration enrichment."
+          node scripts/normalize-duration-fields.js
+          node scripts/clear-live-duration-fields.js
+
+      - name: Reject non-retryable ranking quality failure
+        if: steps.validate_ranking.outcome == 'failure' && steps.validate_ranking.outputs.retryable != 'true'
+        run: |
+          echo "::error::Ranking quality failed without incomplete collection; refusing to re-crawl or publish."
+          exit 1
+
+      - name: Validate ranking data after retry
+        if: steps.validate_ranking.outcome == 'failure' && steps.validate_ranking.outputs.retryable == 'true'
+        run: node scripts/validate-youtube-ranking.js
+
+      - name: Validate duration data
+        run: node scripts/validate-duration-quality.js
+
+      # Derive the 7-day tab and rolling month (one calendar month back) from
+      # collected date fields. This runs after collection-size validation so the
+      # raw crawl is still what those gates inspect.
+      - name: Apply ranking windows
+        run: node scripts/apply-ranking-windows.js
+
+      - name: Validate ranking windows
+        run: node scripts/validate-ranking-windows.js
+
+      - name: Archive ranking snapshots
+        run: |
+          YTB_RANKING_SNAPSHOT_GROUPS=live,today node scripts/archive-live-snapshot.js
+          for group in month week; do
+            if node - "$group" <<'NODE'
+          const fs = require('node:fs');
+          const group = process.argv[2];
+          const index = JSON.parse(fs.readFileSync(`data/${group}-snapshots/index.json`, 'utf8'));
+          const latest = index.snapshots?.[0]?.capturedAt || index.snapshots?.[0]?.generatedAt || index.generatedAt;
+          process.exit(!latest || Date.now() - Date.parse(latest) >= 24 * 60 * 60 * 1000 ? 0 : 1);
+          NODE
+            then
+              YTB_RANKING_SNAPSHOT_GROUPS="$group" node scripts/archive-live-snapshot.js
+            fi
+          done
+          YTB_RANKING_SNAPSHOT_GROUPS=live,today node scripts/validate-live-snapshots.js
           node scripts/validate-live-snapshots.js
           node scripts/write-ranking-groups.js
           node scripts/write-ranking-groups.js --check
@@ -74,3 +377,69 @@
           for attempt in 1 2 3; do
             echo "Dispatching Pages deploy (attempt $attempt/3)."
             if gh workflow run pages.yml --ref main --repo "$GITHUB_REPOSITORY"; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "::warning::Pages dispatch attempt $attempt failed; retrying in 10 seconds."
+              sleep 10
+            fi
+          done
+          echo "::error::Failed to dispatch Pages deploy after 3 attempts."
+          exit 1
+      - name: Mark failed run
+        if: failure()
+        run: echo "previous ranking step" > /tmp/youtube-ranking-run-failed
+
+      - name: Update run status
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          force_failure=""
+          if [ -f /tmp/youtube-ranking-run-failed ]; then
+            force_failure="previous ranking step"
+            cp data/youtube-ranking.json /tmp/youtube-ranking-failed-candidate.json || true
+            git fetch origin main
+            git show origin/main:data/youtube-ranking.json > data/youtube-ranking.json || true
+          fi
+          YTB_RANKING_FORCE_FAILURE="$force_failure" YTB_RANKING_FAILURE_DATA=/tmp/youtube-ranking-failed-candidate.json node scripts/update-ranking-status.js
+          cp data/youtube-ranking-status.json /tmp/youtube-ranking-status.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p data
+          cp /tmp/youtube-ranking-status.json data/youtube-ranking-status.json
+          git add data/youtube-ranking-status.json
+          if git diff --cached --quiet; then
+            echo "No status changes to commit."
+          else
+            git commit -m "chore: 更新 YouTube 抓取状态"
+            git push || {
+              git fetch origin main
+              git reset --hard origin/main
+              mkdir -p data
+              cp /tmp/youtube-ranking-status.json data/youtube-ranking-status.json
+              git add data/youtube-ranking-status.json
+              git diff --cached --quiet && exit 0
+              git commit -m "chore: 更新 YouTube 抓取状态"
+              git push
+            }
+          fi
+
+      - name: Dispatch next chain tick
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in 1 2 3; do
+            echo "Dispatching next chain tick (attempt $attempt/3)."
+            if gh workflow run youtube-ranking-chain.yml --ref main --repo "$GITHUB_REPOSITORY" -f trigger_run_id="$GITHUB_RUN_ID"; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "::warning::Chain dispatch attempt $attempt failed; retrying in 10 seconds."
+              sleep 10
+            fi
+          done
+          echo "::warning::Failed to dispatch chain workflow after 3 attempts; scheduler fallback remains active."
