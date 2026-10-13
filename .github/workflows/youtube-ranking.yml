@@ -350,7 +350,7 @@ jobs:
             node scripts/write-ranking-groups.js
             node scripts/write-ranking-groups.js --check
             git add assets/blocked-vtuber-channels.js index.html live.html today.html week.html month.html data/youtube-ranking.json data/youtube-ranking-live.json data/youtube-ranking-today.json data/youtube-ranking-month.json data/youtube-ranking-week.json data/youtube-ranking-status.json data/ranking-union-cache.json data/live-snapshots data/today-snapshots data/week-snapshots data/month-snapshots
-            git add -f data/live-snapshots/*.json data/today-snapshots/*.json data/week-snapshots/*.json data/month-snapshots/*.json
+            git add --sparse -f data/live-snapshots/*.json data/today-snapshots/*.json data/week-snapshots/*.json data/month-snapshots/*.json
             if git diff --cached --quiet; then
               echo "No data changes to commit."
               return 0
