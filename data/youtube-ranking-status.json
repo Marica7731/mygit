@@ -1,26 +1,26 @@
 {
   "status": "success",
-  "attemptedAt": "2026-10-14T04:02:40.971Z",
-  "runId": "38508733026",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/38508733026",
+  "attemptedAt": "2026-10-14T04:11:27.898Z",
+  "runId": "38509592401",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/38509592401",
   "eventName": "workflow_dispatch",
-  "headSha": "73e1191cbc5b22b27cbdc43c2263cb35ac7dc7e8",
+  "headSha": "f11ae2e06fe1745a45412cf7338370da2b135104",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-10-14T03:55:59.534Z",
+  "lastSuccessfulGeneratedAt": "2026-10-14T04:05:56.842Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-10-14T04:01:56.008Z",
+    "generatedAt": "2026-10-14T04:10:52.227Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
-    "beforeMissing": 0,
+    "beforeMissing": 1,
     "afterMissing": 0,
     "api": {
       "checked": 0,
       "changed": 0
     },
     "fetch": {
-      "checked": 0,
-      "changed": 0
+      "checked": 1,
+      "changed": 1
     },
     "watch": {
       "checked": 0,
@@ -35,19 +35,19 @@
     "retryAfter": "",
     "blockedUntil": "",
     "rateLimitSource": "",
-    "youtubeRequestsStarted": 24
+    "youtubeRequestsStarted": 25
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-10-14T04:01:27.365Z",
+    "generatedAt": "2026-10-14T04:10:22.667Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 161806,
+    "elapsedMs": 114313,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 69,
-    "watchChecked": 84,
-    "watchChanged": 87,
+    "clearedUntrustedLiveViewers": 47,
+    "watchChecked": 58,
+    "watchChanged": 59,
     "channelChecked": 0,
     "channelChanged": 0
   },
@@ -72,7 +72,7 @@
       }
     ],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 87,
-    "processedAt": "2026-10-14T04:01:57.442Z"
+    "subscriberItemsAfterClean": 61,
+    "processedAt": "2026-10-14T04:10:53.314Z"
   }
 }
