@@ -1,15 +1,15 @@
 {
   "status": "success",
-  "attemptedAt": "2026-10-20T12:48:47.277Z",
-  "runId": "39423889428",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/39423889428",
+  "attemptedAt": "2026-10-20T12:58:04.068Z",
+  "runId": "39425259387",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/39425259387",
   "eventName": "workflow_dispatch",
-  "headSha": "40d618c99b1905b52f0d9d40db02654080d36ec9",
+  "headSha": "9d263546126485117c27448ceec860b734c2c149",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-10-20T12:39:40.364Z",
+  "lastSuccessfulGeneratedAt": "2026-10-20T12:49:51.995Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-10-20T12:47:41.062Z",
+    "generatedAt": "2026-10-20T12:57:15.562Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
     "beforeMissing": 4,
@@ -39,25 +39,40 @@
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-10-20T12:46:56.416Z",
+    "generatedAt": "2026-10-20T12:56:32.255Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 250469,
+    "elapsedMs": 223361,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 106,
+    "clearedUntrustedLiveViewers": 105,
     "watchChecked": 120,
-    "watchChanged": 122,
+    "watchChanged": 119,
     "channelChecked": 0,
     "channelChanged": 0
   },
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
     "clearedLiveDurationItems": 0,
-    "removedExplicitDirtyLiveItems": 0,
-    "removedExplicitDirtyLiveSamples": [],
+    "removedExplicitDirtyLiveItems": 2,
+    "removedExplicitDirtyLiveSamples": [
+      {
+        "videoId": "i3XR0k5Ff_k",
+        "title": "【#歌枠】テスト配信！ #vtuber #vsinger",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      },
+      {
+        "videoId": "i3XR0k5Ff_k",
+        "title": "【#歌枠】テスト配信！ #vtuber #vsinger",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      }
+    ],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 134,
-    "processedAt": "2026-10-20T12:47:52.415Z"
+    "subscriberItemsAfterClean": 133,
+    "processedAt": "2026-10-20T12:57:25.206Z"
   }
 }
