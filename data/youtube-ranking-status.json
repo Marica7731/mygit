@@ -1,29 +1,29 @@
 {
   "status": "success",
-  "attemptedAt": "2026-10-25T10:57:15.073Z",
-  "runId": "40186292273",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/40186292273",
+  "attemptedAt": "2026-10-25T11:07:54.465Z",
+  "runId": "40186949200",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/40186949200",
   "eventName": "workflow_dispatch",
-  "headSha": "4d3a34add234a08a1bd794b2995a973472cd8c7e",
+  "headSha": "d83f826ae7499989d09c1d5227b76fad855593f0",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-10-25T10:49:20.475Z",
+  "lastSuccessfulGeneratedAt": "2026-10-25T10:59:19.718Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-10-25T10:56:45.238Z",
+    "generatedAt": "2026-10-25T11:07:06.021Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
-    "beforeMissing": 3,
-    "afterMissing": 3,
+    "beforeMissing": 5,
+    "afterMissing": 5,
     "api": {
       "checked": 0,
       "changed": 0
     },
     "fetch": {
-      "checked": 3,
-      "changed": 3
+      "checked": 5,
+      "changed": 5
     },
     "watch": {
-      "checked": 3,
+      "checked": 5,
       "changed": 0
     },
     "oembed": {
@@ -35,19 +35,19 @@
     "retryAfter": "",
     "blockedUntil": "",
     "rateLimitSource": "",
-    "youtubeRequestsStarted": 30
+    "youtubeRequestsStarted": 34
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-10-25T10:56:06.126Z",
+    "generatedAt": "2026-10-25T11:06:19.151Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 219687,
+    "elapsedMs": 227473,
     "stoppedByRuntimeBudget": false,
     "clearedUntrustedLiveViewers": 105,
-    "watchChecked": 118,
-    "watchChanged": 118,
+    "watchChecked": 120,
+    "watchChanged": 108,
     "channelChecked": 0,
     "channelChanged": 0
   },
@@ -73,6 +73,6 @@
     ],
     "recoveredSubscriberItems": 0,
     "subscriberItemsAfterClean": 121,
-    "processedAt": "2026-10-25T10:56:46.226Z"
+    "processedAt": "2026-10-25T11:07:07.463Z"
   }
 }
