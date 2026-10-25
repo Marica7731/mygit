@@ -1,15 +1,15 @@
 {
   "status": "success",
-  "attemptedAt": "2026-10-25T17:36:18.818Z",
-  "runId": "40215727714",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/40215727714",
+  "attemptedAt": "2026-10-25T17:45:21.460Z",
+  "runId": "40217304650",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/40217304650",
   "eventName": "workflow_dispatch",
-  "headSha": "bb6ca4313b8f473092617d9a1bd91ac593c273d9",
+  "headSha": "ba9292b31bb017028597c06e9f9b25d4305e3096",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-10-25T17:28:09.279Z",
+  "lastSuccessfulGeneratedAt": "2026-10-25T17:37:28.387Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-10-25T17:35:40.283Z",
+    "generatedAt": "2026-10-25T17:44:45.551Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
     "beforeMissing": 4,
@@ -23,29 +23,29 @@
       "changed": 4
     },
     "watch": {
-      "checked": 4,
+      "checked": 0,
       "changed": 0
     },
     "oembed": {
-      "checked": 24,
-      "changed": 46,
+      "checked": 0,
+      "changed": 0,
       "failed": 0
     },
-    "rateLimited": false,
+    "rateLimited": true,
     "retryAfter": "",
     "blockedUntil": "",
-    "rateLimitSource": "",
-    "youtubeRequestsStarted": 32
+    "rateLimitSource": "browser navigation",
+    "youtubeRequestsStarted": 5
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-10-25T17:34:55.104Z",
+    "generatedAt": "2026-10-25T17:44:39.358Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 218283,
+    "elapsedMs": 244614,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 109,
+    "clearedUntrustedLiveViewers": 106,
     "watchChecked": 120,
     "watchChanged": 117,
     "channelChecked": 0,
@@ -73,6 +73,6 @@
     ],
     "recoveredSubscriberItems": 0,
     "subscriberItemsAfterClean": 124,
-    "processedAt": "2026-10-25T17:35:41.626Z"
+    "processedAt": "2026-10-25T17:44:46.047Z"
   }
 }
