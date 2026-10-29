@@ -1,76 +1,71 @@
 # AGENTS.md
 
-本文件是 `Marica7731/mygit`（线上站点 <https://ytb.culua.com/>）的协作约束。修改代码前先读完。
+这份文件告诉维护者怎样安全地更新 YouTube 排行项目。改代码前先读一遍。
 
 ## 项目入口
 
-- 默认分支：`main`，直接推送即部署到 GitHub Pages。
-- 事实源：`main` 的最新代码、`data/youtube-ranking-status.json`、GitHub Actions 实际运行结果。
-- `docs/youtube-ranking-handoff.md` 是早期历史文档，**部分状态已过期**，不要当作当前事实。
+- 仓库：`Marica7731/mygit`；网站：<https://ytb.culua.com/>。
+- `main` 分支会发布到 GitHub Pages。发布前先通过本文件里的检查。
+- 当前事实看 `main`、`data/youtube-ranking-status.json` 和 GitHub Actions 结果。
+- `docs/youtube-ranking-handoff.md` 是旧交接文档，里面有些内容已经过期。
 
-## 命令与超时
+## 不要破坏这些东西
 
-1. 每条命令都要设置合理 bounded timeout：普通检查约 10–30 秒，测试通常约 60 秒，远程探针约 30 秒。
-2. 不执行无界等待；轮询必须有明确的 deadline，到点后基于已取得的证据继续或报告。
+1. **默认保留全部历史快照。** 不要删除或批量重写 `data/*-snapshots/`。只有任务明确设置正整数 `YTB_RANKING_SNAPSHOT_DAYS` 时，才按天清理。检查脚本会验证这一点。
+2. **时间范围要算对。** `month` 是从一个月前的今天（台北时间 00:00）到现在；月末日期要正确夹取。`week` 是最近 168 小时，导航里要有“7天”。
+3. **正式周榜和月榜要用历史快照并集。** 用 `groups.month.items` 和已经检查过的 `data/ranking-union-cache.json`。缓存从滚动月的第一天开始，周榜也从这份并集中筛选。
+4. **缓存坏了就报错。** 不要悄悄改用当前抓取池；否则旧视频会消失，排行榜看起来却像正常。
+5. **不要截短正式榜单。** `rankingWindows.snapshotUnion.outputCap` 必须是 `null`。不要用 `.slice()` 给正式结果设上限。
+6. **同一视频只留一条。** 优先按 `videoId` 去重；没有 ID 时才用 URL 或标题、频道、关键词和发布时间组合判断。
+7. **筛选结果不能记在浏览器里。** 不要恢复 `ytb-ranking-time-filter-v1:*` 的 localStorage 行为。它会让月榜错误地只剩七天。
+8. **汇总数字从完整数据算。** 不要数页面当前显示的卡片。要保持“歌枠 + 弾き語り + 过滤”与 `__YTB_RANKING_TOTAL_ITEM_COUNT__` 相等。
 
-## 不可破坏的不变量
+## 改代码时
 
-1. **历史快照永不删除。**
-   - `scripts/archive-live-snapshot.js` 默认 `retentionPolicy=keep-all`。
-   - 只有显式把 `YTB_RANKING_SNAPSHOT_DAYS` 设成正整数才允许按天清理。
-   - 不要用 `rm`、`git rm` 或批量重写去清理 `data/*-snapshots/`。
-   - `scripts/verify-snapshot-retention.js` 会在每次 `npm run check` 中回归这一点。
-2. **`month` 必须是滚动月**（一个月前的今天 00:00 `Asia/Taipei` 至今，月末自动夹取），不是自然月或固定 30 天。
-3. **`week` 必须是滚动 168 小时**，并在导航里存在 `7天` tab。
-4. **正式 `week` / `month` 由历史快照并集去重生成，不设输出上限。**
-   - 候选源为当前 `groups.month.items` 加已验证的 `data/ranking-union-cache.json`；该缓存由四类历史快照并集生成，Actions sparse checkout 只取缓存与索引，不下载快照正文。
-   - 缓存/并集起点必须是滚动月起点（`rankingWindows.snapshotUnion.historyStart === rankingWindows.month.start`），7 天结果再从同一批并集中筛选，不能以 `weekStart` 为读取起点。缓存缺失或损坏时必须失败，不能静默退回当前抓取池。
-   - 按 `publishedTimestamp` 过滤后，以 `videoId` 为主键去重；缺失时回退 URL 或关键词/标题/频道/发布时间组合。
-   - `rankingWindows.snapshotUnion.outputCap` 必须为 `null`；不得对正式结果使用 `.slice()` 或其它数量截断。
-   - `sourceItemCount` 只表示原始抓取池大小，可以小于并集结果，不代表月榜上限。
-5. **发布时间筛选不持久化。** 不要恢复 `ytb-ranking-time-filter-v1:*` 的 localStorage 行为；残留会让月榜缩成 7 天并产生虚假“过滤”计数。
-6. **“过滤”汇总必须从数据集计算**，不能遍历分批渲染中的 DOM 卡片。不变量：`歌枠 + 弾き語り + 过滤 === __YTB_RANKING_TOTAL_ITEM_COUNT__`。
+- `assets/youtube-ranking.source.js` 是前端源文件。
+- `assets/youtube-ranking.chunk*.js` 和 `assets/youtube-ranking.js` 是生成文件，不要手改。
+- 改前端源文件后运行 `npm run build:frontend`。
+- `ranking-controls.js` 可以单独修改；改完要更新各 HTML 中的 `?v=` 版本号。
+- 新增榜单页面时，要同时接好：导航和 `PAGE_CONFIG`、HTML 页面、生成脚本、快照白名单、workflow 的提交清单和线上页面检查表。
 
-## 前端开发
+## 数据更新的固定顺序
 
-- `assets/youtube-ranking.source.js` 是前端核心应用的唯一可编辑源文件。
-- `assets/youtube-ranking.chunk*.js` 和 `assets/youtube-ranking.js` 都是生成物，**不要手改**。
-- 改完源文件必须执行 `npm run build:frontend`，否则 `npm run check` 会失败。
-- `ranking-controls.js` 是独立的控制层，可以单独编辑；改动后需同步刷新各 HTML 里的 `?v=` 版本号。
-- 新增页面组时要同时改：`assets/youtube-ranking.source.js`（`PAGE_CONFIG` + 导航）、`<group>.html`、`scripts/write-ranking-groups.js`、快照脚本的 group 白名单、workflow 的 `git add` 清单，以及 `scripts/verify-pages.js` 的页面表。
+不要调换这些步骤：
 
-## 数据管线顺序
+1. `scripts/update-youtube-ranking.js` 生成原始抓取数据。
+2. 更新指标、时长并规范数据格式。
+3. `scripts/validate-youtube-ranking.js` 检查原始抓取量。
+4. `scripts/apply-ranking-windows.js` 根据原始数据和并集缓存生成周榜、月榜，再更新缓存。
+5. `scripts/validate-ranking-windows.js` 检查时间范围、缓存信息、去重和无上限。
+6. 保存快照并检查快照，再写出榜单分组。
+7. 所有检查通过后才能提交数据。
 
-抓取 workflow 中的顺序不能随意调换：
+`apply-ranking-windows.js` 每次都要重新生成正式榜单。不能因为数据里已有 `rankingWindows.applied === true` 就提前结束。
 
-1. `scripts/update-youtube-ranking.js` — 产出原始抓取池。
-2. 指标 / 时长 / 规范化脚本。
-3. `scripts/validate-youtube-ranking.js` — **针对原始池**校验抓取量。
-4. `scripts/apply-ranking-windows.js` — 读取已验证的并集缓存与当前原始池，去重生成 `week` 和滚动月 `month`，并重建缓存。
-5. `scripts/validate-ranking-windows.js` — 窗口、并集元数据、无输出上限和去重唯一性门禁。
-6. `scripts/archive-live-snapshot.js` → `validate-live-snapshots.js` → `write-ranking-groups.js`。
-7. `npm run verify` — 发布门禁，通过后才提交。
+## 检查和发布
 
-`apply-ranking-windows.js` 每次都从当前原始池和 `data/ranking-union-cache.json` 重建正式窗口；旧数据的 `rankingWindows.applied === true` 不得让它提前返回。
-
-## 发布门禁
-
-提交前必须跑通：
+代码变更要通过：
 
 ```bash
 npm run check
 npm run verify:pages
-# 或等价于
+# 或运行包含这两项的完整检查
 npm run verify
 ```
 
-`npm run check` 覆盖：JS 语法、生成物与源文件同步、blocklist、页面/资源接线、快照并集单测、时间窗口与并集门禁、分组 JSON 一致性、快照不被删除。
-`npm run verify:pages` 用 Playwright 验证：旧 localStorage 时间筛选被清除、汇总数字稳定且自洽、7 天 tab 与滚动月窗口在真实页面上生效。
+- `npm run check` 检查代码、生成文件、榜单数据、快照和各项规则。
+- `npm run verify:pages` 检查真实页面里的七天/月榜、旧筛选状态和汇总数字。
+- `release-gate.yml` 是代码检查；数据更新 workflow 会再次检查；Pages 发布后还有线上检查。
+- 推送 `main` 会发布网站。看完 Actions 和线上页面后，才能说发布成功。
+- 使用现有检查就够了。不要加与这次改动无关的新审批步骤，挡住已经通过检查的正常发布。
 
-`.github/workflows/release-gate.yml` 是代码变更的门禁；`.github/workflows/youtube-ranking.yml` 提交数据前会再跑一次；`.github/workflows/youtube-ranking-live-verify.yml` 负责部署后线上验收。
+## 文件和项目保护
 
-## 提交范围
+- 只改完成任务需要的文件。
+- 不要删除或改名 `config/`、workflow、规则文件、历史快照或整个项目。
+- 不要重写 Git 历史、强推或删除分支。存储变大时先调查；历史重写必须得到这次任务中用户的明确同意。
+- 用户已经做过的改动不能丢。不要顺手整理无关数据或代码。
 
-- 不要顺手重构无关文件。
-- 不要修改与本次目标无关的历史数据或快照。
-- 用户已有改动不能回退。
+## 文档怎么写
+
+本文件只写长期有效的规则和入口。不要把一次运行的日志、时间、run id、提交 SHA、计数或临时故障写进来。长期结论写成简单规则；单次结果放在 Actions 或交接记录里。
