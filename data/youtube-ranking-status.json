@@ -1,15 +1,15 @@
 {
   "status": "success",
-  "attemptedAt": "2026-10-30T13:23:42.600Z",
-  "runId": "41061644526",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/41061644526",
+  "attemptedAt": "2026-10-30T13:34:06.710Z",
+  "runId": "41063042248",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/41063042248",
   "eventName": "workflow_dispatch",
-  "headSha": "2a9ce05005c3dcf37b62977ba6f89b49b3861c05",
+  "headSha": "c666231e23cc2662dceb80683066d1c7d91d4caf",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-10-30T13:15:35.243Z",
+  "lastSuccessfulGeneratedAt": "2026-10-30T13:25:35.052Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-10-30T13:22:59.985Z",
+    "generatedAt": "2026-10-30T13:33:15.691Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
     "beforeMissing": 1,
@@ -39,25 +39,40 @@
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-10-30T13:22:27.390Z",
+    "generatedAt": "2026-10-30T13:32:42.767Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 227403,
+    "elapsedMs": 237791,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 115,
+    "clearedUntrustedLiveViewers": 114,
     "watchChecked": 120,
-    "watchChanged": 116,
+    "watchChanged": 120,
     "channelChecked": 0,
     "channelChanged": 0
   },
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
     "clearedLiveDurationItems": 0,
-    "removedExplicitDirtyLiveItems": 0,
-    "removedExplicitDirtyLiveSamples": [],
+    "removedExplicitDirtyLiveItems": 2,
+    "removedExplicitDirtyLiveSamples": [
+      {
+        "videoId": "CQShbsCcBr4",
+        "title": "【 Karaoke #歌枠 】元プロが歌う24時間配信へようこそ🍊 #作業用BGM 【 #vtuber #vsinger 】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      },
+      {
+        "videoId": "CQShbsCcBr4",
+        "title": "【 Karaoke #歌枠 】元プロが歌う24時間配信へようこそ🍊 #作業用BGM 【 #vtuber #vsinger 】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      }
+    ],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 125,
-    "processedAt": "2026-10-30T13:23:01.582Z"
+    "subscriberItemsAfterClean": 123,
+    "processedAt": "2026-10-30T13:33:17.282Z"
   }
 }
