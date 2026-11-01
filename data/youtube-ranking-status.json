@@ -1,29 +1,29 @@
 {
   "status": "success",
-  "attemptedAt": "2026-11-01T04:11:24.315Z",
-  "runId": "41271561569",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/41271561569",
+  "attemptedAt": "2026-11-01T04:21:55.123Z",
+  "runId": "41272236740",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/41272236740",
   "eventName": "workflow_dispatch",
-  "headSha": "8bcbea2962ea484aac558b2bb4752510d4a29fb0",
+  "headSha": "b8b4851ba4ce22186c7cf1769df400ac47bdb933",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-11-01T04:04:03.751Z",
+  "lastSuccessfulGeneratedAt": "2026-11-01T04:14:04.840Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-11-01T04:10:53.276Z",
+    "generatedAt": "2026-11-01T04:21:06.632Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
-    "beforeMissing": 0,
-    "afterMissing": 0,
+    "beforeMissing": 3,
+    "afterMissing": 3,
     "api": {
       "checked": 0,
       "changed": 0
     },
     "fetch": {
-      "checked": 0,
-      "changed": 0
+      "checked": 3,
+      "changed": 3
     },
     "watch": {
-      "checked": 0,
+      "checked": 3,
       "changed": 0
     },
     "oembed": {
@@ -35,17 +35,17 @@
     "retryAfter": "",
     "blockedUntil": "",
     "rateLimitSource": "",
-    "youtubeRequestsStarted": 24
+    "youtubeRequestsStarted": 30
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-11-01T04:10:24.984Z",
+    "generatedAt": "2026-11-01T04:20:26.705Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 202809,
+    "elapsedMs": 213196,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 80,
+    "clearedUntrustedLiveViewers": 85,
     "watchChecked": 107,
     "watchChanged": 104,
     "channelChecked": 0,
@@ -72,7 +72,7 @@
       }
     ],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 106,
-    "processedAt": "2026-11-01T04:10:54.275Z"
+    "subscriberItemsAfterClean": 107,
+    "processedAt": "2026-11-01T04:21:08.068Z"
   }
 }
