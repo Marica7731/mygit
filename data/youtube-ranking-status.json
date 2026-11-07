@@ -1,15 +1,15 @@
 {
   "status": "success",
-  "attemptedAt": "2026-11-07T14:41:40.934Z",
-  "runId": "42382088250",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/42382088250",
+  "attemptedAt": "2026-11-07T14:51:35.364Z",
+  "runId": "42382867360",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/42382867360",
   "eventName": "workflow_dispatch",
-  "headSha": "85f0335d8c63a38da2267fdafcc487f534b7c978",
+  "headSha": "1cf9716e3a89effdffee99fbfc968c1effe8b97f",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-11-07T14:33:16.201Z",
+  "lastSuccessfulGeneratedAt": "2026-11-07T14:43:12.570Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-11-07T14:40:58.835Z",
+    "generatedAt": "2026-11-07T14:51:01.526Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
     "beforeMissing": 1,
@@ -28,7 +28,7 @@
     },
     "oembed": {
       "checked": 24,
-      "changed": 45,
+      "changed": 44,
       "failed": 0
     },
     "rateLimited": false,
@@ -39,13 +39,13 @@
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-11-07T14:40:26.171Z",
+    "generatedAt": "2026-11-07T14:50:29.263Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 234977,
+    "elapsedMs": 244475,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 108,
+    "clearedUntrustedLiveViewers": 115,
     "watchChecked": 120,
     "watchChanged": 119,
     "channelChecked": 0,
@@ -54,11 +54,18 @@
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
     "clearedLiveDurationItems": 0,
-    "removedExplicitDirtyLiveItems": 2,
+    "removedExplicitDirtyLiveItems": 4,
     "removedExplicitDirtyLiveSamples": [
       {
         "videoId": "BFD5YI6qHT0",
         "title": "【 Karaoke #歌枠 】元プロが歌う24時間配信へようこそ🍊 #作業用BGM 【 #vtuber #vsinger 】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      },
+      {
+        "videoId": "4G1qlmgaT0U",
+        "title": "【#歌枠】イベント前のワクワク歌枠！歌の質問も大歓迎です【ボイトレVTuber / みかん先生】",
         "channelName": "みかんとボーカルノート",
         "durationText": "",
         "durationSeconds": null
@@ -69,10 +76,17 @@
         "channelName": "みかんとボーカルノート",
         "durationText": "",
         "durationSeconds": null
+      },
+      {
+        "videoId": "4G1qlmgaT0U",
+        "title": "【#歌枠】イベント前のワクワク歌枠！歌の質問も大歓迎です【ボイトレVTuber / みかん先生】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
       }
     ],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 123,
-    "processedAt": "2026-11-07T14:41:00.204Z"
+    "subscriberItemsAfterClean": 126,
+    "processedAt": "2026-11-07T14:51:02.697Z"
   }
 }
