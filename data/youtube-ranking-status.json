@@ -1,15 +1,15 @@
 {
   "status": "success",
-  "attemptedAt": "2026-11-08T12:50:27.212Z",
-  "runId": "42481454464",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/42481454464",
+  "attemptedAt": "2026-11-08T13:00:22.175Z",
+  "runId": "42482219821",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/42482219821",
   "eventName": "workflow_dispatch",
-  "headSha": "79d383d54efa0529a5c767c2c80bb7a28c99e0d1",
+  "headSha": "6150b52f141ef75ebbdff23401f6f473fd350b6a",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-11-08T12:42:26.910Z",
+  "lastSuccessfulGeneratedAt": "2026-11-08T12:52:27.102Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-11-08T12:49:52.770Z",
+    "generatedAt": "2026-11-08T12:59:50.243Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
     "beforeMissing": 1,
@@ -28,7 +28,7 @@
     },
     "oembed": {
       "checked": 24,
-      "changed": 43,
+      "changed": 42,
       "failed": 0
     },
     "rateLimited": false,
@@ -39,26 +39,33 @@
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-11-08T12:49:20.609Z",
+    "generatedAt": "2026-11-08T12:59:17.955Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 222055,
+    "elapsedMs": 216946,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 111,
+    "clearedUntrustedLiveViewers": 105,
     "watchChecked": 120,
-    "watchChanged": 118,
+    "watchChanged": 117,
     "channelChecked": 0,
     "channelChanged": 0
   },
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
     "clearedLiveDurationItems": 0,
-    "removedExplicitDirtyLiveItems": 2,
+    "removedExplicitDirtyLiveItems": 4,
     "removedExplicitDirtyLiveSamples": [
       {
         "videoId": "BFD5YI6qHT0",
         "title": "【 Karaoke #歌枠 】元プロが歌う24時間配信へようこそ🍊 #作業用BGM 【 #vtuber #vsinger 】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      },
+      {
+        "videoId": "vKXrD4zLMVA",
+        "title": "【#歌枠】ゲリラです！！！アーカイブ残らないかも【ボイトレVTuber / みかん先生】",
         "channelName": "みかんとボーカルノート",
         "durationText": "",
         "durationSeconds": null
@@ -69,10 +76,17 @@
         "channelName": "みかんとボーカルノート",
         "durationText": "",
         "durationSeconds": null
+      },
+      {
+        "videoId": "vKXrD4zLMVA",
+        "title": "【#歌枠】ゲリラです！！！アーカイブ残らないかも【ボイトレVTuber / みかん先生】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
       }
     ],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 132,
-    "processedAt": "2026-11-08T12:49:53.952Z"
+    "subscriberItemsAfterClean": 130,
+    "processedAt": "2026-11-08T12:59:51.443Z"
   }
 }
