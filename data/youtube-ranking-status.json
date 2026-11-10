@@ -1,29 +1,29 @@
 {
   "status": "success",
-  "attemptedAt": "2026-11-10T14:16:03.347Z",
-  "runId": "42830934763",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/42830934763",
+  "attemptedAt": "2026-11-10T14:26:18.521Z",
+  "runId": "42832589723",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/42832589723",
   "eventName": "workflow_dispatch",
-  "headSha": "e08a22b7473dc6f8034b096d48296c03654e89a3",
+  "headSha": "42e9bd3ee544f613059b29299c00fe6fad4c0d44",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-11-10T14:08:09.326Z",
+  "lastSuccessfulGeneratedAt": "2026-11-10T14:18:08.882Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-11-10T14:15:30.777Z",
+    "generatedAt": "2026-11-10T14:25:43.009Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
-    "beforeMissing": 3,
-    "afterMissing": 3,
+    "beforeMissing": 1,
+    "afterMissing": 1,
     "api": {
       "checked": 0,
       "changed": 0
     },
     "fetch": {
-      "checked": 3,
-      "changed": 3
+      "checked": 1,
+      "changed": 1
     },
     "watch": {
-      "checked": 3,
+      "checked": 1,
       "changed": 0
     },
     "oembed": {
@@ -35,29 +35,44 @@
     "retryAfter": "",
     "blockedUntil": "",
     "rateLimitSource": "",
-    "youtubeRequestsStarted": 30
+    "youtubeRequestsStarted": 26
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-11-10T14:14:50.466Z",
+    "generatedAt": "2026-11-10T14:25:10.552Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 231247,
+    "elapsedMs": 235410,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 121,
+    "clearedUntrustedLiveViewers": 123,
     "watchChecked": 120,
-    "watchChanged": 123,
+    "watchChanged": 119,
     "channelChecked": 0,
     "channelChanged": 0
   },
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
     "clearedLiveDurationItems": 0,
-    "removedExplicitDirtyLiveItems": 0,
-    "removedExplicitDirtyLiveSamples": [],
+    "removedExplicitDirtyLiveItems": 2,
+    "removedExplicitDirtyLiveSamples": [
+      {
+        "videoId": "kXd954YABos",
+        "title": "【 Karaoke #歌枠 】元プロが歌う24時間配信へようこそ🍊 #作業用BGM 【 #vtuber #vsinger 】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      },
+      {
+        "videoId": "kXd954YABos",
+        "title": "【 Karaoke #歌枠 】元プロが歌う24時間配信へようこそ🍊 #作業用BGM 【 #vtuber #vsinger 】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      }
+    ],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 127,
-    "processedAt": "2026-11-10T14:15:31.999Z"
+    "subscriberItemsAfterClean": 125,
+    "processedAt": "2026-11-10T14:25:44.276Z"
   }
 }
