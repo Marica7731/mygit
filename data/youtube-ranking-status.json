@@ -1,19 +1,19 @@
 {
-  "status": "failed",
-  "attemptedAt": "2026-11-11T16:39:21.656Z",
-  "runId": "43058754911",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/43058754911",
+  "status": "success",
+  "attemptedAt": "2026-11-11T17:01:40.670Z",
+  "runId": "43062493551",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/43062493551",
   "eventName": "workflow_dispatch",
-  "headSha": "7ca26bba2d12f1fcc69f4928a4176dc40ebe68ea",
-  "message": "Install Playwright Chromium failed",
-  "failedStep": "Install Playwright Chromium",
-  "lastSuccessfulGeneratedAt": "2026-11-11T13:42:19.697Z",
+  "headSha": "6af4451d81ec02a21f60997aefa198aafa8a2038",
+  "message": "ranking update passed",
+  "failedStep": "",
+  "lastSuccessfulGeneratedAt": "2026-11-11T16:55:51.898Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-11-11T13:49:52.211Z",
+    "generatedAt": "2026-11-11T17:01:07.528Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
-    "beforeMissing": 0,
-    "afterMissing": 0,
+    "beforeMissing": 1,
+    "afterMissing": 1,
     "api": {
       "checked": 0,
       "changed": 0
@@ -27,62 +27,37 @@
       "changed": 0
     },
     "oembed": {
-      "checked": 24,
-      "changed": 41,
+      "checked": 0,
+      "changed": 0,
       "failed": 0
     },
-    "rateLimited": false,
+    "rateLimited": true,
     "retryAfter": "",
     "blockedUntil": "",
-    "rateLimitSource": "",
-    "youtubeRequestsStarted": 24
+    "rateLimitSource": "watch HTML",
+    "youtubeRequestsStarted": 1
   },
-  "failureDiagnostics": {
-    "rateLimited": false,
-    "rateLimitSource": "",
-    "retryAfter": "",
-    "blockedUntil": "",
-    "youtubeRequestsStarted": 24,
-    "candidateGeneratedAt": "2026-11-11T13:42:19.697Z",
-    "todayVideos": 509,
-    "todayWithViews": 509,
-    "todayMissingViews": 0
-  },
+  "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-11-11T13:49:23.603Z",
+    "generatedAt": "2026-11-11T17:01:06.234Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 237251,
+    "elapsedMs": 125645,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 122,
-    "watchChecked": 120,
-    "watchChanged": 122,
+    "clearedUntrustedLiveViewers": 95,
+    "watchChecked": 115,
+    "watchChanged": 0,
     "channelChecked": 0,
     "channelChanged": 0
   },
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
     "clearedLiveDurationItems": 0,
-    "removedExplicitDirtyLiveItems": 2,
-    "removedExplicitDirtyLiveSamples": [
-      {
-        "videoId": "oU2ruP7Q6xw",
-        "title": "【#歌枠】いよいよだコール練習だ！歌の質問も大歓迎！【ボイトレVTuber / みかん先生】",
-        "channelName": "みかんとボーカルノート",
-        "durationText": "",
-        "durationSeconds": null
-      },
-      {
-        "videoId": "oU2ruP7Q6xw",
-        "title": "【#歌枠】いよいよだコール練習だ！歌の質問も大歓迎！【ボイトレVTuber / みかん先生】",
-        "channelName": "みかんとボーカルノート",
-        "durationText": "",
-        "durationSeconds": null
-      }
-    ],
+    "removedExplicitDirtyLiveItems": 0,
+    "removedExplicitDirtyLiveSamples": [],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 137,
-    "processedAt": "2026-11-11T13:49:53.515Z"
+    "subscriberItemsAfterClean": 20,
+    "processedAt": "2026-11-11T17:01:08.064Z"
   }
 }
