@@ -168,7 +168,9 @@ jobs:
         run: npm ci
 
       - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+        run: |
+          echo 'Acquire::Retries "3";' | sudo tee /etc/apt/apt.conf.d/80-retries >/dev/null
+          npx playwright install --with-deps chromium
 
       - name: Generate regional VTuber blocklist assets
         run: npm run blocklist:generate
