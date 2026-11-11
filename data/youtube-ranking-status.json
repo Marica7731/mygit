@@ -1,15 +1,15 @@
 {
   "status": "success",
-  "attemptedAt": "2026-11-11T11:59:30.182Z",
-  "runId": "43015270777",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/43015270777",
+  "attemptedAt": "2026-11-11T12:10:40.156Z",
+  "runId": "43016636227",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/43016636227",
   "eventName": "workflow_dispatch",
-  "headSha": "758f83d6e4a8e1891e5823fff0072d6b8d0bcd40",
+  "headSha": "46ac1684d40b95e6f6baf83fdf60d1bac5d1fdf9",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-11-11T11:51:10.406Z",
+  "lastSuccessfulGeneratedAt": "2026-11-11T12:02:28.504Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-11-11T11:58:57.381Z",
+    "generatedAt": "2026-11-11T12:10:07.553Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
     "beforeMissing": 1,
@@ -28,7 +28,7 @@
     },
     "oembed": {
       "checked": 24,
-      "changed": 38,
+      "changed": 36,
       "failed": 0
     },
     "rateLimited": false,
@@ -39,25 +39,40 @@
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-11-11T11:58:24.838Z",
+    "generatedAt": "2026-11-11T12:09:35.933Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 246088,
+    "elapsedMs": 241066,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 123,
+    "clearedUntrustedLiveViewers": 124,
     "watchChecked": 120,
-    "watchChanged": 119,
+    "watchChanged": 124,
     "channelChecked": 0,
     "channelChanged": 0
   },
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
     "clearedLiveDurationItems": 0,
-    "removedExplicitDirtyLiveItems": 0,
-    "removedExplicitDirtyLiveSamples": [],
+    "removedExplicitDirtyLiveItems": 2,
+    "removedExplicitDirtyLiveSamples": [
+      {
+        "videoId": "oU2ruP7Q6xw",
+        "title": "【#歌枠】いよいよだコール練習だ！歌の質問も大歓迎！【ボイトレVTuber / みかん先生】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      },
+      {
+        "videoId": "oU2ruP7Q6xw",
+        "title": "【#歌枠】いよいよだコール練習だ！歌の質問も大歓迎！【ボイトレVTuber / みかん先生】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      }
+    ],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 131,
-    "processedAt": "2026-11-11T11:58:58.667Z"
+    "subscriberItemsAfterClean": 132,
+    "processedAt": "2026-11-11T12:10:08.796Z"
   }
 }
