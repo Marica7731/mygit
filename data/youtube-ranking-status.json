@@ -1,55 +1,55 @@
 {
   "status": "success",
-  "attemptedAt": "2026-11-14T03:35:48.294Z",
-  "runId": "43551733339",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/43551733339",
+  "attemptedAt": "2026-11-14T03:45:27.635Z",
+  "runId": "43552596797",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/43552596797",
   "eventName": "workflow_dispatch",
-  "headSha": "89358d07e3c55c02d808db676544c62a6e50818d",
+  "headSha": "b0acffe0b3464da7544a3310086974416d8345d8",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-11-14T03:28:05.228Z",
+  "lastSuccessfulGeneratedAt": "2026-11-14T03:38:01.192Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-11-14T03:35:27.378Z",
+    "generatedAt": "2026-11-14T03:45:02.542Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
-    "beforeMissing": 1,
-    "afterMissing": 1,
+    "beforeMissing": 0,
+    "afterMissing": 0,
     "api": {
       "checked": 0,
       "changed": 0
     },
     "fetch": {
-      "checked": 1,
-      "changed": 1
+      "checked": 0,
+      "changed": 0
     },
     "watch": {
-      "checked": 1,
+      "checked": 0,
       "changed": 0
     },
     "oembed": {
       "checked": 23,
-      "changed": 39,
+      "changed": 37,
       "failed": 1
     },
     "rateLimited": false,
     "retryAfter": "",
     "blockedUntil": "",
     "rateLimitSource": "",
-    "youtubeRequestsStarted": 26
+    "youtubeRequestsStarted": 24
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-11-14T03:34:55.455Z",
+    "generatedAt": "2026-11-14T03:44:34.155Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 226102,
+    "elapsedMs": 221774,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 91,
-    "watchChecked": 110,
-    "watchChanged": 113,
-    "channelChecked": 0,
-    "channelChanged": 0
+    "clearedUntrustedLiveViewers": 89,
+    "watchChecked": 109,
+    "watchChanged": 109,
+    "channelChecked": 1,
+    "channelChanged": 1
   },
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
@@ -57,7 +57,7 @@
     "removedExplicitDirtyLiveItems": 0,
     "removedExplicitDirtyLiveSamples": [],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 115,
-    "processedAt": "2026-11-14T03:35:28.231Z"
+    "subscriberItemsAfterClean": 114,
+    "processedAt": "2026-11-14T03:45:03.552Z"
   }
 }
