@@ -1,15 +1,15 @@
 {
   "status": "success",
-  "attemptedAt": "2026-11-15T12:22:38.315Z",
-  "runId": "43712817141",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/43712817141",
+  "attemptedAt": "2026-11-15T12:33:07.511Z",
+  "runId": "43713672600",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/43713672600",
   "eventName": "workflow_dispatch",
-  "headSha": "2a71e78e83aa095650e523b6fce0a311bef4056d",
+  "headSha": "1783edf1079489c502672aa629131917e649098c",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-11-15T12:14:56.899Z",
+  "lastSuccessfulGeneratedAt": "2026-11-15T12:24:56.883Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-11-15T12:22:17.204Z",
+    "generatedAt": "2026-11-15T12:32:41.299Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
     "beforeMissing": 0,
@@ -28,7 +28,7 @@
     },
     "oembed": {
       "checked": 24,
-      "changed": 42,
+      "changed": 43,
       "failed": 0
     },
     "rateLimited": false,
@@ -39,25 +39,40 @@
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-11-15T12:21:49.066Z",
+    "generatedAt": "2026-11-15T12:32:12.923Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 241712,
+    "elapsedMs": 240286,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 109,
+    "clearedUntrustedLiveViewers": 111,
     "watchChecked": 120,
-    "watchChanged": 120,
+    "watchChanged": 104,
     "channelChecked": 0,
     "channelChanged": 0
   },
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
     "clearedLiveDurationItems": 0,
-    "removedExplicitDirtyLiveItems": 0,
-    "removedExplicitDirtyLiveSamples": [],
+    "removedExplicitDirtyLiveItems": 2,
+    "removedExplicitDirtyLiveSamples": [
+      {
+        "videoId": "vgsOmadhuFM",
+        "title": "【歌枠ではありません】イベント終了後のアフターパーティー！！☺️🎉【ボイトレVTuber / みかん先生】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      },
+      {
+        "videoId": "vgsOmadhuFM",
+        "title": "【歌枠ではありません】イベント終了後のアフターパーティー！！☺️🎉【ボイトレVTuber / みかん先生】",
+        "channelName": "みかんとボーカルノート",
+        "durationText": "",
+        "durationSeconds": null
+      }
+    ],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 126,
-    "processedAt": "2026-11-15T12:22:17.964Z"
+    "subscriberItemsAfterClean": 125,
+    "processedAt": "2026-11-15T12:32:42.350Z"
   }
 }
