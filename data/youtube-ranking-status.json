@@ -1,29 +1,29 @@
 {
   "status": "success",
-  "attemptedAt": "2026-11-15T15:03:26.747Z",
-  "runId": "43726941392",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/43726941392",
+  "attemptedAt": "2026-11-15T15:13:16.199Z",
+  "runId": "43727863230",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/43727863230",
   "eventName": "workflow_dispatch",
-  "headSha": "4af67a46abd57709cc5c51729b904c11d6b292ea",
+  "headSha": "ff7a4e9b863bbde639dd6fa2dcc904f1b1153857",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-11-15T14:55:23.000Z",
+  "lastSuccessfulGeneratedAt": "2026-11-15T15:05:31.220Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-11-15T15:03:06.910Z",
+    "generatedAt": "2026-11-15T15:12:56.121Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
-    "beforeMissing": 1,
-    "afterMissing": 1,
+    "beforeMissing": 0,
+    "afterMissing": 0,
     "api": {
       "checked": 0,
       "changed": 0
     },
     "fetch": {
-      "checked": 1,
-      "changed": 1
+      "checked": 0,
+      "changed": 0
     },
     "watch": {
-      "checked": 1,
+      "checked": 0,
       "changed": 0
     },
     "oembed": {
@@ -35,17 +35,17 @@
     "retryAfter": "",
     "blockedUntil": "",
     "rateLimitSource": "",
-    "youtubeRequestsStarted": 26
+    "youtubeRequestsStarted": 24
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-11-15T15:02:35.110Z",
+    "generatedAt": "2026-11-15T15:12:27.907Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 254104,
+    "elapsedMs": 231716,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 103,
+    "clearedUntrustedLiveViewers": 116,
     "watchChecked": 120,
     "watchChanged": 123,
     "channelChecked": 0,
@@ -54,25 +54,10 @@
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
     "clearedLiveDurationItems": 0,
-    "removedExplicitDirtyLiveItems": 2,
-    "removedExplicitDirtyLiveSamples": [
-      {
-        "videoId": "vgsOmadhuFM",
-        "title": "【歌枠ではありません】イベント終了後のアフターパーティー！！☺️🎉【ボイトレVTuber / みかん先生】",
-        "channelName": "みかんとボーカルノート",
-        "durationText": "",
-        "durationSeconds": null
-      },
-      {
-        "videoId": "vgsOmadhuFM",
-        "title": "【歌枠ではありません】イベント終了後のアフターパーティー！！☺️🎉【ボイトレVTuber / みかん先生】",
-        "channelName": "みかんとボーカルノート",
-        "durationText": "",
-        "durationSeconds": null
-      }
-    ],
+    "removedExplicitDirtyLiveItems": 0,
+    "removedExplicitDirtyLiveSamples": [],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 124,
-    "processedAt": "2026-11-15T15:03:07.714Z"
+    "subscriberItemsAfterClean": 134,
+    "processedAt": "2026-11-15T15:12:56.976Z"
   }
 }
