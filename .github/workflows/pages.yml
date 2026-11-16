@@ -14,12 +14,14 @@ permissions:
 
 concurrency:
   group: youtube-ranking-pages-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      should_deploy: ${{ steps.freshness.outputs.should_deploy }}
     steps:
       - name: Checkout publish files only
         uses: actions/checkout@v4
@@ -50,7 +52,21 @@ jobs:
             /.nojekyll
           sparse-checkout-cone-mode: false
 
+      - name: Check Pages commit matches main
+        id: freshness
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+          if [[ "$GITHUB_SHA" == "$latest_sha" ]]; then
+            echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping stale Pages commit $GITHUB_SHA; main now points to $latest_sha."
+          fi
+
       - name: Validate bounded publish tree
+        if: steps.freshness.outputs.should_deploy == 'true'
         run: |
           set -euo pipefail
           for path in \
@@ -81,15 +97,18 @@ jobs:
           printf 'Publish tree validated; historical snapshot payloads=%s.\n' "$payload_count"
 
       - name: Configure GitHub Pages
+        if: steps.freshness.outputs.should_deploy == 'true'
         uses: actions/configure-pages@v5
 
       - name: Upload bounded Pages artifact
+        if: steps.freshness.outputs.should_deploy == 'true'
         uses: actions/upload-pages-artifact@v4
         with:
           path: .
           retention-days: 1
 
   deploy:
+    if: needs.build.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: build
@@ -97,11 +116,26 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Check Pages commit is still current
+        id: publish_freshness
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+          if [[ "$GITHUB_SHA" == "$latest_sha" ]]; then
+            echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping stale Pages commit $GITHUB_SHA; main now points to $latest_sha."
+          fi
+
       - name: Deploy to GitHub Pages
+        if: steps.publish_freshness.outputs.should_deploy == 'true'
         id: deployment
         uses: actions/deploy-pages@v4
 
       - name: Dispatch live verification
+        if: steps.publish_freshness.outputs.should_deploy == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
