@@ -91,6 +91,28 @@ jobs:
               completedAt: deployed.updated_at, url: deployed.html_url
             }));
 
+            const latestMain = JSON.parse(execFileSync(
+              'gh',
+              ['api', '--method', 'GET', `repos/${repo}/commits/main`],
+              { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
+            ));
+            if (deployed.head_sha !== latestMain.sha) {
+              throw new Error(`Pages deployment is stale: deployed ${deployed.head_sha}, main is ${latestMain.sha}`);
+            }
+
+            const expectedBase = `https://raw.githubusercontent.com/${repo}/${deployed.head_sha}`;
+            const [expectedRankingResponse, expectedStatusResponse] = await Promise.all([
+              fetch(`${expectedBase}/data/youtube-ranking.json`, { signal: AbortSignal.timeout(20000) }),
+              fetch(`${expectedBase}/data/youtube-ranking-status.json`, { signal: AbortSignal.timeout(20000) }),
+            ]);
+            if (!expectedRankingResponse.ok || !expectedStatusResponse.ok) {
+              throw new Error(`Could not read ranking evidence from deployed commit ${deployed.head_sha}`);
+            }
+            const [expectedRanking, expectedStatus] = await Promise.all([
+              expectedRankingResponse.json(),
+              expectedStatusResponse.json(),
+            ]);
+
             const paths = [
               '/today.html', '/month.html', '/week.html',
               '/data/youtube-ranking.json', '/data/youtube-ranking-status.json',
@@ -125,17 +147,30 @@ jobs:
             const validViews = today.filter((item) =>
               item.statusType !== 'live' && item.statusType !== 'upcoming' && Number(item.viewCount) > 0).length;
             const evidence = {
-              deployedSha: deployed.head_sha, generatedAt: ranking.generatedAt,
+              deployedSha: deployed.head_sha, latestMainSha: latestMain.sha,
+              generatedAt: ranking.generatedAt, expectedGeneratedAt: expectedRanking.generatedAt,
               todayCount: today.length, todayWithViews: validViews,
               status: status.status, attemptedAt: status.attemptedAt,
+              expectedAttemptedAt: expectedStatus.attemptedAt,
               lastSuccessfulGeneratedAt: status.lastSuccessfulGeneratedAt,
-              lastUpdateRunId: status.runId, failureMessage: status.message,
+              lastUpdateRunId: status.runId, expectedRunId: expectedStatus.runId,
+              failureMessage: status.message,
               htmlHasTodayGroup: /data-source-group="today"/.test(html),
               htmlHasAppRoot: /id="app"/.test(html)
             };
             console.log('[online] RANKING EVIDENCE ' + JSON.stringify(evidence));
             if (!evidence.htmlHasTodayGroup || !evidence.htmlHasAppRoot) throw new Error('Live today.html markers missing');
             if (!Number.isFinite(Date.parse(ranking.generatedAt))) throw new Error('Missing valid ranking generatedAt');
+            if (ranking.generatedAt !== expectedRanking.generatedAt) {
+              throw new Error(`Live ranking is stale: expected ${expectedRanking.generatedAt} from deployed commit, got ${ranking.generatedAt}`);
+            }
+            if (
+              status.attemptedAt !== expectedStatus.attemptedAt ||
+              status.runId !== expectedStatus.runId ||
+              status.status !== expectedStatus.status
+            ) {
+              throw new Error(`Live ranking status does not match deployed commit ${deployed.head_sha}`);
+            }
             if (Date.parse(ranking.generatedAt) <= Date.parse('2026-09-25T15:47:44.067Z'))
               throw new Error('Ranking generatedAt has not advanced from the stale production snapshot');
             if (status.status !== 'success') throw new Error('Online ranking status is not success');
