@@ -1,53 +1,53 @@
 {
   "status": "success",
-  "attemptedAt": "2026-11-17T06:10:48.703Z",
-  "runId": "44028623093",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/44028623093",
+  "attemptedAt": "2026-11-17T06:22:57.451Z",
+  "runId": "44029855021",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/44029855021",
   "eventName": "workflow_dispatch",
-  "headSha": "ecc212d809b561af4009033f6222b6ecc4b1552e",
+  "headSha": "75c7f3ff2d5ea0d4f7f8a5f4d90f1b22a58dc6b0",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-11-17T06:06:12.412Z",
+  "lastSuccessfulGeneratedAt": "2026-11-17T06:15:54.038Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-11-17T06:10:26.612Z",
+    "generatedAt": "2026-11-17T06:22:28.001Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
-    "beforeMissing": 1,
-    "afterMissing": 1,
+    "beforeMissing": 3,
+    "afterMissing": 3,
     "api": {
       "checked": 0,
       "changed": 0
     },
     "fetch": {
-      "checked": 0,
-      "changed": 0
+      "checked": 3,
+      "changed": 3
     },
     "watch": {
-      "checked": 0,
+      "checked": 3,
       "changed": 0
     },
     "oembed": {
-      "checked": 0,
-      "changed": 0,
+      "checked": 24,
+      "changed": 40,
       "failed": 0
     },
-    "rateLimited": true,
+    "rateLimited": false,
     "retryAfter": "",
     "blockedUntil": "",
-    "rateLimitSource": "watch HTML",
-    "youtubeRequestsStarted": 1
+    "rateLimitSource": "",
+    "youtubeRequestsStarted": 30
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-11-17T06:10:25.580Z",
+    "generatedAt": "2026-11-17T06:21:47.779Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 91730,
+    "elapsedMs": 175516,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 71,
-    "watchChecked": 94,
-    "watchChanged": 0,
+    "clearedUntrustedLiveViewers": 72,
+    "watchChecked": 92,
+    "watchChanged": 91,
     "channelChecked": 0,
     "channelChanged": 0
   },
@@ -57,7 +57,7 @@
     "removedExplicitDirtyLiveItems": 0,
     "removedExplicitDirtyLiveSamples": [],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 86,
-    "processedAt": "2026-11-17T06:10:26.963Z"
+    "subscriberItemsAfterClean": 95,
+    "processedAt": "2026-11-17T06:22:29.134Z"
   }
 }
