@@ -1,63 +1,53 @@
 {
-  "status": "failed",
-  "attemptedAt": "2026-11-17T07:49:18.046Z",
-  "runId": "44040541673",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/44040541673",
+  "status": "success",
+  "attemptedAt": "2026-11-17T08:09:36.813Z",
+  "runId": "44043280811",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/44043280811",
   "eventName": "workflow_dispatch",
-  "headSha": "2f7d63577ed86e95dda91ced43995d7fe09c1014",
-  "message": "Validate ranking data after retry failed",
-  "failedStep": "Validate ranking data after retry",
-  "lastSuccessfulGeneratedAt": "2026-11-17T07:31:02.630Z",
+  "headSha": "458fe14bdfd4ae60d33bf659888f21ef96a817c0",
+  "message": "ranking update passed",
+  "failedStep": "",
+  "lastSuccessfulGeneratedAt": "2026-11-17T08:02:19.860Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-11-17T07:49:14.412Z",
+    "generatedAt": "2026-11-17T08:09:11.068Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
-    "beforeMissing": 0,
-    "afterMissing": 0,
+    "beforeMissing": 2,
+    "afterMissing": 2,
     "api": {
       "checked": 0,
       "changed": 0
     },
     "fetch": {
-      "checked": 0,
-      "changed": 0
+      "checked": 2,
+      "changed": 2
     },
     "watch": {
-      "checked": 0,
+      "checked": 2,
       "changed": 0
     },
     "oembed": {
-      "checked": 0,
-      "changed": 0,
+      "checked": 24,
+      "changed": 38,
       "failed": 0
     },
     "rateLimited": false,
     "retryAfter": "",
     "blockedUntil": "",
     "rateLimitSource": "",
-    "youtubeRequestsStarted": 0
+    "youtubeRequestsStarted": 28
   },
-  "failureDiagnostics": {
-    "rateLimited": false,
-    "rateLimitSource": "",
-    "retryAfter": "",
-    "blockedUntil": "",
-    "youtubeRequestsStarted": 0,
-    "candidateGeneratedAt": "2026-11-17T07:44:48.998Z",
-    "todayVideos": 0,
-    "todayWithViews": 0,
-    "todayMissingViews": 0
-  },
+  "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-11-17T07:36:49.157Z",
+    "generatedAt": "2026-11-17T08:08:35.546Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 172978,
+    "elapsedMs": 201282,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 72,
-    "watchChecked": 92,
-    "watchChanged": 88,
+    "clearedUntrustedLiveViewers": 84,
+    "watchChecked": 106,
+    "watchChanged": 104,
     "channelChecked": 0,
     "channelChanged": 0
   },
@@ -67,7 +57,7 @@
     "removedExplicitDirtyLiveItems": 0,
     "removedExplicitDirtyLiveSamples": [],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 92,
-    "processedAt": "2026-11-17T07:37:24.729Z"
+    "subscriberItemsAfterClean": 107,
+    "processedAt": "2026-11-17T08:09:12.075Z"
   }
 }
