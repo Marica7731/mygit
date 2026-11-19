@@ -1,7 +1,7 @@
 (function () {
   ready(() => {
     repair();
-    [500, 1500, 3500, 7000, 12000].forEach((delay) => setTimeout(repair, delay));
+    window.ytbRankingData.onCardsChanged(scheduleRepair);
     window.addEventListener("scroll", scheduleRepair, { passive: true });
     window.addEventListener("resize", scheduleRepair, { passive: true });
   });
@@ -92,6 +92,8 @@
   }
 
   function isNearViewport(element) {
+    const card = element.closest(".video-card");
+    if (card?.hidden || card?.matches("[data-page-hidden], [data-time-hidden], [data-view-hidden]")) return false;
     const rect = element.getBoundingClientRect();
     const margin = Math.max(900, window.innerHeight || 800);
     return rect.bottom >= -margin && rect.top <= (window.innerHeight || 800) + margin;

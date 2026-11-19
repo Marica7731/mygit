@@ -5,9 +5,8 @@
 
   ready(() => {
     installStyle();
-    observeCardChanges();
-    fetch(`data/youtube-ranking.json?corner=${Date.now()}`, { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
+    window.ytbRankingData.onCardsChanged(scheduleRefresh);
+    window.ytbRankingData.load()
       .then((data) => {
         const rows = data?.groups?.[GROUP]?.items || [];
         byId = new Map(rows.filter((item) => item.videoId).map((item) => [item.videoId, item]));
@@ -16,7 +15,6 @@
       })
       .catch(() => {});
     refresh();
-    [250, 800, 1600, 3200, 6500, 11000].forEach((delay) => setTimeout(refresh, delay));
     document.addEventListener("click", scheduleRefresh, true);
     document.addEventListener("change", scheduleRefresh, true);
     document.addEventListener("input", scheduleRefresh, true);
@@ -25,35 +23,12 @@
   });
 
   let refreshTimer = 0;
+  let trailingTimer = 0;
   function scheduleRefresh() {
     clearTimeout(refreshTimer);
     refreshTimer = setTimeout(refresh, 180);
-    setTimeout(refresh, 700);
-  }
-
-  function observeCardChanges() {
-    const root = document.getElementById("app") || document.body;
-    if (!root) return;
-    const observer = new MutationObserver((mutations) => {
-      if (mutations.some(shouldRefreshForMutation)) scheduleRefresh();
-    });
-    observer.observe(root, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["class", "hidden", "style", "data-page-hidden", "data-time-hidden", "data-view-hidden"],
-    });
-  }
-
-  function shouldRefreshForMutation(mutation) {
-    if (mutation.type === "childList") {
-      return Array.from(mutation.addedNodes).some((node) => {
-        if (node.nodeType !== Node.ELEMENT_NODE) return false;
-        return node.matches?.(".video-card,.cards,#ranking-sections") || node.querySelector?.(".video-card");
-      });
-    }
-    const target = mutation.target;
-    return target?.classList?.contains("video-card") || target?.closest?.(".video-card,.cards,#ranking-sections");
+    clearTimeout(trailingTimer);
+    trailingTimer = setTimeout(refresh, 700);
   }
 
   function refresh() {

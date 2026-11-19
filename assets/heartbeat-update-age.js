@@ -12,8 +12,7 @@
 
   function loadData() {
     Promise.all([
-      fetch("data/youtube-ranking.json")
-        .then((response) => (response.ok ? response.json() : null))
+      window.ytbRankingData.load()
         .catch(() => null),
       fetch(`data/youtube-ranking-status.json?ts=${Date.now()}`)
         .then((response) => (response.ok ? response.json() : null))

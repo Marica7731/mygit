@@ -1,7 +1,5 @@
 (function () {
   const STORAGE_PREFIX = "ytb-ranking-state-v1:";
-  const DEFAULT_TITLE_TERMS = ["歌枠", "弾き語"];
-  const KOREAN_TEXT_PATTERN = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/;
   const DEFAULT_TITLE_DISABLED_PREFIX = "ytb-ranking-default-title-filter-disabled-v1:";
   const VALID_LAYOUTS = new Set(["auto", "two", "three"]);
   const LAYOUT_LABELS = {
@@ -10,14 +8,11 @@
     three: "3列",
   };
 
-  const nativeFetch = window.fetch.bind(window);
   let filterPanelOpen = false;
-  let cardObserver = null;
   let rankingItemsByVideoId = new Map();
 
   setBodyLayout(getLayoutMode());
 
-  patchRankingFetch();
   document.addEventListener("click", handleEarlyClick, true);
   document.addEventListener("error", handleThumbnailError, true);
   document.addEventListener("error", handleAvatarError, true);
@@ -34,7 +29,7 @@
     setFilterPanel(false);
     loadRankingData().then(enhanceCards).catch(() => {});
     enhanceCards();
-    observeCards();
+    window.ytbRankingData.onCardsChanged(scheduleEnhanceCards);
   }
 
   function handleEarlyClick(event) {
@@ -163,60 +158,14 @@
     return document.body.dataset.sourceGroup || "live";
   }
 
-  function patchRankingFetch() {
-    window.fetch = async (input, init) => {
-      const response = await nativeFetch(input, init);
-      const url = typeof input === "string" ? input : input?.url || "";
-      if (!isDefaultTitleFilterActive() || !url.includes("data/youtube-ranking.json")) {
-        return response;
-      }
-
-      try {
-        const data = await response.clone().json();
-        const filtered = filterRankingDataByTitle(data);
-        return new Response(JSON.stringify(filtered), {
-          status: response.status,
-          statusText: response.statusText,
-          headers: response.headers,
-        });
-      } catch {
-        return response;
-      }
-    };
-  }
-
-  function isDefaultTitleFilterActive() {
-    return localStorage.getItem(`${DEFAULT_TITLE_DISABLED_PREFIX}${getSourceGroup()}`) !== "1";
-  }
-
-  function filterRankingDataByTitle(data) {
-    if (!data?.groups?.[getSourceGroup()]) return data;
-    const cloned = JSON.parse(JSON.stringify(data));
-    const group = cloned.groups[getSourceGroup()];
-    const matchesTitle = (item) => {
-      const title = String(item.title || "");
-      return DEFAULT_TITLE_TERMS.some((term) => title.includes(term)) && !KOREAN_TEXT_PATTERN.test(title);
-    };
-
-    group.items = (group.items || []).filter(matchesTitle);
-    if (group.keywords) {
-      for (const key of Object.keys(group.keywords)) {
-        group.keywords[key] = (group.keywords[key] || []).filter(matchesTitle);
-      }
-    }
-    return cloned;
-  }
-
-  function observeCards() {
-    const root = document.getElementById("ranking-sections");
-    if (!root) {
-      window.requestAnimationFrame(observeCards);
-      return;
-    }
-
-    if (cardObserver) cardObserver.disconnect();
-    cardObserver = new MutationObserver(() => window.requestAnimationFrame(enhanceCards));
-    cardObserver.observe(root, { childList: true, subtree: true });
+  let enhanceQueued = false;
+  function scheduleEnhanceCards() {
+    if (enhanceQueued) return;
+    enhanceQueued = true;
+    requestAnimationFrame(() => {
+      enhanceQueued = false;
+      enhanceCards();
+    });
   }
 
   function enhanceCards() {
@@ -346,9 +295,7 @@
   }
 
   async function loadRankingData() {
-    const response = await fetch("data/youtube-ranking.json", { cache: "no-store" });
-    if (!response.ok) return;
-    const data = await response.json();
+    const data = await window.ytbRankingData.load();
     const items = data?.groups?.[getSourceGroup()]?.items || [];
     rankingItemsByVideoId = new Map(items.filter((item) => item.videoId).map((item) => [item.videoId, item]));
   }

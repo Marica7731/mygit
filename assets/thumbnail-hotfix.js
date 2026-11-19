@@ -11,10 +11,7 @@
     installStyle();
     cleanupCards();
     sweep();
-    for (let index = 1; index <= 10; index += 1) {
-      setTimeout(sweep, index * 450);
-      setTimeout(cleanupCards, index * 450 + 80);
-    }
+    window.ytbRankingData.onCardsChanged(scheduleCleanup);
     window.addEventListener("scroll", sweep, { passive: true });
     window.addEventListener("resize", sweep, { passive: true });
     document.addEventListener("click", scheduleCleanup, true);
@@ -100,6 +97,8 @@
   }
 
   function isNearViewport(element) {
+    const card = element.closest(".video-card");
+    if (card?.hidden || card?.matches("[data-page-hidden], [data-time-hidden], [data-view-hidden]")) return false;
     const rect = element.getBoundingClientRect();
     const margin = Math.max(900, window.innerHeight || 800);
     return rect.bottom >= -margin && rect.top <= (window.innerHeight || 800) + margin;

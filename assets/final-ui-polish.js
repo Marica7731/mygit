@@ -5,12 +5,9 @@
   ready(() => {
     installStyle();
     loadData();
-    [3000, 9000, 20000].forEach((delay) => setTimeout(loadData, delay));
     refresh();
-    [250, 900, 1800, 3600, 7000, 12000].forEach((delay) => setTimeout(refresh, delay));
-    setInterval(refresh, 1500);
-    const observer = new MutationObserver(scheduleRefresh);
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true });
+    window.ytbRankingData.onCardsChanged(scheduleRefresh);
+    document.addEventListener("ytb-thumbnail-missing", scheduleRefresh, true);
     document.addEventListener("click", scheduleRefresh, true);
     document.addEventListener("change", scheduleRefresh, true);
     document.addEventListener("input", scheduleRefresh, true);
@@ -18,8 +15,7 @@
   });
 
   function loadData() {
-    fetch(`data/youtube-ranking.json?finalUi=${Date.now()}`, { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
+    window.ytbRankingData.load()
       .then((data) => {
         byId = new Map((data?.groups?.[GROUP]?.items || []).filter((item) => item.videoId).map((item) => [item.videoId, item]));
         refresh();
@@ -30,7 +26,7 @@
   let timer = 0;
   function scheduleRefresh() {
     clearTimeout(timer);
-    timer = setTimeout(refresh, 120);
+    timer = setTimeout(refresh, 260);
   }
 
   function refresh() {
@@ -88,7 +84,7 @@
 
     if (meta) {
       const text = stripDuplicateDuration(meta.textContent);
-      meta.textContent = text;
+      if (meta.textContent !== text) meta.textContent = text;
       meta.hidden = !text || /^20\d{2}年前$/.test(text);
     }
   }

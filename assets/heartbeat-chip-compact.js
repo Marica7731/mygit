@@ -4,8 +4,7 @@
   ready(() => {
     installStyle();
     applyUiFixes();
-    fetch("data/youtube-ranking.json")
-      .then((response) => (response.ok ? response.json() : null))
+    window.ytbRankingData.load()
       .then((data) => {
         generatedAt = data?.generatedAt ? new Date(data.generatedAt) : null;
         applyUiFixes();

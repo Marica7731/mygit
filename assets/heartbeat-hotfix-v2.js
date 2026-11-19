@@ -5,8 +5,7 @@
 
   ready(() => {
     installStyle();
-    fetch("data/youtube-ranking.json")
-      .then((response) => (response.ok ? response.json() : null))
+    window.ytbRankingData.load()
       .then((data) => {
         const rows = data?.groups?.[GROUP]?.items || [];
         byId = new Map(rows.filter((item) => item.videoId).map((item) => [item.videoId, item]));

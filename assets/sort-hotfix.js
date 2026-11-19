@@ -3,7 +3,6 @@
   const DEFAULT_TITLE_TERMS = ["歌枠", "弾き語"];
   const KOREAN_TEXT_PATTERN = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/;
   const DEFAULT_TITLE_DISABLED_PREFIX = "ytb-ranking-default-title-filter-disabled-v1:";
-  const originalFetch = window.fetch.bind(window);
   let localizeQueued = false;
   let itemByVideoId = new Map();
   let orderByVideoId = new Map();
@@ -12,22 +11,7 @@
   const thumbnailScanSrc = new WeakMap();
   let thumbnailSweepQueued = false;
 
-  window.fetch = async (input, init) => {
-    const response = await originalFetch(input, init);
-    const url = typeof input === "string" ? input : input?.url || "";
-    if (!url.includes("data/youtube-ranking.json")) return response;
-
-    try {
-      const data = await response.clone().json();
-      return new Response(JSON.stringify(transformData(data)), {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-      });
-    } catch {
-      return response;
-    }
-  };
+  window.ytbRankingData.addTransform(transformData);
 
   document.addEventListener("change", handleSortChange, true);
   document.addEventListener("error", handleThumbnailError, true);
@@ -38,18 +22,10 @@
     installSortOptions();
     scheduleLocalizeCards();
     scheduleThumbnailSweep();
-    for (let index = 1; index <= 12; index += 1) {
-      setTimeout(scheduleLocalizeCards, index * 300);
-      setTimeout(scheduleThumbnailSweep, index * 300 + 120);
-    }
     window.addEventListener("scroll", scheduleThumbnailSweep, { passive: true });
-    const root = document.getElementById("ranking-sections") || document.body;
-    new MutationObserver(() => {
+    window.ytbRankingData.onCardsChanged(() => {
       scheduleLocalizeCards();
       scheduleThumbnailSweep();
-    }).observe(root, {
-      childList: true,
-      subtree: true,
     });
   }
 
@@ -95,9 +71,7 @@
   }
 
   function transformData(data) {
-    const cloned = JSON.parse(JSON.stringify(data));
-    const group = cloned?.groups?.[sourceGroup()];
-    if (!group) return cloned;
+    const group = data.groups[sourceGroup()];
 
     let items = group.items || [];
     if (localStorage.getItem(`${DEFAULT_TITLE_DISABLED_PREFIX}${sourceGroup()}`) !== "1") {
@@ -129,7 +103,7 @@
         itemCount: sorted.filter((item) => item.keyword === source.keyword || item.group === source.keyword).length,
       }));
     }
-    return cloned;
+    return data;
   }
 
   function getSortOrder() {
@@ -416,6 +390,8 @@
   }
 
   function isNearViewport(element) {
+    const card = element.closest(".video-card");
+    if (card?.hidden || card?.matches("[data-page-hidden], [data-time-hidden], [data-view-hidden]")) return false;
     const rect = element.getBoundingClientRect();
     const margin = Math.max(700, window.innerHeight || 800);
     return rect.bottom >= -margin && rect.top <= (window.innerHeight || 800) + margin;

@@ -25,7 +25,10 @@
   let originalKeywordCounts = new Map();
   let originalTotalCount = 0;
   let allGroupItems = [];
-  let snapshotIndex = null;
+  let rankingPromise;
+  let snapshotOptions;
+  const rankingTransforms = [];
+  const cardListeners = new Set();
   let controlsReady = false;
   let updateQueued = false;
   let timePopoverOpen = false;
@@ -36,6 +39,11 @@
 
   sanitizeState();
   patchStatePersistence();
+  window.ytbRankingData = {
+    load: loadSharedRankingPayload,
+    addTransform: (transform) => rankingTransforms.push(transform),
+    onCardsChanged: (callback) => cardListeners.add(callback),
+  };
   patchRankingFetch();
   installStyle();
   ready(boot);
@@ -46,23 +54,16 @@
     installControlBar();
     installBackToTopButton();
     loadRankingData().finally(() => scheduleUpdate());
-    loadSnapshotIndex().finally(() => scheduleUpdate());
-    observeApp();
+    loadSnapshotIndex();
+    setTimeout(observeApp, 0);
     ["click", "change", "input"].forEach((eventName) => {
       document.addEventListener(eventName, handleControlEvent, true);
     });
     document.addEventListener("keydown", handleDocumentKeydown, true);
     document.addEventListener("ytb-thumbnail-missing", scheduleUpdate, true);
-    document.addEventListener("ytb-ranking-cards-appended", handleCardsAppended, true);
     window.addEventListener("resize", scheduleUpdate, { passive: true });
     [0, 500, 1500, 3500].forEach((delay) => setTimeout(refreshStyleOrder, delay));
     [250, 800, 1600, 3200, 6400].forEach((delay) => setTimeout(scheduleUpdate, delay));
-  }
-
-  function handleCardsAppended() {
-    markCardsDirty();
-    scheduleUpdate();
-    setTimeout(scheduleUpdate, 80);
   }
 
   function sanitizeState() {
@@ -106,112 +107,40 @@
     };
   }
 
+  // The generated app still reads the legacy URL through fetch. All other
+  // consumers use the same parsed payload directly.
   function patchRankingFetch() {
     window.fetch = async (input, init) => {
       const url = typeof input === "string" ? input : input?.url || "";
-      if (isRankingRequest(url)) {
-        return fetchSharedRankingResponse(init);
-      }
-      return rawFetch(input, init);
+      if (!isRankingRequest(url)) return rawFetch(input, init);
+      return new Response(JSON.stringify(await loadSharedRankingPayload()), {
+        headers: { "content-type": "application/json" },
+      });
     };
   }
 
-  async function fetchSharedRankingResponse(init) {
-    const cacheKey = selectedSnapshot ? `snapshot:${GROUP}:${selectedSnapshot}` : `latest:${GROUP}`;
-    const store = sharedRankingResponseStore();
-    if (!store.has(cacheKey)) {
-      store.set(cacheKey, loadSharedRankingPayload(init).catch((error) => {
-        store.delete(cacheKey);
-        throw error;
-      }));
-    }
-    return responseFromCachedPayload(await store.get(cacheKey));
-  }
-
-  function sharedRankingResponseStore() {
-    if (!(window.__YTB_RANKING_RESPONSE_CACHE__ instanceof Map)) {
-      window.__YTB_RANKING_RESPONSE_CACHE__ = new Map();
-    }
-    return window.__YTB_RANKING_RESPONSE_CACHE__;
-  }
-
-  async function loadSharedRankingPayload(init) {
-    const requestInit = {
-      ...(init || {}),
-      cache: "no-store",
-    };
-    const rankingUrl = selectedSnapshot ? snapshotDataUrl(selectedSnapshot) : groupDataUrl();
-    let response = await rawFetch(rankingUrl, requestInit);
-    if (selectedSnapshot && !response.ok) {
-      response = await rawFetch(groupDataUrl(), requestInit);
-    }
-    if (selectedSnapshot && !response.ok) {
-      response = await rawFetch(DATA_URL, requestInit);
-    }
-    if (!selectedSnapshot && !response.ok) {
-      response = await rawFetch(DATA_URL, requestInit);
-    }
-    return cacheableRankingPayload(response);
-  }
-
-  async function cacheableRankingPayload(response) {
-    const headers = new Headers(response.headers);
-    headers.delete("content-length");
-    headers.delete("content-encoding");
-
-    let text = "";
-    if (response.ok) {
-      try {
-        text = JSON.stringify(filterDefaultBlockedItems(await response.clone().json()));
-      } catch {
-        text = await response.text();
-      }
-    } else {
-      text = await response.text();
-    }
-
-    return {
-      text,
-      status: response.status,
-      statusText: response.statusText,
-      headers: Array.from(headers.entries()),
-    };
-  }
-
-  function responseFromCachedPayload(payload) {
-    return new Response(payload.text, {
-      status: payload.status,
-      statusText: payload.statusText,
-      headers: payload.headers,
+  function loadSharedRankingPayload() {
+    rankingPromise ||= readRanking().catch((error) => {
+      rankingPromise = null;
+      throw error;
     });
+    return rankingPromise;
   }
 
-  function filterDefaultBlockedItems(data) {
-    const groups = data?.groups || {};
-    for (const group of Object.values(groups)) {
-      if (!group || typeof group !== "object") continue;
-      if (Array.isArray(group.items)) group.items = group.items.filter(isDisplayableItem);
-      if (group.keywords && typeof group.keywords === "object") {
-        for (const key of Object.keys(group.keywords)) {
-          if (Array.isArray(group.keywords[key])) {
-            group.keywords[key] = group.keywords[key].filter(isDisplayableItem);
-          }
-        }
-      }
-      if (Array.isArray(group.sources)) {
-        group.sources = group.sources.map((source) => {
-          const keyword = source.keyword;
-          const count =
-            keyword && Array.isArray(group.keywords?.[keyword])
-              ? group.keywords[keyword].length
-              : Array.isArray(group.items)
-                ? group.items.length
-                : source.itemCount;
-          return { ...source, itemCount: count };
-        });
-      }
+  async function readRanking() {
+    const url = selectedSnapshot ? snapshotDataUrl(selectedSnapshot) : groupDataUrl();
+    const response = await rawFetch(url, {
+      cache: selectedSnapshot ? "default" : "no-cache",
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status} (${selectedSnapshot || GROUP})`);
+    const data = await response.json();
+    const group = data?.groups?.[GROUP];
+    if (!Array.isArray(group?.items) || (selectedSnapshot && data.snapshotId !== selectedSnapshot)) {
+      throw new Error(`Invalid ranking data for ${selectedSnapshot || GROUP}`);
     }
-    return data;
+    group.items = group.items.filter(isDisplayableItem);
+    return rankingTransforms.reduce((payload, transform) => transform(payload), data);
   }
 
   function isDisplayableItem(item) {
@@ -448,6 +377,7 @@
       </select>
     `;
     toolbar.append(label);
+    populateSnapshotOptions();
     label.querySelector("select").addEventListener("change", (event) => {
       const next = event.target.value;
       const url = new URL(location.href);
@@ -531,7 +461,6 @@
       hideInternalFilterChips();
       syncTimeFilterTrigger();
       syncToolbarCollapsed();
-      updateSnapshotOptions();
       applyTimeFilterAndPagination();
     });
   }
@@ -820,9 +749,7 @@
 
   async function loadRankingData() {
     try {
-      const response = await fetch(DATA_URL, { cache: "no-store" });
-      if (!response.ok) return;
-      const data = await response.json();
+      const data = await loadSharedRankingPayload();
       const group = data?.groups?.[GROUP] || {};
       rankingReferenceMs = Date.parse(group.updatedAt || group.collectedAt || data?.generatedAt || data?.collectedAt || "");
       const items = group.items || [];
@@ -902,27 +829,24 @@
   async function loadSnapshotIndex() {
     if (!isSnapshotGroup()) return;
     try {
-      const response = await rawFetch(`${snapshotIndexUrl()}?ts=${Date.now()}`, { cache: "no-store" });
-      if (!response.ok) return;
-      snapshotIndex = await response.json();
-    } catch {
-      snapshotIndex = null;
+      const response = await rawFetch(snapshotIndexUrl(), { cache: "no-cache", signal: AbortSignal.timeout(12000) });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const { snapshots } = await response.json();
+      snapshotOptions = snapshots;
+      populateSnapshotOptions();
+    } catch (error) {
+      console.warn("[ranking-snapshots]", error);
     }
   }
 
-  function updateSnapshotOptions() {
-    if (!isSnapshotGroup()) return;
-    const label = document.querySelector(".snapshot-filter-field");
+  function populateSnapshotOptions() {
     const select = document.getElementById("snapshot-filter");
-    const snapshots = Array.isArray(snapshotIndex?.snapshots) ? snapshotIndex.snapshots : [];
-    if (!label || !select || !snapshots.length) return;
-    const options = snapshots
-      .map((snapshot) => `<option value="${escapeHtml(snapshot.id)}">${escapeHtml(snapshot.label || snapshot.id)}</option>`)
-      .join("");
-    const nextHtml = `<option value="">${latestSnapshotLabel()}</option>${options}`;
-    if (select.innerHTML !== nextHtml) select.innerHTML = nextHtml;
+    if (!select || select.options.length > 1 || !snapshotOptions?.length) return;
+    const options = document.createDocumentFragment();
+    for (const { id, label } of snapshotOptions) options.append(new Option(label || id, id));
+    select.append(options);
     select.value = selectedSnapshot || "";
-    label.hidden = false;
+    select.closest(".snapshot-filter-field").hidden = false;
   }
 
   function syncTimeFilterTrigger() {
@@ -1039,7 +963,14 @@
     const filtered = hasActiveFilter ? Math.max(0, baselineTotal - currentTotal) : 0;
     const labels = filtered > 0 ? [...parts, "过滤"] : parts;
     const values = filtered > 0 ? [...parts.map((key) => counts.get(key) || 0), filtered] : parts.map((key) => counts.get(key) || 0);
-    sourceBar.innerHTML = `<span class="source-summary-chip">${labels.join(" / ")} = ${values.join(" / ")}</span>`;
+    const summary = `${labels.join(" / ")} = ${values.join(" / ")}`;
+    let chip = sourceBar.querySelector(".source-summary-chip");
+    if (!chip) {
+      chip = document.createElement("span");
+      chip.className = "source-summary-chip";
+      sourceBar.replaceChildren(chip);
+    }
+    if (chip.textContent !== summary) chip.textContent = summary;
     document.querySelectorAll("#active-filter-chips .filter-chip.count").forEach((chip) => {
       chip.hidden = true;
       chip.setAttribute("aria-hidden", "true");
@@ -1085,16 +1016,33 @@
   }
 
   function observeApp() {
-    const root = document.getElementById("app") || document.body;
-    new MutationObserver((mutations) => {
-      if (mutations.some((mutation) => mutation.type === "childList")) markCardsDirty();
-      scheduleUpdate();
-    }).observe(root, {
+    const sections = document.getElementById("ranking-sections");
+    if (!sections) return;
+    const cardSelector = ".video-card";
+    const observer = new MutationObserver((mutations) => {
+      const changed = mutations.some(({ target, type, addedNodes, removedNodes }) =>
+        type === "childList" && (target === sections || target.classList?.contains("cards")) &&
+        [...addedNodes, ...removedNodes].some((node) =>
+          node.matches?.(cardSelector + ", .ranking-section") || node.querySelector?.(cardSelector))
+      );
+      if (changed) notifyCardsChanged();
+      else if (mutations.some(({ target, type }) => type === "attributes" && target.matches?.(cardSelector))) {
+        scheduleUpdate();
+      }
+    });
+    observer.observe(sections, {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["hidden", "class"],
+      attributeFilter: ["hidden"],
     });
+    notifyCardsChanged();
+  }
+
+  function notifyCardsChanged() {
+    markCardsDirty();
+    scheduleUpdate();
+    for (const callback of cardListeners) callback();
   }
 
   function installBackToTopButton() {
@@ -1140,11 +1088,11 @@
   }
 
   function snapshotIndexUrl() {
-    return `data/${GROUP}-snapshots/index.json`;
+    return `data/${GROUP}-snapshot-options.json`;
   }
 
   function snapshotDataUrl(snapshotId) {
-    return `data/${GROUP}-snapshots/${encodeURIComponent(snapshotId)}.json`;
+    return `https://raw.githubusercontent.com/Marica7731/mygit/main/data/${GROUP}-snapshots/${encodeURIComponent(snapshotId)}.json`;
   }
 
   function groupDataUrl() {

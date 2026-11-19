@@ -4,15 +4,11 @@
 
   ready(() => {
     loadData();
-    [500, 1500, 3500, 7000, 12000].forEach((delay) => setTimeout(applyLinks, delay));
-    setInterval(applyLinks, 5000);
-    const observer = new MutationObserver(scheduleApply);
-    observer.observe(document.body, { childList: true, subtree: true });
+    window.ytbRankingData.onCardsChanged(scheduleApply);
   });
 
   function loadData() {
-    fetch(`data/youtube-ranking.json?channelLink=${Date.now()}`, { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
+    window.ytbRankingData.load()
       .then((data) => {
         Object.values(data?.groups || {}).forEach((group) => {
           const items = Array.isArray(group) ? group : group?.items || [];

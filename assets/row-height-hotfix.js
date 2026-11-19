@@ -2,15 +2,18 @@
   ready(() => {
     installStyle();
     normalizeRows();
-    [250, 900, 1800, 3600, 7000, 12000].forEach((delay) => setTimeout(normalizeRows, delay));
     window.addEventListener("resize", scheduleNormalize, { passive: true });
-    new MutationObserver(scheduleNormalize).observe(document.body, { childList: true, subtree: true, characterData: true });
+    window.ytbRankingData.onCardsChanged(scheduleNormalize);
+    document.addEventListener("click", (event) => {
+      if (event.target.closest(".ranking-pagination")) scheduleNormalize();
+    }, true);
+    document.addEventListener("ytb-thumbnail-missing", scheduleNormalize, true);
   });
 
   let timer = 0;
   function scheduleNormalize() {
     clearTimeout(timer);
-    timer = setTimeout(normalizeRows, 120);
+    timer = setTimeout(normalizeRows, 320);
   }
 
   function normalizeRows() {
