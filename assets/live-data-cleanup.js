@@ -8,56 +8,16 @@
   const DIRTY_TITLE_RE = [/24\s*時間\s*配信へようこそ/i];
 
   installStyle();
-  patchRankingFetch();
+  window.ytbRankingData.addTransform(cleanPayload);
   ready(() => {
     cleanupDom();
-    [250, 900, 1800, 3600, 7000, 12000].forEach((delay) => setTimeout(cleanupDom, delay));
-    setInterval(cleanupDom, 1600);
-    new MutationObserver(scheduleCleanup).observe(document.body, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-    });
+    window.ytbRankingData.onCardsChanged(scheduleCleanup);
   });
 
   let cleanupTimer = 0;
   function scheduleCleanup() {
     clearTimeout(cleanupTimer);
     cleanupTimer = setTimeout(cleanupDom, 80);
-  }
-
-  function patchRankingFetch() {
-    if (window.__YTB_LIVE_DATA_CLEANUP_FETCH__) return;
-    window.__YTB_LIVE_DATA_CLEANUP_FETCH__ = true;
-    const originalFetch = window.fetch.bind(window);
-    window.fetch = async function patchedFetch(input, init) {
-      const response = await originalFetch(input, init);
-      if (!isRankingDataRequest(input)) return response;
-      try {
-        const payload = await response.clone().json();
-        const cleaned = cleanPayload(payload);
-        const headers = new Headers(response.headers);
-        headers.set("content-type", "application/json; charset=utf-8");
-        headers.delete("content-length");
-        headers.delete("content-encoding");
-        return new Response(JSON.stringify(cleaned), {
-          status: response.status,
-          statusText: response.statusText,
-          headers,
-        });
-      } catch {
-        return response;
-      }
-    };
-  }
-
-  function isRankingDataRequest(input) {
-    const value = typeof input === "string" ? input : input?.url || "";
-    try {
-      return new URL(value, location.href).pathname.endsWith("/data/youtube-ranking.json");
-    } catch {
-      return String(value).includes("data/youtube-ranking.json");
-    }
   }
 
   function cleanPayload(payload) {

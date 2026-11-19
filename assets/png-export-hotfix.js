@@ -10,8 +10,7 @@
 
   ready(() => {
     installStyle();
-    dataReady = fetch(`data/youtube-ranking.json?png=${Date.now()}`, { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
+    dataReady = window.ytbRankingData.load()
       .then((data) => {
         byId = new Map((data?.groups?.[GROUP]?.items || []).filter((item) => item.videoId).map((item) => [item.videoId, item]));
       })

@@ -4,6 +4,7 @@ const http = require("node:http");
 const path = require("node:path");
 const { chromium } = require("playwright");
 const { startOfRollingMonth } = require("./lib/ranking-window");
+const { snapshotOptions } = require("./build-snapshot-options");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const TIMEOUT_MS = 60000;
@@ -28,7 +29,7 @@ async function main() {
     await checkWeekTab(browser, origin, failures);
     await checkMobileNavLayout(browser, origin, failures);
     await checkDataWindows(failures);
-    await checkSummaryInvariant(browser, origin, "today.html", {}, failures);
+    await checkRankingPageLoads(browser, origin);
   } finally {
     await browser.close();
     await closeServer(server);
@@ -201,6 +202,69 @@ async function checkDataWindows(failures) {
   }
 }
 
+async function checkRankingPageLoads(browser, origin) {
+  for (const group of ["live", "today", "week", "month"]) {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    try {
+      const page = await context.newPage();
+      const requests = [];
+      const errors = [];
+      page.on("request", (request) => requests.push(request.url()));
+      page.on("pageerror", (error) => errors.push(error.message));
+      await page.route(/https:\/\/(?:i\.[^/]*ytimg\.com|yt3\.[^/]+)\//, (route) => route.fulfill({
+        contentType: "image/svg+xml",
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect width="320" height="180" fill="orange"/></svg>',
+      }));
+      await page.goto(origin + "/" + group + ".html");
+      await page.waitForFunction(() => {
+        const options = document.querySelector("#snapshot-filter")?.options;
+        return options?.length > 1 && window.__YTB_RANKING_TOTAL_ITEM_COUNT__ > 0 &&
+          document.querySelector(".video-card") && document.querySelector(".source-summary-chip");
+      });
+      const state = await page.evaluate(async () => {
+        const first = window.ytbRankingData.load();
+        const second = window.ytbRankingData.load();
+        const data = await first;
+        const group = document.body.dataset.sourceGroup;
+        const items = data.groups[group].items;
+        return {
+          shared: first === second && data === await second,
+          total: window.__YTB_RANKING_TOTAL_ITEM_COUNT__,
+          count: items.length,
+          labels: [...document.querySelector("#snapshot-filter").options].slice(1).map((option) => [option.value, option.text]),
+          active: document.querySelector(".page-nav [aria-current]")?.getAttribute("href"),
+        };
+      });
+      if (!state.shared || state.active !== group + ".html" || state.count !== state.total) {
+        throw new Error(group + ": ranking or single-load state is inconsistent " + JSON.stringify({ ...state, labels: undefined }));
+      }
+      const options = snapshotOptions(group);
+      if (JSON.stringify(state.labels) !== JSON.stringify(options.map(({ id, label }) => [id, label]))) {
+        throw new Error(group + ": snapshot options changed");
+      }
+      const primary = requests.filter((url) => /\/data\/youtube-ranking(?:-(?:today|live|week|month))?\.json(?:\?|$)/.test(url));
+      if (primary.length !== 1 || !primary[0].endsWith("youtube-ranking-" + group + ".json")) {
+        throw new Error(group + ": ranking request count is " + JSON.stringify(primary));
+      }
+
+      if (group !== "live" && state.total > 99) {
+        const next = page.locator('#ranking-pagination [data-page-action="next"]');
+        await next.waitFor();
+        await page.waitForFunction(() => {
+          const range = document.querySelector("#ranking-pagination .pagination-range")?.textContent || "";
+          return /^1-(98|99) \/ \d+$/.test(range);
+        });
+        await next.click();
+        await page.waitForFunction(() => /^(99|100)-\d+/.test(document.querySelector("#ranking-pagination .pagination-range")?.textContent || ""));
+      }
+      if (errors.length) throw new Error(group + ": " + errors.join(", "));
+      console.log("[verify-page-behavior] " + group + " shared payload, pagination and " + options.length + " snapshot labels verified");
+    } finally {
+      await context.close();
+    }
+  }
+}
+
 async function openPage(browser, origin, fileName, storage, failures) {
   const context = await browser.newContext();
   await context.addInitScript((items) => {
@@ -220,9 +284,17 @@ async function openPage(browser, origin, fileName, storage, failures) {
 }
 
 function startServer() {
+  const options = new Map(["live", "today", "week", "month"].map((group) => [
+    "data/" + group + "-snapshot-options.json", JSON.stringify({ snapshots: snapshotOptions(group) }),
+  ]));
   const server = http.createServer((request, response) => {
     const requestPath = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
     const relative = requestPath === "/" ? "index.html" : requestPath.replace(/^\/+/, "");
+    if (options.has(relative)) {
+      response.writeHead(200, { "content-type": CONTENT_TYPES[".json"], "cache-control": "no-store" });
+      response.end(options.get(relative));
+      return;
+    }
     const filePath = path.join(ROOT_DIR, relative);
     if (!filePath.startsWith(ROOT_DIR) || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
       response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });

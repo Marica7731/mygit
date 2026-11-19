@@ -8,16 +8,14 @@
 
   function boot() {
     installStyle();
-    fetch("data/youtube-ranking.json")
-      .then((response) => (response.ok ? response.json() : null))
+    window.ytbRankingData.load()
       .then((data) => {
         items = new Map((data?.groups?.[GROUP]?.items || []).filter((item) => item.videoId).map((item) => [item.videoId, item]));
         refresh();
       })
       .catch(() => {});
     refresh();
-    for (let i = 1; i <= 12; i += 1) setTimeout(refresh, i * 350);
-    new MutationObserver(queueRefresh).observe(document.body, { childList: true, subtree: true });
+    window.ytbRankingData.onCardsChanged(queueRefresh);
   }
 
   function queueRefresh() {

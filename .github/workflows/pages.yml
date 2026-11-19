@@ -100,6 +100,10 @@ jobs:
         if: steps.freshness.outputs.should_deploy == 'true'
         run: node scripts/build-today-view.js
 
+      - name: Build compact snapshot options
+        if: steps.freshness.outputs.should_deploy == 'true'
+        run: node scripts/build-snapshot-options.js
+
       - name: Configure GitHub Pages
         if: steps.freshness.outputs.should_deploy == 'true'
         uses: actions/configure-pages@v5

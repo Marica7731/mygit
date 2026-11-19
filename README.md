@@ -4,6 +4,10 @@
 
 目标域名：<https://ytb.culua.com/>
 
+## 榜单页面的数据加载
+
+四个榜单共用 `assets/ranking-controls.js` 的单页数据加载器。每次打开页面只读取当前分组或所选快照，筛选和补丁脚本共用解析后的数据。快照下拉沿用原有选项和标签。Pages 发布时用 `node scripts/build-snapshot-options.js` 从原索引生成轻量选项文件，历史快照明细按编号从公开仓库读取。本地预览前可运行同一个生成命令。
+
 ## 功能说明
 
 - `live.html`：展示歌枠直播 / 预约、弾き語り直播 / 预约。
