@@ -1,12 +1,12 @@
 {
-  "status": "success",
-  "attemptedAt": "2026-11-19T12:25:32.683Z",
-  "runId": "44522360769",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/44522360769",
+  "status": "failed",
+  "attemptedAt": "2026-11-19T12:32:30.047Z",
+  "runId": "44523910156",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/44523910156",
   "eventName": "workflow_dispatch",
-  "headSha": "a148399a1367456f05d8dbcbe6e58eb215284136",
-  "message": "ranking update passed",
-  "failedStep": "",
+  "headSha": "17e413a87499d972d76038610e5a94ad6d70745b",
+  "message": "Install Playwright Chromium failed",
+  "failedStep": "Install Playwright Chromium",
   "lastSuccessfulGeneratedAt": "2026-11-19T12:17:12.524Z",
   "metricDetailPostProcess": {
     "generatedAt": "2026-11-19T12:25:00.134Z",
@@ -37,7 +37,17 @@
     "rateLimitSource": "",
     "youtubeRequestsStarted": 26
   },
-  "failureDiagnostics": null,
+  "failureDiagnostics": {
+    "rateLimited": false,
+    "rateLimitSource": "",
+    "retryAfter": "",
+    "blockedUntil": "",
+    "youtubeRequestsStarted": 26,
+    "candidateGeneratedAt": "2026-11-19T12:17:12.524Z",
+    "todayVideos": 459,
+    "todayWithViews": 458,
+    "todayMissingViews": 1
+  },
   "liveDetailPostProcess": {
     "generatedAt": "2026-11-19T12:24:27.451Z",
     "limit": 120,
