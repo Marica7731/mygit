@@ -1,53 +1,53 @@
 {
   "status": "success",
-  "attemptedAt": "2026-11-19T20:31:11.481Z",
-  "runId": "44608388196",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/44608388196",
+  "attemptedAt": "2026-11-19T20:42:02.817Z",
+  "runId": "44610084312",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/44610084312",
   "eventName": "workflow_dispatch",
-  "headSha": "dcfd89c75661bd3ab9ed058a4814afa9a10f6f5f",
+  "headSha": "b0356a56dfee634de5f38a24391f3acae7ade0dd",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-11-19T20:25:18.309Z",
+  "lastSuccessfulGeneratedAt": "2026-11-19T20:35:12.583Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-11-19T20:30:41.030Z",
+    "generatedAt": "2026-11-19T20:41:26.953Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
-    "beforeMissing": 0,
-    "afterMissing": 0,
+    "beforeMissing": 2,
+    "afterMissing": 2,
     "api": {
       "checked": 0,
       "changed": 0
     },
     "fetch": {
-      "checked": 0,
-      "changed": 0
+      "checked": 2,
+      "changed": 2
     },
     "watch": {
-      "checked": 0,
+      "checked": 2,
       "changed": 0
     },
     "oembed": {
       "checked": 24,
-      "changed": 41,
+      "changed": 42,
       "failed": 0
     },
     "rateLimited": false,
     "retryAfter": "",
     "blockedUntil": "",
     "rateLimitSource": "",
-    "youtubeRequestsStarted": 24
+    "youtubeRequestsStarted": 28
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-11-19T20:30:12.680Z",
+    "generatedAt": "2026-11-19T20:40:50.622Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 140750,
+    "elapsedMs": 154803,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 51,
-    "watchChecked": 75,
-    "watchChanged": 75,
+    "clearedUntrustedLiveViewers": 53,
+    "watchChecked": 78,
+    "watchChanged": 78,
     "channelChecked": 0,
     "channelChanged": 0
   },
@@ -72,7 +72,7 @@
       }
     ],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 76,
-    "processedAt": "2026-11-19T20:30:41.984Z"
+    "subscriberItemsAfterClean": 77,
+    "processedAt": "2026-11-19T20:41:28.104Z"
   }
 }
