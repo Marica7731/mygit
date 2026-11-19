@@ -72,7 +72,7 @@ jobs:
           for path in \
             index.html month.html today.html week.html live.html \
             data/youtube-ranking.json data/youtube-ranking-week.json \
-            data/youtube-ranking-status.json \
+            data/youtube-ranking-today.json data/youtube-ranking-status.json \
             data/ranking-union-cache.json \
             data/month-snapshots/index.json \
             data/week-snapshots/index.json \
@@ -95,6 +95,10 @@ jobs:
             exit 1
           fi
           printf 'Publish tree validated; historical snapshot payloads=%s.\n' "$payload_count"
+
+      - name: Build compact today ranking and history index
+        if: steps.freshness.outputs.should_deploy == 'true'
+        run: node scripts/build-today-view.js
 
       - name: Configure GitHub Pages
         if: steps.freshness.outputs.should_deploy == 'true'

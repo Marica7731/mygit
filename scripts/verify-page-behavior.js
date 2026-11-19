@@ -4,6 +4,7 @@ const http = require("node:http");
 const path = require("node:path");
 const { chromium } = require("playwright");
 const { startOfRollingMonth } = require("./lib/ranking-window");
+const { buildTodayFiles } = require("./build-today-view");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const TIMEOUT_MS = 60000;
@@ -28,6 +29,7 @@ async function main() {
     await checkWeekTab(browser, origin, failures);
     await checkMobileNavLayout(browser, origin, failures);
     await checkDataWindows(failures);
+    await checkTodayInteractions(browser, origin);
   } finally {
     await browser.close();
     await closeServer(server);
@@ -200,6 +202,84 @@ async function checkDataWindows(failures) {
   }
 }
 
+async function checkTodayInteractions(browser, origin) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  const errors = [];
+  const requests = [];
+  let snapshotFails = true;
+  const files = buildTodayFiles();
+  const payload = JSON.parse(files["today-view.json"]);
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("request", (request) => requests.push(request.url()));
+  await page.route("https://i.ytimg.com/**", (route) => route.abort());
+  await page.route("https://raw.githubusercontent.com/**/today-snapshots/*.json", (route) => {
+    const snapshotId = route.request().url().split("/").pop().replace(".json", "");
+    return route.fulfill({
+      status: snapshotFails ? 404 : 200,
+      headers: { "access-control-allow-origin": "*" },
+      json: { ...payload, snapshotId },
+    });
+  });
+  try {
+    await page.goto(origin + "/today.html");
+    await page.waitForSelector(".video-card");
+    const cards = page.locator(".video-card");
+    const first = () => cards.first().getAttribute("data-video-id");
+    const initial = await first();
+    if (await cards.count() > 24 || requests.some((url) => /today-history|today-snapshots|youtube-ranking(?:-today)?\.json/.test(url))) {
+      throw new Error("today: first view eagerly requested history or mounted more than 24 cards");
+    }
+    if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) {
+      throw new Error("today: mobile document overflows the viewport");
+    }
+
+    await page.locator("#pagination-top [data-step='1']").click();
+    if (await first() === initial || await cards.count() > 24) throw new Error("today: next page failed");
+    await page.locator("#pagination-top select").selectOption("1");
+    if (await first() !== initial) throw new Error("today: direct page jump failed");
+    await page.locator("#ranking-search").fill(initial);
+    await page.waitForFunction(() => document.querySelectorAll(".video-card").length === 1);
+    await page.locator("#ranking-search").fill("this query has no ranking results");
+    await page.waitForSelector("#clear-ranking", { state: "visible" });
+    await page.locator("#clear-ranking").click();
+    await page.waitForFunction(() => document.querySelectorAll(".video-card").length > 1);
+    await page.locator("#ranking-sort").selectOption("viewsAsc");
+    const sorted = await page.evaluate(() => window.__YTB_RANKING_VISIBLE_ITEMS__.map((item) => item.viewCount).filter(Number.isFinite));
+    if (sorted.some((views, index) => index > 0 && views < sorted[index - 1])) throw new Error("today: ascending sort failed");
+    await page.locator('input[name="keyword"][value="弾き語り"] + span').click();
+    const state = await page.evaluate(() => ({
+      items: window.__YTB_RANKING_VISIBLE_ITEMS__,
+      total: window.__YTB_RANKING_TOTAL_ITEM_COUNT__,
+      counts: document.getElementById("source-chip-bar").textContent.split(" = ")[1].split(" / ").map(Number),
+    }));
+    if (!state.items.length || state.items.some((item) => item.keyword !== "弾き語り") || state.counts.reduce((a, b) => a + b, 0) !== state.total) {
+      throw new Error("today: category filter or full-data counts failed");
+    }
+    if (requests.filter((url) => url.endsWith("/today-view.json")).length !== 1) {
+      throw new Error("today: sorting or filtering re-requested rank data");
+    }
+
+    await page.locator("#open-snapshots").click();
+    await page.waitForSelector("#snapshot-fields", { state: "visible" });
+    if (await page.locator("#snapshot-time option").count() > 1440) throw new Error("today: snapshot selector mounted more than one day");
+    await page.locator("#apply-snapshot").click();
+    await page.waitForSelector("#retry-ranking", { state: "visible" });
+    if (page.url().includes("snapshot=") || !await cards.count()) throw new Error("today: failed snapshot replaced the current view");
+    snapshotFails = false;
+    await page.locator("#retry-ranking").click();
+    await page.waitForURL(/snapshot=/);
+    await page.locator("#latest-ranking").click();
+    await page.waitForURL(/today\.html$/);
+    await page.goBack();
+    await page.waitForFunction(() => document.getElementById("ranking-updated").textContent.startsWith("快照 "));
+    if (errors.length) throw new Error("today: page errors " + errors.join(", "));
+    console.log("[verify-page-behavior] today pagination, filters, single-fetch, mobile, and archive recovery passed");
+  } finally {
+    await context.close();
+  }
+}
+
 async function openPage(browser, origin, fileName, storage, failures) {
   const context = await browser.newContext();
   await context.addInitScript((items) => {
@@ -219,9 +299,16 @@ async function openPage(browser, origin, fileName, storage, failures) {
 }
 
 function startServer() {
+  const todayFiles = buildTodayFiles();
   const server = http.createServer((request, response) => {
     const requestPath = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
     const relative = requestPath === "/" ? "index.html" : requestPath.replace(/^\/+/, "");
+    const generated = relative.startsWith("data/") && todayFiles[relative.slice(5)];
+    if (typeof generated === "string") {
+      response.writeHead(200, { "content-type": CONTENT_TYPES[".json"], "cache-control": "no-store" });
+      response.end(generated);
+      return;
+    }
     const filePath = path.join(ROOT_DIR, relative);
     if (!filePath.startsWith(ROOT_DIR) || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
       response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
