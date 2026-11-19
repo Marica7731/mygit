@@ -1,55 +1,106 @@
 <!doctype html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="YouTube 今日歌枠 / 弾き語り热度排行。">
-    <link rel="icon" href="favicon.ico?v=20260711-culua1" sizes="any">
-    <link rel="icon" type="image/png" sizes="32x32" href="assets/site-icon-32.png?v=20260711-culua1">
-    <link rel="icon" type="image/png" sizes="192x192" href="assets/site-icon-192.png?v=20260711-culua1">
-    <link rel="icon" type="image/png" sizes="512x512" href="assets/site-icon-512.png?v=20260711-culua1">
-    <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=20260711-culua1">
-    <title>今日热度 - YouTube 歌枠 / 弾き語り排行</title>
-    <link rel="stylesheet" href="assets/styles.css?v=20260613-compact4">
-    <link rel="stylesheet" href="assets/ui-overrides.css?v=20260614-grid7">
-    <link rel="stylesheet" href="assets/card-fixes.css?v=20260614-card3">
-    <link rel="stylesheet" href="assets/sort-hotfix.css?v=20260621-snapshot1">
-    <link rel="stylesheet" href="assets/theme.css?v=20260927-dark1">
-    <script src="assets/theme-toggle.js?v=20260927-dark1"></script>
-  </head>
-  <body data-source-group="today">
-    <div id="app"></div>
-    <script>window.__YTB_RANKING_CHUNKS = [];</script>
-    <script src="assets/blocked-vtuber-channels.js?v=effb4d9e9f91" defer></script>
-    <script src="assets/ranking-controls.js?v=20261004-window1" defer></script>
-    <script src="assets/sort-hotfix.js?v=20260713-thumbscan2" defer></script>
-    <script src="assets/thumbnail-hotfix.js?v=20260713-stablethumb1" defer></script>
-    <script src="assets/png-export-hotfix.js?v=20261004-window1" defer></script>
-    <script src="assets/ux-hotfix.js?v=20260620-stable1" defer></script>
-    <script src="assets/youtube-ranking.chunk0.js?v=20261004-window1" defer></script>
-    <script src="assets/youtube-ranking.chunk1.js?v=20261004-window1" defer></script>
-    <script src="assets/youtube-ranking.chunk2.js?v=20261004-window1" defer></script>
-    <script src="assets/youtube-ranking.chunk3.js?v=20261004-window1" defer></script>
-    <script src="assets/youtube-ranking.chunk4.js?v=20261004-window1" defer></script>
-    <script src="assets/youtube-ranking.chunk5.js?v=20261004-window1" defer></script>
-    <script src="assets/youtube-ranking.chunk6.js?v=20261004-window1" defer></script>
-    <script src="assets/youtube-ranking.chunk7.js?v=20261004-window1" defer></script>
-    <script src="assets/youtube-ranking.chunk8.js?v=20261004-window1" defer></script>
-    <script src="assets/youtube-ranking.chunk9.js?v=20261004-window1" defer></script>
-    <script src="assets/youtube-ranking.chunk10.js?v=20261004-window1" defer></script>
-    <script src="assets/youtube-ranking.js?v=20261004-window1" defer></script>
-    <script src="assets/ui-overrides.js?v=20260713-stablethumb1" defer></script>
-    <script src="assets/heartbeat-hotfix-v2.js?v=20260620-stable1" defer></script>
-    <script src="assets/heartbeat-hotfix-v3.js?v=20260614-hb3" defer></script>
-    <script src="assets/heartbeat-chip-compact.js?v=20260620-stable1" defer></script>
-    <script src="assets/heartbeat-thumb-fallback.js?v=20260713-stablethumb1" defer></script>
-    <script src="assets/heartbeat-corner-layout.js?v=20260621-corner1" defer></script>
-    <script src="assets/heartbeat-corner-transparent.js?v=20260615-corner9" defer></script>
-    <script src="assets/corner-readability-hotfix.js?v=20260615-corner12" defer></script>
-    <script src="assets/corner-contrast-hotfix.js?v=20260615-nobg1" defer></script>
-    <script src="assets/heartbeat-update-age.js?v=20260616-age7" defer></script>
-    <script src="assets/channel-link-fallback.js?v=20260616-link1" defer></script>
-    <script src="assets/final-ui-polish.js?v=20260709-channel-align1" defer></script>
-    <script src="assets/row-height-hotfix.js?v=20260617-row1" defer></script>
-  </body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="YouTube 今日歌枠与弾き語り热度排行。">
+  <meta name="color-scheme" content="light dark">
+  <title>今日热度 - YouTube 歌枠 / 弾き語り排行</title>
+  <link rel="icon" type="image/png" href="assets/site-icon-32.png">
+  <link rel="stylesheet" href="assets/today.css?v=1">
+  <script src="assets/theme-toggle.js?v=20260927-dark1"></script>
+  <script src="assets/blocked-vtuber-channels.js?v=effb4d9e9f91" defer></script>
+  <script src="assets/today-ranking.js?v=1" defer></script>
+</head>
+<body data-source-group="today">
+  <div id="app">
+    <header class="site-header">
+      <div class="site-bar">
+        <a class="brand" href="index.html">YouTube 歌枠排行</a>
+        <nav class="page-nav" aria-label="页面导航">
+          <a href="live.html">直播</a><a href="today.html" aria-current="page">今日</a>
+          <a href="week.html">7天</a><a href="month.html">本月</a>
+        </nav>
+        <div class="toolbar-search-row"></div>
+      </div>
+    </header>
+    <main>
+      <div class="page-heading">
+        <div><h1>今日热度</h1><p>歌枠 / 弾き語り</p></div>
+        <div class="snapshot-tools">
+          <time id="ranking-updated"></time>
+          <button type="button" id="open-snapshots">历史快照</button>
+          <button type="button" id="latest-ranking" hidden>返回最新</button>
+        </div>
+      </div>
+      <form id="ranking-form" class="filter-toolbar" aria-label="搜索与筛选">
+        <div class="primary-controls">
+          <label class="search-field"><span>搜索</span><input type="search" id="ranking-search" placeholder="标题、频道或视频 ID" autocomplete="off"></label>
+          <label><span>排序</span><select id="ranking-sort">
+            <option value="viewsDesc">播放量 · 高到低</option><option value="viewsAsc">播放量 · 低到高</option>
+            <option value="publishedDesc">发布时间 · 新到旧</option><option value="publishedAsc">发布时间 · 旧到新</option>
+            <option value="durationDesc">时长 · 长到短</option><option value="durationAsc">时长 · 短到长</option>
+            <option value="titleAsc">标题 · A–Z</option><option value="titleDesc">标题 · Z–A</option>
+            <option value="channelAsc">频道 · A–Z</option><option value="channelDesc">频道 · Z–A</option>
+            <option value="liveViewersDesc">直播人气 · 高到低</option><option value="liveViewersAsc">直播人气 · 低到高</option>
+            <option value="original">YouTube 原始顺序</option>
+          </select></label>
+          <details id="more-filters">
+            <summary>更多筛选</summary>
+            <div class="filter-panel">
+              <label><span>发布时间</span><select id="time-filter">
+                <option value="all">全部时间</option><option value="1">1 小时内</option>
+                <option value="3">3 小时内</option><option value="6">6 小时内</option>
+                <option value="12">12 小时内</option><option value="24">24 小时内</option>
+              </select></label>
+              <label><span>最低播放量</span><input id="min-views-filter" placeholder="例 1.5万" inputmode="text"></label>
+              <label><span>最短时长（分钟）</span><input id="min-duration" type="number" inputmode="numeric" min="0"></label>
+              <label class="blacklist"><span>屏蔽词（每行一个）</span><textarea id="ranking-blacklist" rows="2"></textarea></label>
+              <button type="reset">清空筛选</button>
+            </div>
+          </details>
+        </div>
+        <div class="results-controls">
+          <fieldset class="categories" aria-label="分类">
+            <label><input type="radio" name="keyword" value="all" checked><span>全部</span></label>
+            <label><input type="radio" name="keyword" value="歌枠"><span>歌枠</span></label>
+            <label><input type="radio" name="keyword" value="弾き語り"><span>弾き語り</span></label>
+          </fieldset>
+          <details id="export-menu"><summary>导出</summary>
+            <div class="export-actions">
+              <button type="button" data-export="tsv">复制筛选结果 TSV</button>
+              <button type="button" data-export="json">下载筛选结果 JSON</button>
+              <button type="button" data-export="png">导出当前页 PNG</button>
+            </div>
+          </details>
+        </div>
+      </form>
+      <div class="ranking-summary">
+        <p id="source-chip-bar"></p>
+        <nav id="pagination-top" aria-label="顶部翻页"></nav>
+      </div>
+      <p id="ranking-status" role="status">正在加载今日榜…</p>
+      <div class="page-actions">
+        <button id="retry-ranking" type="button" hidden>重试加载</button>
+        <button id="clear-ranking" type="button" hidden>清空筛选</button>
+      </div>
+      <section class="cards" id="ranking-sections" aria-label="排行结果" tabindex="-1"></section>
+      <nav id="pagination-bottom" aria-label="底部翻页"></nav>
+      <noscript>请启用 JavaScript 以查看排行。</noscript>
+    </main>
+    <dialog id="snapshot-dialog" aria-labelledby="snapshot-heading">
+      <form method="dialog" class="dialog-heading">
+        <h2 id="snapshot-heading">历史快照</h2><button aria-label="关闭">关闭</button>
+      </form>
+      <p id="snapshot-status" role="status"></p>
+      <div id="snapshot-fields" hidden>
+        <label><span>日期（台北时间）</span><select id="snapshot-day"></select></label>
+        <label><span>采集时间</span><select id="snapshot-time"></select></label>
+        <button id="apply-snapshot" type="button">查看快照</button>
+      </div>
+      <button id="retry-snapshots" type="button" hidden>重试加载</button>
+    </dialog>
+    <p id="action-status" class="action-status" role="status"></p>
+  </div>
+</body>
 </html>

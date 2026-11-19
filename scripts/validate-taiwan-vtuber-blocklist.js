@@ -59,12 +59,14 @@ function assertHtmlReferences(errors, hash) {
   const expectedAsset = `assets/blocked-vtuber-channels.js?v=${hash.slice(0, 12)}`;
   for (const file of HTML_FILES) {
     const html = fs.readFileSync(file, "utf8");
-    if (!html.includes(expectedAsset)) errors.push(`${path.basename(file)} missing ${expectedAsset}`);
-    if (!html.includes("assets/blocked-vtuber-channels.js") || !html.includes("assets/ranking-controls.js")) {
-      errors.push(`${path.basename(file)} missing blocklist or ranking controls asset`);
-    }
-    if (html.indexOf("assets/blocked-vtuber-channels.js") > html.indexOf("assets/ranking-controls.js")) {
-      errors.push(`${path.basename(file)} must load blocked-vtuber-channels.js before ranking-controls.js`);
+    const page = path.basename(file);
+    const client = page === "today.html" ? "assets/today-ranking.js" : "assets/ranking-controls.js";
+    const assetIndex = html.indexOf(expectedAsset);
+    const clientIndex = html.indexOf(client);
+    if (assetIndex === -1) errors.push(`${page} missing ${expectedAsset}`);
+    if (clientIndex === -1) errors.push(`${page} missing ${client}`);
+    if (assetIndex !== -1 && clientIndex !== -1 && assetIndex > clientIndex) {
+      errors.push(`${page} must load ${expectedAsset} before ${client}`);
     }
   }
 }
@@ -99,16 +101,17 @@ function assertMatcherSamples(errors, matchBlockedSource) {
 
 function assertSourceAndClientUseGeneratedList(errors) {
   const sourceText = fs.readFileSync(path.join(ROOT_DIR, "scripts", "update-youtube-ranking.js"), "utf8");
-  const clientText = fs.readFileSync(path.join(ROOT_DIR, "assets", "ranking-controls.js"), "utf8");
-  for (const [label, text] of [
-    ["source", sourceText],
-    ["client", clientText],
-  ]) {
+  const clients = ["ranking-controls.js", "today-ranking.js"].map((name) => [
+    name, fs.readFileSync(path.join(ROOT_DIR, "assets", name), "utf8"),
+  ]);
+  for (const [label, text] of [["source", sourceText], ...clients]) {
     if (/TAIWAN_VTUBER_BLOCKED_TERMS/u.test(text)) errors.push(`${label}: duplicate TAIWAN_VTUBER_BLOCKED_TERMS remains`);
     if (/DEFAULT_BLOCKED_REGEXPS/u.test(text)) errors.push(`${label}: broad DEFAULT_BLOCKED_REGEXPS hard filter remains`);
   }
   if (!sourceText.includes("blocked-vtuber-matcher")) errors.push("source matcher must import blocked-vtuber-matcher");
-  if (!clientText.includes("BlockedVtuberChannels")) errors.push("client matcher must use generated BlockedVtuberChannels");
+  for (const [name, text] of clients) {
+    if (!text.includes("BlockedVtuberChannels")) errors.push(`${name} must use generated BlockedVtuberChannels`);
+  }
 }
 
 function regionCounts(blocklist) {
