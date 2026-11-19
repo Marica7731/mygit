@@ -98,21 +98,25 @@ jobs:
           });
           NODE
 
+      - name: Checkout locked verifier dependencies
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /package.json
+            /package-lock.json
+          sparse-checkout-cone-mode: false
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Install Playwright in temporary verifier
+      - name: Install locked Playwright and Chromium
         run: |
-          mkdir -p /tmp/ranking-theme-check
-          cd /tmp/ranking-theme-check
-          npm init -y
-          npm install playwright@1.52.0
+          npm ci
           npx playwright install --with-deps chromium
 
       - name: Capture and validate light/dark UI
-        working-directory: /tmp/ranking-theme-check
         env:
           VISUAL_DIR: /tmp/ranking-theme-visual
         run: |
