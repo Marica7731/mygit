@@ -60,7 +60,7 @@ function assertHtmlReferences(errors, hash) {
   for (const file of HTML_FILES) {
     const html = fs.readFileSync(file, "utf8");
     const page = path.basename(file);
-    const client = page === "today.html" ? "assets/today-ranking.js" : "assets/ranking-controls.js";
+    const client = "assets/ranking-controls.js";
     const assetIndex = html.indexOf(expectedAsset);
     const clientIndex = html.indexOf(client);
     if (assetIndex === -1) errors.push(`${page} missing ${expectedAsset}`);
@@ -101,7 +101,7 @@ function assertMatcherSamples(errors, matchBlockedSource) {
 
 function assertSourceAndClientUseGeneratedList(errors) {
   const sourceText = fs.readFileSync(path.join(ROOT_DIR, "scripts", "update-youtube-ranking.js"), "utf8");
-  const clients = ["ranking-controls.js", "today-ranking.js"].map((name) => [
+  const clients = ["ranking-controls.js"].map((name) => [
     name, fs.readFileSync(path.join(ROOT_DIR, "assets", name), "utf8"),
   ]);
   for (const [label, text] of [["source", sourceText], ...clients]) {
