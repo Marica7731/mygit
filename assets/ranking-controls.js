@@ -26,6 +26,12 @@
   let originalTotalCount = 0;
   let allGroupItems = [];
   let rankingPromise;
+  // These scripts are deferred. Wait for the other deferred scripts to
+  // register their transforms before reading a fast cached response.
+  const transformsReady = new Promise((resolve) => {
+    if (document.readyState === "complete") resolve();
+    else document.addEventListener("DOMContentLoaded", resolve, { once: true });
+  });
   let snapshotOptions;
   const rankingTransforms = [];
   const cardListeners = new Set();
@@ -120,7 +126,7 @@
   }
 
   function loadSharedRankingPayload() {
-    rankingPromise ||= readRanking().catch((error) => {
+    rankingPromise ||= transformsReady.then(readRanking).catch((error) => {
       rankingPromise = null;
       throw error;
     });

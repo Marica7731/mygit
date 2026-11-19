@@ -225,6 +225,12 @@ async function checkRankingPageLoads(browser, origin) {
           await route.fulfill({ json: data });
         });
       }
+      if (group === "live") {
+        await page.route("**/assets/sort-hotfix.js?*", async (route) => {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          await route.continue();
+        });
+      }
       await page.route("**/assets/youtube-ranking.js?*", async (route) => {
         await new Promise((resolve) => setTimeout(resolve, 100));
         await route.continue();
@@ -253,11 +259,13 @@ async function checkRankingPageLoads(browser, origin) {
           shared: first === second && data === await second,
           total: window.__YTB_RANKING_TOTAL_ITEM_COUNT__,
           count: items.length,
+          invalidTitles: items.filter((item) => !/歌枠|弾き語/u.test(item.title) ||
+            /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/u.test(item.title)).length,
           labels: [...document.querySelector("#snapshot-filter").options].slice(1).map((option) => [option.value, option.text]),
           active: document.querySelector(".page-nav [aria-current]")?.getAttribute("href"),
         };
       });
-      if (!state.shared || state.active !== group + ".html" || state.count !== state.total) {
+      if (!state.shared || state.active !== group + ".html" || state.count !== state.total || state.invalidTitles) {
         throw new Error(group + ": ranking or single-load state is inconsistent " + JSON.stringify({ ...state, labels: undefined }));
       }
       const options = snapshotOptions(group);
