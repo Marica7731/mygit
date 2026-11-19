@@ -215,6 +215,16 @@ async function checkRankingPageLoads(browser, origin) {
         contentType: "image/svg+xml",
         body: '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect width="320" height="180" fill="orange"/></svg>',
       }));
+      if (group === "month") {
+        // Exercise multiple append batches without polling several thousand DOM
+        // cards in Chromium. checkDataWindows validates the full ranking.
+        await page.route("**/data/youtube-ranking-month.json", async (route) => {
+          const response = await route.fetch();
+          const data = await response.json();
+          data.groups.month.items = data.groups.month.items.slice(0, 480);
+          await route.fulfill({ json: data });
+        });
+      }
       await page.route("**/assets/youtube-ranking.js?*", async (route) => {
         await new Promise((resolve) => setTimeout(resolve, 100));
         await route.continue();
@@ -270,7 +280,7 @@ async function checkRankingPageLoads(browser, origin) {
           )).length;
           const range = document.querySelector("#ranking-pagination .pagination-range")?.textContent || "";
           return eligible > 99 && (range === "1-99 / " + eligible || range === "1-98 / " + eligible);
-        });
+        }, undefined, { polling: 250, timeout: TIMEOUT_MS });
         const last = page.locator('#ranking-pagination [data-page-target]').last();
         const lastPage = await last.getAttribute("data-page-target");
         if (Number(lastPage) < 3) throw new Error(group + ": expected later data batches in pagination");
