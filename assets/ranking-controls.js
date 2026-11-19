@@ -55,7 +55,7 @@
     installBackToTopButton();
     loadRankingData().finally(() => scheduleUpdate());
     loadSnapshotIndex();
-    setTimeout(observeApp, 0);
+    observeApp();
     ["click", "change", "input"].forEach((eventName) => {
       document.addEventListener(eventName, handleControlEvent, true);
     });
@@ -1017,7 +1017,16 @@
 
   function observeApp() {
     const sections = document.getElementById("ranking-sections");
-    if (!sections) return;
+    if (!sections) {
+      const root = document.getElementById("app");
+      const shellObserver = new MutationObserver(() => {
+        if (!root.querySelector("#ranking-sections")) return;
+        shellObserver.disconnect();
+        observeApp();
+      });
+      shellObserver.observe(root, { childList: true, subtree: true });
+      return;
+    }
     const cardSelector = ".video-card";
     const observer = new MutationObserver((mutations) => {
       const changed = mutations.some(({ target, type, addedNodes, removedNodes }) =>

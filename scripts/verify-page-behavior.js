@@ -215,6 +215,10 @@ async function checkRankingPageLoads(browser, origin) {
         contentType: "image/svg+xml",
         body: '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect width="320" height="180" fill="orange"/></svg>',
       }));
+      await page.route("**/assets/youtube-ranking.js?*", async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        await route.continue();
+      });
       await page.goto(origin + "/" + group + ".html");
       await page.waitForFunction(() => {
         const options = document.querySelector("#snapshot-filter")?.options;
@@ -259,9 +263,22 @@ async function checkRankingPageLoads(browser, origin) {
         const next = page.locator('#ranking-pagination [data-page-action="next"]');
         await next.waitFor();
         await page.waitForFunction(() => {
+          const cards = [...document.querySelectorAll(".video-card")];
+          if (cards.length !== window.__YTB_RANKING_VISIBLE_ITEMS__.length) return false;
+          const eligible = cards.filter((card) => !card.hidden && !card.matches(
+            ".is-duplicate-video,.is-live-duration-dirty,.is-thumbnail-missing,[data-time-hidden],[data-view-hidden]",
+          )).length;
           const range = document.querySelector("#ranking-pagination .pagination-range")?.textContent || "";
-          return /^1-(98|99) \/ \d+$/.test(range);
+          return eligible > 99 && (range === "1-99 / " + eligible || range === "1-98 / " + eligible);
         });
+        const last = page.locator('#ranking-pagination [data-page-target]').last();
+        const lastPage = await last.getAttribute("data-page-target");
+        if (Number(lastPage) < 3) throw new Error(group + ": expected later data batches in pagination");
+        await last.click();
+        await page.waitForFunction((target) =>
+          document.querySelector('#ranking-pagination [aria-current="page"]')?.getAttribute("data-page-target") === target,
+        lastPage);
+        await page.locator('#ranking-pagination [data-page-target="1"]').click();
         await next.click();
         await page.waitForFunction(() => /^(99|100)-\d+/.test(document.querySelector("#ranking-pagination .pagination-range")?.textContent || ""));
       }
