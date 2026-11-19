@@ -47,40 +47,48 @@ jobs:
           }
 
           function recentPagesRuns() {
-            const json = api([`repos/${repo}/actions/runs`, '-f', 'per_page=40']);
-            return (json.workflow_runs || []).filter((run) => run.name === 'pages build and deployment');
+            const json = api([`repos/${repo}/actions/workflows/pages.yml/runs`, '-f', 'branch=main', '-f', 'per_page=15']);
+            return json.workflow_runs || [];
           }
 
           function containsTarget(candidateSha) {
             if (!candidateSha) return false;
             if (candidateSha === sha) return true;
             try {
-              const comparison = api([`repos/${repo}/compare/${sha}...${candidateSha}`]);
+              const comparison = api([`repos/${repo}/compare/${sha}...${candidateSha}`, '-f', 'per_page=1', '--jq', '{status}']);
               return comparison.status === 'ahead' || comparison.status === 'identical';
             } catch {
               return false;
             }
           }
 
+          function deployed(run) {
+            if (run.status !== 'completed' || run.conclusion !== 'success') return false;
+            const { jobs } = api([`repos/${repo}/actions/runs/${run.id}/jobs`]);
+            return jobs.some((job) => job.steps?.some(
+              (step) => step.name === 'Deploy to GitHub Pages' && step.conclusion === 'success',
+            ));
+          }
+
           function findPagesRun() {
             const runs = recentPagesRuns();
             const exact = runs.find((run) => run.head_sha === sha);
-            if (exact?.status === 'completed' && exact.conclusion === 'success') return exact;
-            const descendantSuccess = runs.find(
-              (run) => run.status === 'completed' && run.conclusion === 'success' && containsTarget(run.head_sha),
+            if (exact && deployed(exact)) return { run: exact, ready: true };
+            const descendant = runs.find(
+              (run) => run.head_sha !== sha && run.status === 'completed' && run.conclusion === 'success' &&
+                containsTarget(run.head_sha) && deployed(run),
             );
-            if (descendantSuccess) return descendantSuccess;
-            return exact || null;
+            return { run: descendant || exact, ready: Boolean(descendant) };
           }
 
           (async () => {
             while (Date.now() < deadline) {
-              const run = findPagesRun();
+              const { run, ready } = findPagesRun();
               console.log('[visual] Pages ' + JSON.stringify({
                 runId: run?.id || null, status: run?.status || 'not-found',
                 conclusion: run?.conclusion || null, sha
               }));
-              if (run?.status === 'completed' && run.conclusion === 'success') return;
+              if (ready) return;
               await sleep(15000);
             }
             throw new Error('Timed out waiting for matching Pages deployment');
