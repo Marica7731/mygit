@@ -26,6 +26,7 @@
   let originalTotalCount = 0;
   let allGroupItems = [];
   let rankingPromise;
+  let snapshotOptions;
   const rankingTransforms = [];
   const cardListeners = new Set();
   let controlsReady = false;
@@ -376,6 +377,7 @@
       </select>
     `;
     toolbar.append(label);
+    populateSnapshotOptions();
     label.querySelector("select").addEventListener("change", (event) => {
       const next = event.target.value;
       const url = new URL(location.href);
@@ -830,17 +832,21 @@
       const response = await rawFetch(snapshotIndexUrl(), { cache: "no-cache", signal: AbortSignal.timeout(12000) });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const { snapshots } = await response.json();
-      const label = document.querySelector(".snapshot-filter-field");
-      const select = document.getElementById("snapshot-filter");
-      if (!label || !select || !snapshots?.length) return;
-      const options = document.createDocumentFragment();
-      for (const { id, label: name } of snapshots) options.append(new Option(name || id, id));
-      select.append(options);
-      select.value = selectedSnapshot || "";
-      label.hidden = false;
+      snapshotOptions = snapshots;
+      populateSnapshotOptions();
     } catch (error) {
       console.warn("[ranking-snapshots]", error);
     }
+  }
+
+  function populateSnapshotOptions() {
+    const select = document.getElementById("snapshot-filter");
+    if (!select || select.options.length > 1 || !snapshotOptions?.length) return;
+    const options = document.createDocumentFragment();
+    for (const { id, label } of snapshotOptions) options.append(new Option(label || id, id));
+    select.append(options);
+    select.value = selectedSnapshot || "";
+    select.closest(".snapshot-filter-field").hidden = false;
   }
 
   function syncTimeFilterTrigger() {

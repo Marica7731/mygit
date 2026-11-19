@@ -220,6 +220,14 @@ async function checkRankingPageLoads(browser, origin) {
         const options = document.querySelector("#snapshot-filter")?.options;
         return options?.length > 1 && window.__YTB_RANKING_TOTAL_ITEM_COUNT__ > 0 &&
           document.querySelector(".video-card") && document.querySelector(".source-summary-chip");
+      }).catch(async (error) => {
+        const state = await page.evaluate(() => ({
+          options: document.querySelector("#snapshot-filter")?.options.length,
+          total: window.__YTB_RANKING_TOTAL_ITEM_COUNT__,
+          cards: document.querySelectorAll(".video-card").length,
+          summary: document.querySelector("#source-chip-bar")?.textContent.trim(),
+        }));
+        throw new Error(group + ": page did not settle: " + JSON.stringify({ state, errors }) + " " + error.message);
       });
       const state = await page.evaluate(async () => {
         const first = window.ytbRankingData.load();

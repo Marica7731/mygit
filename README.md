@@ -309,7 +309,7 @@ node scripts/write-ranking-groups.js --check
 | `assets/heartbeat-thumb-fallback.js` | 缩略图加载失败后的候选切换 | `isStableThumbnail()` 只把视频缩略图 URL 且尺寸有效的图片标记为最终成功；`markThumbnailUnavailable()` 隐藏无可用封面的 `.video-card` | 解决坏缩略图或频道头像占位卡反复闪烁的问题 |
 | `assets/thumbnail-hotfix.js` | 缩略图质量检查和重复卡处理 | `isStableThumbnail()` 防止频道头像被当作视频封面；`markThumbnailMissing()` 隐藏无可用封面的卡片；`restoreDuplicateCard()` 只恢复 `.is-duplicate-video` | 避免覆盖坏封面、直播清理等其它隐藏状态 |
 | `assets/ux-hotfix.js` | 早期 UI 密度和导出补丁 | `restoreDuplicateCard()` 只恢复本脚本标记的重复卡 | 避免与缩略图 fallback 争抢 `card.hidden` |
-| `assets/ranking-controls.js` | 分页、搜索、横向滚动工具条、顶部栏折叠、最低播放量筛选、返回顶部、时间筛选、四组快照、默认屏蔽和排行 JSON 单页共享缓存控制层 | `patchRankingFetch()` 按当前页面组读取 `data/youtube-ranking-<group>.json`，选择快照时读取 `data/<group>-snapshots/<id>.json`，失败再回退 `data/youtube-ranking.json`；`fetchSharedRankingResponse()` 合并同页重复请求；`filterDefaultBlockedItems()` 过滤默认屏蔽频道、公开台 V 名单中的具体频道名、明确台 V 自标识和无效缩略图 URL；`applyTimeFilterAndPagination()` 按时间、播放量、缩略图状态和分页隐藏卡片；`.video-card` 使用 `content-visibility: auto` 降低离屏卡片首次渲染成本 | 在四个 HTML 中先于主应用加载，避免侵入重打主 chunk |
+| `assets/ranking-controls.js` | 分页、搜索、横向滚动工具条、顶部栏折叠、最低播放量筛选、返回顶部、时间筛选、四组快照、默认屏蔽和排行 JSON 单页共享缓存控制层 | `loadSharedRankingPayload()` 读取并解析当前分组或公开仓库中的指定快照一次，多个补丁共用结果；`isDisplayableItem()` 过滤默认屏蔽频道、明确台 V 自标识和无效缩略图 URL；`applyTimeFilterAndPagination()` 按时间、播放量、缩略图状态和分页隐藏卡片；`.video-card` 使用 `content-visibility: auto` 降低离屏卡片首次渲染成本 | 在四个 HTML 中先于主应用加载，避免侵入重打主 chunk |
 | `assets/ui-overrides.js` | 默认标题过滤、黑白名单 chip、直播指标展示和头像兜底逻辑 | `filterRankingDataByTitle()` 使用内部 `歌枠 / 弾き語` 标题规则并排除韩文；`prepareThumbnails()` 不再主动把已存在封面切到 `hq720`，只在无效封面时走候选；`prepareChannelRows()` 补头像和频道行 | 后置增强卡片 DOM，默认过滤逻辑与 `assets/sort-hotfix.js` 保持一致 |
 | `assets/final-ui-polish.js`, `assets/corner-readability-hotfix.js`, `assets/heartbeat-corner-transparent.js`, `assets/png-export-hotfix.js` | 最终 UI 清理、角标可读性和 PNG 导出兜底 | `png-export-hotfix.js` 在导出前等待数据索引，并按 `videoId` 主动尝试 `hq720 / maxres / sd / hq / mq / default` 封面候选；其它脚本同步识别新旧默认标题过滤文案，避免内部过滤条件在页面或导出标题中露出 | 页面末尾加载或导出时兜底清理工具条状态 |
 | `scripts/apply-ranking-windows.js` | 快照窗口生成脚本 | `loadSnapshotUnion()` 读取、过滤并流式合并四组历史快照；`unionWindowItems()` 合并当前原始池并按视频去重；`outputCap` 固定为 `null` | 主 workflow 在原始池校验后运行，生成正式 7 天与滚动月数据 |
@@ -348,7 +348,7 @@ node scripts/write-ranking-groups.js --check
 - `YTB_RANKING_DURATION_INCLUDE_LIVE` 默认为 `0`；只有确实需要在数据层保留直播时长时才应改成 `1`，否则会增加大量 watch 页和 Playwright 请求且最终不在直播页展示。`YTB_RANKING_DURATION_API_LIMIT` 只影响 YouTube Data API 批量补时长，不会放大无 API key 时的 watch 页请求量。
 - 调度器通过 `GITHUB_TOKEN` 派发主 workflow，不需要提交 GitHub PAT、cookie 或 `.env`。
 - 主 workflow 通过 `GITHUB_TOKEN` 显式派发 chain workflow，避免只依赖 GitHub `schedule` 或 `workflow_run` 接力；chain 带 `trigger_run_id` 时仍会遵守失败冷却。
-- `data/youtube-ranking.json` 体积会随排行字段增长；普通页面默认读取 `data/youtube-ranking-<group>.json`，并依赖 `assets/ranking-controls.js` 的同页共享缓存避免刷新时被多个 hotfix 脚本重复下载和重复解析。完整主数据仍保留为兜底和维护入口，提交前应跑 `node scripts/write-ranking-groups.js --check` 防止分组文件过期。
+- `data/youtube-ranking.json` 体积会随排行字段增长；普通页面默认读取 `data/youtube-ranking-<group>.json`，并依赖 `assets/ranking-controls.js` 的同页共享缓存避免刷新时被多个 hotfix 脚本重复下载和重复解析。完整主数据保留为维护入口，提交前应跑 `node scripts/write-ranking-groups.js --check` 防止分组文件过期。
 
 ### 测试说明
 
