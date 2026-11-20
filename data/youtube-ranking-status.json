@@ -1,26 +1,26 @@
 {
   "status": "success",
-  "attemptedAt": "2026-11-20T12:25:21.908Z",
-  "runId": "44734534898",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/44734534898",
+  "attemptedAt": "2026-11-20T12:35:42.394Z",
+  "runId": "44735929544",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/44735929544",
   "eventName": "workflow_dispatch",
-  "headSha": "76d73e18c517335f0aa493c684c45ca4d45bc695",
+  "headSha": "f8b8d40356d52894bb932c73ddec828ee851a1a5",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-11-20T12:18:00.230Z",
+  "lastSuccessfulGeneratedAt": "2026-11-20T12:27:53.892Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-11-20T12:24:56.840Z",
+    "generatedAt": "2026-11-20T12:35:16.867Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
-    "beforeMissing": 0,
+    "beforeMissing": 1,
     "afterMissing": 0,
     "api": {
       "checked": 0,
       "changed": 0
     },
     "fetch": {
-      "checked": 0,
-      "changed": 0
+      "checked": 1,
+      "changed": 1
     },
     "watch": {
       "checked": 0,
@@ -35,17 +35,17 @@
     "retryAfter": "",
     "blockedUntil": "",
     "rateLimitSource": "",
-    "youtubeRequestsStarted": 24
+    "youtubeRequestsStarted": 25
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-11-20T12:24:28.669Z",
+    "generatedAt": "2026-11-20T12:34:47.471Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 231478,
+    "elapsedMs": 234377,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 110,
+    "clearedUntrustedLiveViewers": 114,
     "watchChecked": 120,
     "watchChanged": 120,
     "channelChecked": 0,
@@ -72,7 +72,7 @@
       }
     ],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 126,
-    "processedAt": "2026-11-20T12:24:57.642Z"
+    "subscriberItemsAfterClean": 129,
+    "processedAt": "2026-11-20T12:35:17.661Z"
   }
 }
