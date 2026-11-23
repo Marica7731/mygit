@@ -1,29 +1,29 @@
 {
   "status": "success",
-  "attemptedAt": "2026-11-23T20:40:34.038Z",
-  "runId": "45260549475",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/45260549475",
+  "attemptedAt": "2026-11-23T20:52:42.139Z",
+  "runId": "45262268252",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/45262268252",
   "eventName": "workflow_dispatch",
-  "headSha": "36cd86a3c537e12a7b2cd0a6adb3464805ee6372",
+  "headSha": "bd3456eeff7b6a1ff974e32c052d6f1422a4713c",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-11-23T20:33:51.580Z",
+  "lastSuccessfulGeneratedAt": "2026-11-23T20:46:20.151Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-11-23T20:39:57.424Z",
+    "generatedAt": "2026-11-23T20:52:11.887Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
-    "beforeMissing": 2,
-    "afterMissing": 2,
+    "beforeMissing": 3,
+    "afterMissing": 3,
     "api": {
       "checked": 0,
       "changed": 0
     },
     "fetch": {
-      "checked": 2,
-      "changed": 2
+      "checked": 3,
+      "changed": 3
     },
     "watch": {
-      "checked": 2,
+      "checked": 3,
       "changed": 0
     },
     "oembed": {
@@ -35,19 +35,19 @@
     "retryAfter": "",
     "blockedUntil": "",
     "rateLimitSource": "",
-    "youtubeRequestsStarted": 28
+    "youtubeRequestsStarted": 30
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-11-23T20:39:20.858Z",
+    "generatedAt": "2026-11-23T20:51:32.198Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 140452,
+    "elapsedMs": 129447,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 50,
+    "clearedUntrustedLiveViewers": 49,
     "watchChecked": 71,
-    "watchChanged": 70,
+    "watchChanged": 72,
     "channelChecked": 0,
     "channelChanged": 0
   },
@@ -73,6 +73,6 @@
     ],
     "recoveredSubscriberItems": 0,
     "subscriberItemsAfterClean": 71,
-    "processedAt": "2026-11-23T20:39:58.614Z"
+    "processedAt": "2026-11-23T20:52:12.803Z"
   }
 }
