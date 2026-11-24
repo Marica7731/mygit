@@ -1,15 +1,15 @@
 {
   "status": "success",
-  "attemptedAt": "2026-11-24T15:26:56.394Z",
-  "runId": "45423021897",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/45423021897",
+  "attemptedAt": "2026-11-24T15:37:36.249Z",
+  "runId": "45425793336",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/45425793336",
   "eventName": "workflow_dispatch",
-  "headSha": "e2a9f879086feca8c18383549e0f1cfbeced0b19",
+  "headSha": "7176ead4f1db21b7c7e1b020d00b0cbef0bc9d67",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-11-24T15:17:34.523Z",
+  "lastSuccessfulGeneratedAt": "2026-11-24T15:29:06.223Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-11-24T15:26:18.851Z",
+    "generatedAt": "2026-11-24T15:36:55.112Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
     "beforeMissing": 1,
@@ -20,7 +20,7 @@
     },
     "fetch": {
       "checked": 1,
-      "changed": 1
+      "changed": 0
     },
     "watch": {
       "checked": 1,
@@ -28,7 +28,7 @@
     },
     "oembed": {
       "checked": 24,
-      "changed": 36,
+      "changed": 37,
       "failed": 0
     },
     "rateLimited": false,
@@ -39,16 +39,16 @@
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-11-24T15:25:46.580Z",
+    "generatedAt": "2026-11-24T15:36:22.743Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 232051,
+    "elapsedMs": 240891,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 110,
+    "clearedUntrustedLiveViewers": 109,
     "watchChecked": 120,
-    "watchChanged": 120,
-    "channelChecked": 0,
+    "watchChanged": 118,
+    "channelChecked": 1,
     "channelChanged": 0
   },
   "liveDurationPostProcess": {
@@ -58,6 +58,6 @@
     "removedExplicitDirtyLiveSamples": [],
     "recoveredSubscriberItems": 0,
     "subscriberItemsAfterClean": 124,
-    "processedAt": "2026-11-24T15:26:20.329Z"
+    "processedAt": "2026-11-24T15:36:56.383Z"
   }
 }
