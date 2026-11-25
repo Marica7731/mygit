@@ -1,10 +1,16 @@
 name: Deploy YouTube ranking Pages
+run-name: ${{ inputs.recovery && 'Recover YouTube ranking Pages' || 'Deploy YouTube ranking Pages' }}
 
 on:
   push:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      recovery:
+        description: Marks a retry so a failed retry waits for the next scheduled check
+        type: boolean
+        default: false
 
 permissions:
   actions: write

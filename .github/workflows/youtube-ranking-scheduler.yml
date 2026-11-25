@@ -7,8 +7,17 @@ on:
     paths:
       - ".github/workflows/youtube-ranking-scheduler.yml"
   schedule:
-    - cron: "5,15,25,35,45,55 * * * *"
+    - cron: "3,13,23,33,43,53 * * * *"
   workflow_dispatch:
+    inputs:
+      check_only:
+        description: Inspect recovery state without dispatching workflows
+        type: boolean
+        default: false
+  workflow_run:
+    workflows: ["Update YouTube ranking", "Chain YouTube ranking update", "Deploy YouTube ranking Pages"]
+    branches: [main]
+    types: [completed]
   repository_dispatch:
     types:
       - youtube-ranking-tick
@@ -16,109 +25,53 @@ on:
 permissions:
   actions: write
   contents: read
-
-concurrency:
-  group: youtube-ranking-dispatch
-  cancel-in-progress: false
+  deployments: read
 
 jobs:
   dispatch:
+    if: >-
+      inputs.check_only != true &&
+      (github.event_name != 'workflow_run' ||
+       (github.event.workflow_run.name == 'Chain YouTube ranking update' &&
+        github.event.workflow_run.conclusion == 'failure'))
+    concurrency:
+      group: youtube-ranking-dispatch
+      cancel-in-progress: false
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     steps:
-      - name: Check recent update runs
-        id: recent
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          sparse-checkout: scripts/reconcile-ranking.js
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Dispatch update when idle
         env:
           GH_TOKEN: ${{ github.token }}
-          YTB_RANKING_FAILURE_COOLDOWN_MINUTES: "12"
-          YTB_RANKING_STALE_QUEUE_MINUTES: "20"
-        run: |
-          node <<'NODE'
-          const { execFileSync } = require('node:child_process');
-          const fs = require('node:fs');
+        run: node scripts/reconcile-ranking.js update
 
-          const repo = process.env.GITHUB_REPOSITORY;
-          const eventName = process.env.GITHUB_EVENT_NAME || '';
-          const cooldownMinutes = Number(process.env.YTB_RANKING_FAILURE_COOLDOWN_MINUTES || 12);
-          const staleQueueMinutes = Number(process.env.YTB_RANKING_STALE_QUEUE_MINUTES || 20);
-          const raw = execFileSync(
-            'gh',
-            ['api', '--method', 'GET', `repos/${repo}/actions/workflows/youtube-ranking.yml/runs`, '-f', 'per_page=20'],
-            { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
-          );
-          let runs = JSON.parse(raw).workflow_runs || [];
-          const now = Date.now();
-          const activeStatuses = new Set(['queued', 'in_progress', 'waiting', 'requested', 'pending']);
-          const staleQueueStatuses = new Set(['queued', 'requested', 'pending']);
-          const staleQueueMs = Math.max(1, staleQueueMinutes) * 60 * 1000;
-          const staleQueued = runs.find((run) => {
-            const queuedAt = Date.parse(run.created_at || run.run_started_at || '');
-            return staleQueueStatuses.has(run.status) && Number.isFinite(queuedAt) && now - queuedAt >= staleQueueMs;
-          });
-
-          if (staleQueued) {
-            const ageMinutes = Math.floor((now - Date.parse(staleQueued.created_at || staleQueued.run_started_at)) / 60000);
-            console.warn(
-              `Recover stale update run #${staleQueued.run_number}: ${staleQueued.status} for ${ageMinutes}m; allowing a replacement dispatch.`,
-            );
-            runs = runs.filter((run) => String(run.id) !== String(staleQueued.id));
-            console.log(
-              'GitHub does not allow cancelling a merely queued run through the cancel endpoint; a new run in the same concurrency group will supersede the stale pending run.',
-            );
-          }
-
-          const recentMs = 3 * 60 * 1000;
-          const blocking = runs.find((run) => {
-            const activityAt = Date.parse(run.updated_at || run.run_started_at || run.created_at || '');
-            return activeStatuses.has(run.status) || (Number.isFinite(activityAt) && now - activityAt < recentMs);
-          });
-
-          const status = readRankingStatus(repo);
-          const failedAt = Date.parse(status?.attemptedAt || '');
-          const failureCooldown =
-            !blocking &&
-            eventName !== 'workflow_dispatch' &&
-            status?.status === 'failed' &&
-            Number.isFinite(failedAt) &&
-            now - failedAt < cooldownMinutes * 60 * 1000
-              ? {
-                  attemptedAt: status.attemptedAt,
-                  message: status.message || 'previous update failed',
-                  remainingMinutes: Math.ceil((cooldownMinutes * 60 * 1000 - (now - failedAt)) / 60000),
-                }
-              : null;
-
-          const skip = Boolean(blocking || failureCooldown);
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `skip=${skip}\n`);
-          if (blocking) {
-            console.log(
-              `Skip dispatch: recent or active update run #${blocking.run_number} ${blocking.event} ${blocking.status} ${blocking.updated_at}`,
-            );
-          } else if (failureCooldown) {
-            console.log(
-              `Skip dispatch: previous failure is cooling down for ${failureCooldown.remainingMinutes}m (${failureCooldown.message}, ${failureCooldown.attemptedAt}).`,
-            );
-          } else {
-            console.log('No recent or active update run. Dispatching is allowed.');
-          }
-
-          function readRankingStatus(repo) {
-            try {
-              const rawStatus = execFileSync(
-                'gh',
-                ['api', '--method', 'GET', `repos/${repo}/contents/data/youtube-ranking-status.json?ref=main`],
-                { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
-              );
-              const payload = JSON.parse(rawStatus);
-              const content = String(payload.content || '').replace(/\s+/g, '');
-              return JSON.parse(Buffer.from(content, 'base64').toString('utf8'));
-            } catch {
-              return null;
-            }
-          }
-          NODE
-
-      - name: Dispatch update workflow
-        if: steps.recent.outputs.skip != 'true'
+  recover:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.name == 'Update YouTube ranking' &&
+       github.event.workflow_run.conclusion != 'cancelled') ||
+      (github.event.workflow_run.name == 'Deploy YouTube ranking Pages' &&
+       github.event.workflow_run.conclusion == 'failure' &&
+       github.event.workflow_run.display_title != 'Recover YouTube ranking Pages')
+    concurrency:
+      group: youtube-ranking-recovery
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          sparse-checkout: scripts/reconcile-ranking.js
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Reconcile missing Pages deploy and update continuation
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run youtube-ranking.yml --ref main --repo "$GITHUB_REPOSITORY"
+        run: node scripts/reconcile-ranking.js
