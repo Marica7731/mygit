@@ -1,15 +1,15 @@
 {
   "status": "success",
-  "attemptedAt": "2026-11-25T12:35:01.282Z",
-  "runId": "45613674839",
-  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/45613674839",
+  "attemptedAt": "2026-11-25T12:44:09.321Z",
+  "runId": "45615286339",
+  "runUrl": "https://github.com/Marica7731/mygit/actions/runs/45615286339",
   "eventName": "workflow_dispatch",
-  "headSha": "8936a852d1acc533a6c560e6f1bff105cd7709b9",
+  "headSha": "bc5771d8e44fa1112d3307d2a90bbe64e1458a6b",
   "message": "ranking update passed",
   "failedStep": "",
-  "lastSuccessfulGeneratedAt": "2026-11-25T12:26:39.194Z",
+  "lastSuccessfulGeneratedAt": "2026-11-25T12:36:20.411Z",
   "metricDetailPostProcess": {
-    "generatedAt": "2026-11-25T12:34:23.467Z",
+    "generatedAt": "2026-11-25T12:43:40.615Z",
     "limit": 24,
     "youtubeDataApiConfigured": false,
     "beforeMissing": 1,
@@ -28,7 +28,7 @@
     },
     "oembed": {
       "checked": 24,
-      "changed": 42,
+      "changed": 41,
       "failed": 0
     },
     "rateLimited": false,
@@ -39,40 +39,25 @@
   },
   "failureDiagnostics": null,
   "liveDetailPostProcess": {
-    "generatedAt": "2026-11-25T12:33:51.038Z",
+    "generatedAt": "2026-11-25T12:43:08.836Z",
     "limit": 120,
     "channelLimit": 120,
     "maxRuntimeMs": 420000,
-    "elapsedMs": 241631,
+    "elapsedMs": 229988,
     "stoppedByRuntimeBudget": false,
-    "clearedUntrustedLiveViewers": 117,
+    "clearedUntrustedLiveViewers": 113,
     "watchChecked": 120,
-    "watchChanged": 117,
+    "watchChanged": 106,
     "channelChecked": 0,
     "channelChanged": 0
   },
   "liveDurationPostProcess": {
     "durationDisplayPolicy": "hidden-on-live-page",
     "clearedLiveDurationItems": 0,
-    "removedExplicitDirtyLiveItems": 2,
-    "removedExplicitDirtyLiveSamples": [
-      {
-        "videoId": "iFjJlymQhSc",
-        "title": "お知らせがあります",
-        "channelName": "みかんとボーカルノート",
-        "durationText": "",
-        "durationSeconds": null
-      },
-      {
-        "videoId": "iFjJlymQhSc",
-        "title": "お知らせがあります",
-        "channelName": "みかんとボーカルノート",
-        "durationText": "",
-        "durationSeconds": null
-      }
-    ],
+    "removedExplicitDirtyLiveItems": 0,
+    "removedExplicitDirtyLiveSamples": [],
     "recoveredSubscriberItems": 0,
-    "subscriberItemsAfterClean": 127,
-    "processedAt": "2026-11-25T12:34:24.693Z"
+    "subscriberItemsAfterClean": 126,
+    "processedAt": "2026-11-25T12:43:41.478Z"
   }
 }
