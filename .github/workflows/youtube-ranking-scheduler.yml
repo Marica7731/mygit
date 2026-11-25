@@ -32,7 +32,7 @@ jobs:
     if: >-
       inputs.check_only != true &&
       (github.event_name != 'workflow_run' ||
-       (github.event.workflow_run.name == 'Chain YouTube ranking update' &&
+       (github.event.workflow_run.path == '.github/workflows/youtube-ranking-chain.yml' &&
         github.event.workflow_run.conclusion == 'failure'))
     concurrency:
       group: youtube-ranking-dispatch
@@ -54,9 +54,9 @@ jobs:
   recover:
     if: >-
       github.event_name != 'workflow_run' ||
-      (github.event.workflow_run.name == 'Update YouTube ranking' &&
+      (github.event.workflow_run.path == '.github/workflows/youtube-ranking.yml' &&
        github.event.workflow_run.conclusion != 'cancelled') ||
-      (github.event.workflow_run.name == 'Deploy YouTube ranking Pages' &&
+      (github.event.workflow_run.path == '.github/workflows/pages.yml' &&
        github.event.workflow_run.conclusion == 'failure' &&
        github.event.workflow_run.display_title != 'Recover YouTube ranking Pages')
     concurrency:

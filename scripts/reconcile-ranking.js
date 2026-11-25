@@ -148,7 +148,7 @@ async function main() {
   }
   const options = { dryRun: String(event.inputs?.check_only) === "true" };
   const jobs = [recoverPages(api, options)];
-  if (trigger?.name === "Update YouTube ranking") jobs.push(recoverChain(api, trigger, options));
+  if (trigger?.path === ".github/workflows/" + UPDATE) jobs.push(recoverChain(api, trigger, options));
   const results = await Promise.allSettled(jobs);
   const errors = results.filter((result) => result.status === "rejected");
   if (errors.length) throw new Error(errors.map(({ reason }) => reason.message).join("\n"));
